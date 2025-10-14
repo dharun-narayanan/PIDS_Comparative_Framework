@@ -197,14 +197,64 @@ fi
 echo ""
 
 # Step 6: Create directory structure
-print_step "Step 6/7: Creating directory structure"
+print_step "Step 6/7: Creating directory structure and installing PyTorch Geometric"
+
+# First create directories
 mkdir -p data/{darpa_tc,streamspot,custom,processed,cache}
 mkdir -p checkpoints/{magic,kairos,orthrus,threatrace,continuum_fl}
 mkdir -p results/{experiments,comparisons,evaluation,plots}
 mkdir -p logs
 mkdir -p configs/{models,datasets,experiments}
 
-print_info "Directory structure created:"
+print_info "Directory structure created"
+
+# Now install PyTorch Geometric and extensions with MKL fix applied
+print_info "Installing PyTorch Geometric and extensions (with MKL fix applied)..."
+
+# Detect CUDA version for appropriate wheels
+PYTHON_CHECK='import torch
+try:
+    cuda = torch.version.cuda
+    if cuda and "11.6" in str(cuda):
+        print("cu116")
+    elif cuda and "11.3" in str(cuda):
+        print("cu113")
+    else:
+        print("cpu")
+except:
+    print("cpu")
+'
+
+PYG_CUDA_TAG=$(python -c "$PYTHON_CHECK")
+
+if [ "${PYG_CUDA_TAG}" = "cu116" ]; then
+    TORCH_VERSION="1.12.1"
+    CUDA_VERSION="cu116"
+    print_info "Detected CUDA 11.6, installing CUDA-enabled PyG extensions"
+elif [ "${PYG_CUDA_TAG}" = "cu113" ]; then
+    TORCH_VERSION="1.12.1"
+    CUDA_VERSION="cu113"
+    print_info "Detected CUDA 11.3, installing CUDA-enabled PyG extensions"
+else
+    TORCH_VERSION="1.12.1"
+    CUDA_VERSION="cpu"
+    print_info "Installing CPU-only PyG extensions"
+fi
+
+# Install PyTorch Geometric extensions with appropriate CUDA support
+print_info "Installing torch-scatter, torch-sparse, torch-cluster..."
+pip install --no-cache-dir torch-scatter==2.1.0 -f https://data.pyg.org/whl/torch-${TORCH_VERSION}+${CUDA_VERSION}.html
+pip install --no-cache-dir torch-sparse==0.6.16 -f https://data.pyg.org/whl/torch-${TORCH_VERSION}+${CUDA_VERSION}.html
+pip install --no-cache-dir torch-cluster==1.6.0 -f https://data.pyg.org/whl/torch-${TORCH_VERSION}+${CUDA_VERSION}.html
+
+# Install PyTorch Geometric itself
+print_info "Installing torch-geometric..."
+pip install --no-cache-dir torch-geometric==2.1.0
+
+print_info "✓ PyTorch Geometric and extensions installed successfully"
+
+echo ""
+echo "Directory structure:"
 echo "  ├── data/           - Dataset storage"
 echo "  ├── checkpoints/    - Model checkpoints"
 echo "  ├── results/        - Experiment results"
