@@ -57,7 +57,7 @@ class SOCDataPreprocessor:
     
     def load_json_file(self, file_path: Path, chunk_size: int = 10000):
         """Load large JSON file in chunks."""
-        logger.info(f"Loading JSON file: {file_path}")
+        logger.info(f"Loading JSON file: {file_path.name}")
         
         events = []
         
@@ -72,30 +72,34 @@ class SOCDataPreprocessor:
                     content = f.read()
                     data = json.loads(content)
                     
-                    for i in range(0, len(data), chunk_size):
-                        chunk = data[i:i+chunk_size]
-                        events.extend(self._process_events(chunk))
-                        
-                        if i % (chunk_size * 10) == 0:
-                            logger.info(f"Processed {i} events...")
+                    # Process with progress bar
+                    with tqdm(total=len(data), desc=f"Processing {file_path.name}", unit="events") as pbar:
+                        for i in range(0, len(data), chunk_size):
+                            chunk = data[i:i+chunk_size]
+                            events.extend(self._process_events(chunk))
+                            pbar.update(len(chunk))
                 else:
                     # NDJSON - one JSON per line
-                    for i, line in enumerate(f):
-                        if line.strip():
-                            try:
-                                event = json.loads(line)
-                                events.append(self._process_event(event))
-                            except json.JSONDecodeError:
-                                logger.warning(f"Skipping invalid JSON at line {i}")
-                        
-                        if i % chunk_size == 0 and i > 0:
-                            logger.info(f"Processed {i} lines...")
+                    # Count total lines first for progress bar
+                    f.seek(0)
+                    total_lines = sum(1 for _ in f if _.strip())
+                    f.seek(0)
+                    
+                    with tqdm(total=total_lines, desc=f"Processing {file_path.name}", unit="lines") as pbar:
+                        for line in f:
+                            if line.strip():
+                                try:
+                                    event = json.loads(line)
+                                    events.append(self._process_event(event))
+                                except json.JSONDecodeError:
+                                    logger.warning(f"Skipping invalid JSON line")
+                            pbar.update(1)
         
         except Exception as e:
             logger.error(f"Error loading JSON file: {e}")
             return []
         
-        logger.info(f"Loaded {len(events)} events from {file_path.name}")
+        logger.info(f"✓ Loaded {len(events)} events from {file_path.name}")
         return events
     
     def _process_event(self, event: Dict) -> Dict:
@@ -178,14 +182,17 @@ class SOCDataPreprocessor:
     
     def build_graph(self, events: List[Dict]) -> Dict:
         """Build graph from events."""
-        logger.info("Building provenance graph...")
+        logger.info(f"\n{'='*80}")
+        logger.info(f"  Step 2/4: Building provenance graph")
+        logger.info(f"{'='*80}\n")
         
         edges = []
         node_features = defaultdict(list)
         edge_features = defaultdict(list)
         timestamps = []
         
-        for event in tqdm(events, desc="Processing events"):
+        for event in tqdm(events, desc="Building graph", unit="event", 
+                         bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
             # Extract source and target entities
             source_data = event.get('source', {})
             target_data = event.get('target', {})
@@ -214,6 +221,9 @@ class SOCDataPreprocessor:
         
         self.stats['num_nodes'] = self.next_node_id
         self.stats['num_edges'] = len(edges)
+        
+        logger.info(f"\n✓ Created {self.next_node_id:,} nodes")
+        logger.info(f"✓ Created {len(edges):,} edges\n")
         
         if timestamps:
             self.stats['time_range'] = (min(timestamps), max(timestamps))
@@ -254,15 +264,21 @@ class SOCDataPreprocessor:
     
     def save_graph(self, graph_data: Dict, output_path: Path):
         """Save graph data."""
-        logger.info(f"Saving graph data to: {output_path}")
+        logger.info(f"\n{'='*80}")
+        logger.info(f"  Step 3/4: Saving graph data")
+        logger.info(f"{'='*80}\n")
+        logger.info(f"Output path: {output_path}")
         
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Save as pickle
+        logger.info("Saving graph pickle...")
         with open(output_path, 'wb') as f:
             pickle.dump(graph_data, f)
+        logger.info(f"✓ Graph saved: {output_path}")
         
         # Save statistics as JSON
+        logger.info("Saving statistics...")
         stats_path = output_path.with_suffix('.json')
         with open(stats_path, 'w') as f:
             # Convert defaultdict to dict for JSON serialization
@@ -276,7 +292,7 @@ class SOCDataPreprocessor:
             }
             json.dump(stats_json, f, indent=2)
         
-        logger.info(f"Graph statistics saved to: {stats_path}")
+        logger.info(f"✓ Statistics saved: {stats_path}\n")
     
     def print_statistics(self):
         """Print preprocessing statistics."""
@@ -367,13 +383,21 @@ def main():
     if not json_files:
         # Find all JSON files in directory
         json_files = list(input_dir.glob('*.json'))
-        logger.info(f"Found {len(json_files)} JSON files")
+        logger.info(f"Found {len(json_files)} JSON files in {input_dir}")
     else:
         json_files = [input_dir / f for f in json_files]
     
-    # Process all files
+    if not json_files:
+        logger.error(f"No JSON files found in {input_dir}")
+        return
+    
+    # Process all files with progress bar
+    logger.info(f"\n{'='*80}")
+    logger.info(f"  Step 1/4: Loading and processing JSON files")
+    logger.info(f"{'='*80}\n")
+    
     all_events = []
-    for json_file in json_files:
+    for json_file in tqdm(json_files, desc="Loading files", unit="file"):
         if not json_file.exists():
             logger.warning(f"File not found: {json_file}")
             continue
@@ -385,6 +409,8 @@ def main():
         logger.error("No events loaded!")
         return
     
+    logger.info(f"\n✓ Total events loaded: {len(all_events):,}\n")
+    
     # Build graph
     graph_data = preprocessor.build_graph(all_events)
     
@@ -392,10 +418,15 @@ def main():
     preprocessor.save_graph(graph_data, output_file)
     
     # Print statistics
+    logger.info(f"{'='*80}")
+    logger.info(f"  Step 4/4: Final Statistics")
+    logger.info(f"{'='*80}\n")
     preprocessor.print_statistics()
     
-    logger.info(f"\nPreprocessing complete!")
-    logger.info(f"Graph data saved to: {output_file}")
+    logger.info(f"\n{'='*80}")
+    logger.info(f"  ✓ Preprocessing Complete!")
+    logger.info(f"{'='*80}")
+    logger.info(f"Output: {output_file}\n")
     logger.info(f"Statistics saved to: {output_file.with_suffix('.json')}")
 
 
