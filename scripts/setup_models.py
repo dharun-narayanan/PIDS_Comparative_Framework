@@ -84,11 +84,12 @@ MODEL_CONFIGS = {
             project_root.parent / 'kairos' / 'DARPA',
         ],
         'weights': {
-            'google_drive': {
-                'filename': 'kairos_pretrained_models.zip',
+            'google_drive_folder': {
+                'filename': 'kairos_models',  # This will be a folder
                 'url': 'https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_hBvvEB6C',
-                'description': 'Kairos pretrained models (Manual download from Google Drive required)',
-                'manual': True
+                'description': 'Kairos pretrained models from Google Drive',
+                'gdrive': True,
+                'folder_id': '1YAKoO3G32xlYrCs4BuATt1h_hBvvEB6C'
             }
         }
     },
@@ -101,11 +102,30 @@ MODEL_CONFIGS = {
             project_root.parent / 'orthrus' / 'weights',
         ],
         'weights': {
-            'zenodo': {
-                'filename': 'orthrus-weights.zip',
-                'url': 'https://zenodo.org/records/14641605/files/weights.zip',
-                'description': 'Orthrus pretrained weights from Zenodo',
-                'manual': False
+            'cadets_e3': {
+                'filename': 'CADETS_E3.pkl',
+                'url': 'https://raw.githubusercontent.com/ubc-provenance/orthrus/main/weights/CADETS_E3.pkl',
+                'description': 'Orthrus CADETS E3 model'
+            },
+            'clearscope_e3': {
+                'filename': 'CLEARSCOPE_E3.pkl',
+                'url': 'https://raw.githubusercontent.com/ubc-provenance/orthrus/main/weights/CLEARSCOPE_E3.pkl',
+                'description': 'Orthrus CLEARSCOPE E3 model'
+            },
+            'clearscope_e5': {
+                'filename': 'CLEARSCOPE_E5.pkl',
+                'url': 'https://raw.githubusercontent.com/ubc-provenance/orthrus/main/weights/CLEARSCOPE_E5.pkl',
+                'description': 'Orthrus CLEARSCOPE E5 model'
+            },
+            'theia_e3': {
+                'filename': 'THEIA_E3.pkl',
+                'url': 'https://raw.githubusercontent.com/ubc-provenance/orthrus/main/weights/THEIA_E3.pkl',
+                'description': 'Orthrus THEIA E3 model'
+            },
+            'theia_e5': {
+                'filename': 'THEIA_E5.pkl',
+                'url': 'https://raw.githubusercontent.com/ubc-provenance/orthrus/main/weights/THEIA_E5.pkl',
+                'description': 'Orthrus THEIA E5 model'
             }
         }
     },
@@ -113,16 +133,15 @@ MODEL_CONFIGS = {
         'name': 'ThreaTrace',
         'description': 'Scalable Graph-based Threat Detection',
         'requirements': 'requirements/threatrace.txt',
-        'github_repo': 'https://github.com/threaTrace-detector/threaTrace',
+        'github_repo': 'https://github.com/Provenance-IDS/threaTrace',
         'local_fallback': [
             project_root.parent / 'threaTrace' / 'example_models',
         ],
         'weights': {
-            'example_models': {
-                'filename': 'example_models.tar.gz',
-                'url': 'https://github.com/threaTrace-detector/threaTrace/archive/refs/heads/main.tar.gz',
-                'description': 'ThreaTrace example models (download full repo)',
-                'extract_path': 'example_models'
+            'git_sparse_checkout': {
+                'repo_url': 'https://github.com/Provenance-IDS/threaTrace.git',
+                'sparse_paths': ['example_models'],
+                'description': 'ThreaTrace example models (140+ files in 3 subdirectories: darpatc, streamspot, unicornsc)'
             }
         }
     },
@@ -212,6 +231,38 @@ def copy_local_weights(model: str) -> int:
     
     copied_count = 0
     
+    # Special handling for ThreaTrace - copy entire directory structure
+    if model == 'threatrace':
+        # ThreaTrace models go into threaTrace/ not checkpoints/threatrace/
+        dest_base = project_root / 'threaTrace'
+        dest_base.mkdir(parents=True, exist_ok=True)
+        
+        for local_path in config.get('local_fallback', []):
+            if not local_path.exists():
+                continue
+            
+            logger.info(f"   Checking local fallback: {local_path.parent.name}/{local_path.name}")
+            
+            # Copy the entire example_models directory structure
+            dest_models_dir = dest_base / 'example_models'
+            
+            if dest_models_dir.exists():
+                logger.info(f"      ⏭️  Skipping (already exists): example_models/")
+                logger.info(f"         Target: {dest_models_dir}")
+                return 1  # Count as success since it exists
+            
+            try:
+                shutil.copytree(local_path, dest_models_dir)
+                logger.info(f"      ✓ Copied directory: example_models/")
+                logger.info(f"         → {dest_models_dir}")
+                return 1
+            except Exception as e:
+                logger.warning(f"      ✗ Failed to copy example_models/: {e}")
+                return 0
+        
+        return 0
+    
+    # Standard checkpoint file copying for other models
     # Check each local fallback path
     for local_path in config.get('local_fallback', []):
         if not local_path.exists():
@@ -252,6 +303,80 @@ def copy_local_weights(model: str) -> int:
     return copied_count
 
 
+def git_sparse_checkout(repo_url: str, sparse_paths: list, output_dir: Path) -> bool:
+    """Download specific directories from a git repository using sparse-checkout."""
+    temp_dir = None
+    try:
+        # Check if git is available
+        if not shutil.which('git'):
+            logger.error("❌ git not installed")
+            return False
+        
+        # Create temp directory for sparse checkout
+        temp_dir = output_dir.parent / f".git_temp_{output_dir.name}"
+        
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"   Initializing sparse checkout from: {repo_url}")
+        logger.info(f"   Downloading directories: {', '.join(sparse_paths)}")
+        
+        # Initialize git repo with sparse-checkout
+        subprocess.run(['git', 'init'], cwd=temp_dir, check=True, capture_output=True)
+        subprocess.run(['git', 'remote', 'add', 'origin', repo_url], cwd=temp_dir, check=True, capture_output=True)
+        subprocess.run(['git', 'config', 'core.sparseCheckout', 'true'], cwd=temp_dir, check=True, capture_output=True)
+        
+        # Configure sparse-checkout paths
+        sparse_checkout_file = temp_dir / '.git' / 'info' / 'sparse-checkout'
+        sparse_checkout_file.parent.mkdir(parents=True, exist_ok=True)
+        sparse_checkout_file.write_text('\n'.join(sparse_paths) + '\n')
+        
+        # Pull only the specified directories
+        logger.info("   Downloading files (this may take a few minutes)...")
+        result = subprocess.run(
+            ['git', 'pull', 'origin', 'master'],
+            cwd=temp_dir,
+            capture_output=True,
+            timeout=600  # 10 minutes timeout
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"❌ git pull failed: {result.stderr.decode()}")
+            if temp_dir and temp_dir.exists():
+                shutil.rmtree(temp_dir)
+            return False
+        
+        # Move the downloaded directories to output location
+        success = False
+        for sparse_path in sparse_paths:
+            source_path = temp_dir / sparse_path
+            if source_path.exists():
+                if output_dir.exists():
+                    shutil.rmtree(output_dir)
+                shutil.move(str(source_path), str(output_dir))
+                logger.info(f"   ✓ Downloaded directory: {output_dir.name}/")
+                success = True
+        
+        # Clean up temp directory
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        
+        return success
+        
+    except subprocess.TimeoutExpired:
+        logger.error("❌ git sparse-checkout timed out (repository too large)")
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        return False
+    except Exception as e:
+        logger.error(f"❌ git sparse-checkout failed: {e}")
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        return False
+
+
 def download_weights(model: str, force_download: bool = False) -> int:
     """Download missing weights for a model from GitHub or other sources."""
     config = MODEL_CONFIGS.get(model)
@@ -268,8 +393,44 @@ def download_weights(model: str, force_download: bool = False) -> int:
     logger.info(f"   Repository: {config['github_repo']}")
     
     for variant, weight_info in config.get('weights', {}).items():
-        filename = weight_info['filename']
+        # Handle git sparse-checkout (for ThreaTrace)
+        if variant == 'git_sparse_checkout':
+            repo_url = weight_info.get('repo_url')
+            sparse_paths = weight_info.get('sparse_paths', [])
+            
+            if not repo_url or not sparse_paths:
+                logger.info(f"   ℹ️  git sparse-checkout: Missing configuration")
+                continue
+            
+            # For ThreaTrace, target is threaTrace/example_models
+            if model == 'threatrace':
+                target_dir = project_root / 'threaTrace' / 'example_models'
+            else:
+                target_dir = dest_dir.parent / sparse_paths[0].split('/')[-1]
+            
+            # Skip if already exists and not forcing download
+            if target_dir.exists() and not force_download:
+                logger.info(f"   ⏭️  {variant}: Already exists ({target_dir.relative_to(project_root)})")
+                continue
+            
+            logger.info(f"   📥 {variant}: {weight_info['description']}")
+            
+            if git_sparse_checkout(repo_url, sparse_paths, target_dir):
+                downloaded_count += 1
+            else:
+                failed_downloads.append(variant)
+                logger.warning(f"      ⚠️  Git sparse-checkout failed")
+                logger.info(f"      💡 Alternative: git clone {repo_url} && cd threaTrace && cp -r example_models ../checkpoints/")
+            continue
+        
+        filename = weight_info.get('filename')
         url = weight_info.get('url')
+        
+        # Skip if no filename specified
+        if not filename:
+            logger.info(f"   ℹ️  {variant}: No filename specified (using local fallback only)")
+            continue
+            
         dest_file = dest_dir / filename
         
         # Skip if already exists and not forcing download
@@ -279,7 +440,7 @@ def download_weights(model: str, force_download: bool = False) -> int:
         
         # Skip if no URL
         if not url:
-            logger.info(f"   ℹ️  {variant}: No download URL available")
+            logger.info(f"   ℹ️  {variant}: No download URL available (using local fallback)")
             continue
         
         # Check if manual download is required
@@ -291,7 +452,14 @@ def download_weights(model: str, force_download: bool = False) -> int:
         
         logger.info(f"   📥 {variant}: {weight_info['description']}")
         
-        if download_weight_from_url(url, dest_file):
+        # Check for Google Drive parameters
+        is_gdrive = weight_info.get('gdrive', False)
+        folder_id = weight_info.get('folder_id')
+        svn_export = weight_info.get('svn_export', False)
+        is_directory = weight_info.get('is_directory', False)
+        
+        if download_weight_from_url(url, dest_file, is_gdrive=is_gdrive, folder_id=folder_id, 
+                                   svn_export=svn_export, is_directory=is_directory):
             downloaded_count += 1
         else:
             failed_downloads.append(variant)
@@ -304,15 +472,111 @@ def download_weights(model: str, force_download: bool = False) -> int:
     return downloaded_count
 
 
-def download_weight_from_url(url: str, output_path: Path) -> bool:
-    """Download a weight file from a URL using curl or wget."""
+def download_weight_from_url(url: str, output_path: Path, is_gdrive: bool = False, 
+                            folder_id: Optional[str] = None, svn_export: bool = False, 
+                            is_directory: bool = False) -> bool:
+    """Download a weight file from a URL using curl, wget, gdown, or svn export."""
     try:
-        # Check if it's a manual download link
-        if 'drive.google.com' in url or 'docs.google.com' in url:
-            logger.info("⚠️  Google Drive link detected - Manual download required")
-            logger.info(f"   Please download from: {url}")
-            logger.info(f"   Save to: {output_path}")
-            return False
+        # Handle SVN export for GitHub directories (ThreaTrace)
+        if svn_export and 'github.com' in url and '/trunk/' in url:
+            logger.info("📦 GitHub directory download detected (using svn export)")
+            
+            # Check if svn is available
+            svn_available = shutil.which('svn') is not None
+            
+            if not svn_available:
+                logger.error("❌ svn not installed. Install with: sudo apt-get install subversion (Ubuntu) or brew install subversion (macOS)")
+                logger.info(f"   Or manually clone repository and copy: {url.replace('/trunk/', '/tree/master/')}")
+                return False
+            
+            try:
+                # Create output directory
+                output_path.mkdir(parents=True, exist_ok=True)
+                
+                logger.info(f"   Downloading directory with svn export...")
+                logger.info(f"   Target: {output_path}")
+                
+                # Use svn export to download the directory
+                result = subprocess.run(
+                    ['svn', 'export', url, str(output_path), '--force'],
+                    check=True,
+                    capture_output=True,
+                    timeout=600  # 10 minutes for large directories
+                )
+                
+                # Check if directory has files
+                if output_path.exists() and any(output_path.iterdir()):
+                    logger.info(f"   ✓ Downloaded directory: {output_path.name}/")
+                    return True
+                else:
+                    logger.error("❌ Downloaded directory is empty")
+                    return False
+                    
+            except subprocess.TimeoutExpired:
+                logger.error("❌ svn export timed out (directory too large)")
+                logger.info("   💡 Try downloading manually or use local fallback")
+                return False
+            except subprocess.CalledProcessError as e:
+                logger.error(f"❌ svn export failed: {e.stderr.decode()}")
+                logger.info(f"   💡 Manual download: git clone {url.replace('/trunk/', '').split('/tree/')[0]}.git")
+                return False
+        
+        # Handle Google Drive downloads
+        if is_gdrive or 'drive.google.com' in url or folder_id:
+            logger.info("📦 Google Drive download detected")
+            
+            try:
+                import gdown
+                
+                if folder_id:
+                    # Download entire folder
+                    logger.info(f"   Downloading Google Drive folder: {folder_id}")
+                    logger.info("   ⚠️  This may take a while for large folders...")
+                    
+                    # Create output directory
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    try:
+                        # Download folder contents
+                        gdown.download_folder(
+                            id=folder_id,
+                            output=str(output_path.parent),
+                            quiet=False,
+                            use_cookies=False
+                        )
+                        logger.info(f"   ✓ Downloaded Google Drive folder to: {output_path.parent}")
+                        return True
+                    except Exception as e:
+                        logger.error(f"❌ gdown folder download failed: {e}")
+                        logger.info("   💡 Alternative: Download manually from:")
+                        logger.info(f"      https://drive.google.com/drive/folders/{folder_id}")
+                        return False
+                        
+                elif 'drive.google.com' in url:
+                    # Extract file ID from URL
+                    logger.info(f"   Downloading with gdown from: {url}")
+                    
+                    try:
+                        gdown.download(url, str(output_path), quiet=False, fuzzy=True)
+                        
+                        if output_path.exists() and output_path.stat().st_size > 0:
+                            logger.info(f"   ✓ Downloaded: {output_path.name}")
+                            return True
+                        else:
+                            raise Exception("Downloaded file is empty or doesn't exist")
+                            
+                    except Exception as e:
+                        logger.error(f"❌ gdown download failed: {e}")
+                        logger.info("   💡 Try downloading manually from the Google Drive link")
+                        return False
+                        
+            except ImportError:
+                logger.error("❌ gdown not installed. Install with: pip install gdown")
+                logger.info(f"   Or manually download from: {url}")
+                if folder_id:
+                    logger.info(f"   Folder URL: https://drive.google.com/drive/folders/{folder_id}")
+                logger.info(f"   Save to: {output_path.parent}")
+                return False
         
         # Check if curl is available
         curl_available = shutil.which('curl') is not None
