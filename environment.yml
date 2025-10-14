@@ -52,10 +52,6 @@ dependencies:
   - pip:
     # Core graph deep learning
     - dgl==1.0.0
-    - torch-geometric==2.1.0
-    - torch-scatter==2.1.0
-    - torch-sparse==0.6.16
-    - torch-cluster==1.6.0
     
     # Model-specific dependencies
     - xxhash==3.2.0
