@@ -24,7 +24,7 @@ sys.path.insert(0, str(project_root))
 from utils.common import setup_logging, load_config, set_seed
 from utils.metrics import compute_detection_metrics
 from models import ModelRegistry
-from data.dataset import get_dataloader
+from data.dataset import get_dataset
 import logging
 
 setup_logging()

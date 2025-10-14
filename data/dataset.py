@@ -106,13 +106,43 @@ class CustomSOCDataset(BasePIDSDataset):
         super().__init__(data_path, config, split)
     
     def load_data(self):
-        """Load custom SOC data from JSON files."""
+        """Load custom SOC data from JSON files or preprocessed pickle."""
         import json
+        import pickle
         from tqdm import tqdm
         
         logger.info(f"Loading custom SOC dataset from {self.data_path}")
         
-        # Load different event types
+        # Check if preprocessed data exists
+        pkl_files = list(self.data_path.glob('*.pkl'))
+        if pkl_files:
+            # Load preprocessed data
+            pkl_file = pkl_files[0]  # Use first pkl file found
+            logger.info(f"Loading preprocessed data from {pkl_file}")
+            try:
+                with open(pkl_file, 'rb') as f:
+                    graph_data = pickle.load(f)
+                
+                # Extract events and metadata from preprocessed graph
+                if isinstance(graph_data, dict):
+                    self.events = graph_data.get('events', [])
+                    self.graph_data = graph_data
+                    logger.info(f"Loaded preprocessed graph with {len(self.events)} events")
+                    
+                    # Process the preprocessed graph data
+                    self.data = [graph_data]  # Single graph
+                    self.labels = [0]  # Benign by default
+                    
+                    logger.info(f"Total events loaded: {len(self.events)}")
+                    logger.info("Processing events into model input format...")
+                    logger.info(f"Processed into {len(self.data)} samples")
+                    return
+                    
+            except Exception as e:
+                logger.error(f"Error loading preprocessed data from {pkl_file}: {e}")
+                logger.info("Falling back to loading raw JSON files...")
+        
+        # Fall back to loading raw JSON files
         for event_type in self.event_types:
             file_path = self.data_path / f"endpoint_{event_type}.json"
             if file_path.exists():
