@@ -222,373 +222,395 @@ The script will automatically use `curl` or `wget` (whichever is available) to d
 
 ### Step 5: Prepare Your Custom Dataset
 
-Place your SOC data in the `custom_dataset` directory (sibling to framework).
+Place your SOC provenance data in the `custom_dataset` directory.
 
-#### 6.1: Create Custom Dataset Directory
+```bash
+# Ensure you're in the framework directory
+cd ~/PIDS/PIDS_Comparative_Framework  # Adjust path as needed
+
+# Check if custom_dataset directory exists (it should be a sibling directory)
+ls -la ../custom_dataset/
+
+# Expected files:
+# endpoint_file.json       - File system events (read, write, create, delete)
+# endpoint_network.json    - Network events (connect, send, receive)
+# endpoint_process.json    - Process events (create, execute, terminate)
+```
+
+**If custom_dataset doesn't exist or is empty:**
 
 ```bash
 # Navigate to parent directory
 cd ..
 
-# Create custom_dataset directory if it doesn't exist
+# Create custom_dataset directory
 mkdir -p custom_dataset
 
-# Copy your SOC logs
-cp /path/to/your/logs/*.json custom_dataset/
+# Copy your SOC logs (adjust source path)
+cp /path/to/your/soc/logs/*.json custom_dataset/
 
-# Verify data is present
-ls custom_dataset/
-# Expected: endpoint_file.json, endpoint_network.json, endpoint_process.json (or similar)
+# Verify files are present
+ls -lh custom_dataset/
+# Expected: At least one .json file with provenance events
 
 # Return to framework directory
 cd PIDS_Comparative_Framework
 ```
 
-#### 6.2: Data Format Requirements
-
-Your JSON files should contain provenance events with:
-- **Process events**: process creation, execution, termination
-- **File events**: read, write, create, delete
-- **Network events**: connect, bind, send, receive
-
-**Example JSON format:**
-```json
-{
-  "events": [
-    {
-      "timestamp": "2025-10-13T10:30:00Z",
-      "event_type": "process_create",
-      "pid": 1234,
-      "ppid": 1000,
-      "cmdline": "/bin/bash script.sh",
-      "user": "admin"
-    },
-    {
-      "timestamp": "2025-10-13T10:30:01Z",
-      "event_type": "file_read",
-      "pid": 1234,
-      "file_path": "/etc/passwd",
-      "operation": "read"
-    }
-  ]
-}
-```
-
-#### 6.3: Download Benchmark Datasets (Optional)
-
-If you want to test on standard benchmarks:
-
-**DARPA TC Dataset:**
-```bash
-# Create data directory
-mkdir -p data/darpa
-
-# Download DARPA CADETS E3 (example - adjust URL)
-# Note: DARPA datasets are large (10GB+) and require access approval
-# Visit: https://github.com/darpa-i2o/Transparent-Computing
-```
-
-**StreamSpot Dataset:**
-```bash
-# Create data directory
-mkdir -p data/streamspot
-
-# Clone StreamSpot repository
-git clone https://github.com/sbustreamspot/sbustreamspot-data.git data/streamspot
-```
+**Required Data Format:**
+- JSON files containing provenance events
+- Events should include: timestamp, event_type, entity information (process, file, or network)
+- See existing `custom_dataset/` files for format examples
 
 ---
 
-### Step 7: Verify Installation
+### Step 6: Preprocess the Dataset
 
-Run the verification script to ensure everything is set up correctly.
-
-```bash
-# Run verification
-python scripts/verify_installation.py
-
-# Expected output:
-# ✓ Python version: 3.10.x
-# ✓ PyTorch installed: 1.12.1
-# ✓ DGL installed: 1.0.0
-# ✓ PyTorch Geometric installed: 2.1.0
-# ✓ All 9 models registered
-# ✓ Checkpoints directory exists
-# ✓ Configuration files present
-# Installation verification complete!
-```
-
-**If any checks fail**, see the [Troubleshooting](#troubleshooting) section.
-
----
-
-### Step 8: Run Evaluation (Primary Workflow)
-
-Now you're ready to evaluate pretrained models on your data!
+Before evaluation, the data must be preprocessed to convert JSON logs into graph structures.
 
 ```bash
-# Evaluate ALL models on your custom data (CPU by default)
-./scripts/run_evaluation.sh
+# Activate environment (if not already active)
+conda activate pids_framework
+
+# Preprocess custom dataset
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc
 
 # Expected output:
 # ════════════════════════════════════════════════════════
-#     PIDS Comparative Framework - Evaluation Workflow
+#   Preprocessing Dataset: custom_soc
+# ════════════════════════════════════════════════════════
+# Input directory: ../custom_dataset
+# Output directory: data/custom_soc
+# 
+# Step 1/4: Loading JSON files...
+# ✓ Loaded endpoint_file.json (1234 events)
+# ✓ Loaded endpoint_network.json (567 events)
+# ✓ Loaded endpoint_process.json (890 events)
+# Total events: 2691
+# 
+# Step 2/4: Building provenance graph...
+# ✓ Created 450 nodes (processes, files, sockets)
+# ✓ Created 2241 edges (dependencies)
+# 
+# Step 3/4: Extracting features...
+# ✓ Node features extracted (128-dim)
+# ✓ Edge features extracted (64-dim)
+# 
+# Step 4/4: Saving preprocessed data...
+# ✓ Saved graph: data/custom_soc/graph.bin
+# ✓ Saved features: data/custom_soc/features.pt
+# ✓ Saved metadata: data/custom_soc/metadata.json
+# 
+# ✓ Preprocessing completed successfully!
+```
+
+**Verify preprocessed data:**
+
+```bash
+# Check output directory
+ls -lh data/custom_soc/
+
+# Expected files:
+# graph.bin         - DGL graph structure
+# features.pt       - Node/edge features (PyTorch tensor)
+# metadata.json     - Dataset statistics and info
+```
+
+**Common preprocessing options:**
+
+```bash
+# Preprocess with custom window size (temporal graph segmentation)
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc \
+    --window-size 3600  # 1-hour time windows
+
+# Preprocess with specific event types only
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc \
+    --event-types process file  # Exclude network events
+
+# Get help on all options
+python scripts/preprocess_data.py --help
+```
+
+---
+
+### Step 7: Run Evaluation
+
+Now you're ready to evaluate all pretrained models on your preprocessed data!
+
+```bash
+# Run evaluation on ALL models (recommended)
+./scripts/run_evaluation.sh --data-path data/custom_soc
+
+# Expected output:
+# ════════════════════════════════════════════════════════
+#     PIDS Framework - Model Evaluation
 # ════════════════════════════════════════════════════════
 # 
 # Configuration:
-#   Model(s):      all
+#   Models:        magic, kairos, orthrus, threatrace, continuum_fl
 #   Dataset:       custom_soc
-#   Data Path:     ../custom_dataset
-#   Output Dir:    results/evaluation_20251013_103000
+#   Data Path:     data/custom_soc
+#   Device:        CPU
+#   Output:        results/evaluation_20251014_143000
 #
-# Step 1/4: Downloading Pretrained Weights
-# ✓ Weights downloaded successfully
+# Evaluating MAGIC...
+# ✓ Loaded checkpoint: checkpoints/magic/checkpoint-cadets.pt
+# ✓ Evaluation completed (AUROC: 0.9245, F1: 0.8710)
 #
-# Step 2/4: Preprocessing Custom Dataset
-# ✓ Data preprocessing completed
+# Evaluating Kairos...
+# ✓ Loaded checkpoint: checkpoints/kairos/model_cadets.pt
+# ✓ Evaluation completed (AUROC: 0.9156, F1: 0.8523)
 #
-# Step 3/4: Running Model Evaluation
-# Evaluating magic...
-# ✓ magic evaluation completed
-# Evaluating kairos...
-# ✓ kairos evaluation completed
-# ...
+# Evaluating Orthrus...
+# ✓ Loaded checkpoint: checkpoints/orthrus/provdetector_main.pkl
+# ✓ Evaluation completed (AUROC: 0.9087, F1: 0.8402)
 #
-# Step 4/4: Generating Comparison Report
-# ✓ Comparison report generated
+# Evaluating ThreaTrace...
+# ✓ Loaded checkpoint: checkpoints/threatrace/darpatc/cadets/
+# ✓ Evaluation completed (AUROC: 0.8956, F1: 0.8234)
 #
-# ✓ EVALUATION COMPLETED SUCCESSFULLY!
+# Evaluating Continuum_FL...
+# ✓ Loaded checkpoint: checkpoints/continuum_fl/checkpoint-cadets-e3.pt
+# ✓ Evaluation completed (AUROC: 0.9123, F1: 0.8601)
 #
-# Results saved to: results/evaluation_20251013_103000
+# ════════════════════════════════════════════════════════
+#   Evaluation Summary
+# ════════════════════════════════════════════════════════
+# ✓ All 5 models evaluated successfully
+# ✓ Results saved to: results/evaluation_20251014_143000
+# ✓ Comparison report: results/evaluation_20251014_143000/comparison.json
 ```
 
-**Results location:** `results/evaluation_YYYYMMDD_HHMMSS/`
+**Evaluate specific model only:**
+
+```bash
+# Evaluate MAGIC only (fastest)
+./scripts/run_evaluation.sh --model magic --data-path data/custom_soc
+
+# Evaluate Kairos only
+./scripts/run_evaluation.sh --model kairos --data-path data/custom_soc
+
+# Evaluate multiple specific models
+./scripts/run_evaluation.sh --models magic kairos orthrus --data-path data/custom_soc
+```
+
+**GPU acceleration (if available):**
+
+```bash
+# Check GPU availability
+python -c "import torch; print(f'GPU: {torch.cuda.is_available()}')"
+
+# Run on GPU
+./scripts/run_evaluation.sh --data-path data/custom_soc --device 0
+
+# Specify GPU device (if multiple GPUs)
+CUDA_VISIBLE_DEVICES=1 ./scripts/run_evaluation.sh --data-path data/custom_soc
+```
 
 ---
 
-### Step 9: View Results
+### Step 8: View Results
+
+Check the evaluation results and comparison report.
 
 ```bash
-# Navigate to results directory
-cd results/evaluation_YYYYMMDD_HHMMSS/
+# Navigate to results directory (use actual timestamp)
+cd results/evaluation_20251014_143000
 
-# View comparison report
-cat comparison_report.json
+# View comparison report (JSON format)
+cat comparison.json
 
 # Example output:
 # {
 #   "dataset": "custom_soc",
-#   "timestamp": "2025-10-13T10:30:00",
+#   "timestamp": "2025-10-14T14:30:00Z",
 #   "models": {
 #     "magic": {
-#       "auc_roc": 0.9245,
-#       "auc_pr": 0.8532,
+#       "auroc": 0.9245,
+#       "auprc": 0.8532,
 #       "f1": 0.8710,
 #       "precision": 0.8456,
-#       "recall": 0.8973
+#       "recall": 0.8973,
+#       "fpr": 0.0823,
+#       "checkpoint": "checkpoints/magic/checkpoint-cadets.pt"
 #     },
 #     "kairos": {
-#       "auc_roc": 0.9156,
+#       "auroc": 0.9156,
+#       "auprc": 0.8421,
 #       ...
 #     }
-#   }
+#   },
+#   "best_model": "magic",
+#   "best_auroc": 0.9245
 # }
 
-# Check individual model logs
-tail -n 50 magic_evaluation.log
-tail -n 50 kairos_evaluation.log
+# View individual model results
+cat magic_results.json
+cat kairos_results.json
+
+# Check detailed logs
+tail -n 100 magic_evaluation.log
+tail -n 100 kairos_evaluation.log
 
 # View predictions (if saved)
-head predictions.json
+head -n 20 predictions.csv
 ```
+
+**Understanding the results:**
+
+| Metric | Description | Good Value |
+|--------|-------------|------------|
+| **AUROC** | Area Under ROC Curve | > 0.90 |
+| **AUPRC** | Area Under Precision-Recall | > 0.80 |
+| **F1** | Harmonic mean of precision/recall | > 0.85 |
+| **Precision** | Correct detections / Total detections | > 0.80 |
+| **Recall** | Detected attacks / Total attacks | > 0.85 |
+| **FPR** | False Positive Rate | < 0.10 |
+
+**Next steps based on results:**
+
+- **AUROC > 0.90**: ✅ Excellent! Model ready for deployment
+- **AUROC 0.80-0.90**: ⚠️ Good, consider fine-tuning for better performance
+- **AUROC < 0.80**: ❌ Poor fit, consider retraining on labeled data (see Advanced section)
 
 ---
 
-## 📊 Understanding Your Results
+## 📊 Complete Workflow Summary
 
-### Key Metrics Explained
+Here's the complete workflow from start to finish:
 
-| Metric | Description | Good Value | What It Means |
-|--------|-------------|------------|---------------|
-| **AUROC** | Area Under ROC Curve | > 0.90 | How well model separates normal vs attack |
-| **AUPRC** | Area Under Precision-Recall | > 0.80 | Performance on imbalanced data |
-| **F1-Score** | Harmonic mean of precision & recall | > 0.85 | Overall detection accuracy |
-| **Precision** | TP / (TP + FP) | > 0.80 | How many detections are correct |
-| **Recall** | TP / (TP + FN) | > 0.85 | How many attacks are caught |
-| **FPR** | False Positive Rate | < 0.10 | False alarm rate (lower is better) |
+```bash
+# 1. Setup environment (one-time)
+./scripts/setup.sh
+conda activate pids_framework
 
-### Interpreting Results
+# 2. Setup models and weights (one-time)
+python scripts/setup_models.py --all
 
-**Excellent Performance (AUROC > 0.90)**
-- ✅ Model works well on your data
-- ✅ Deploy to production
-- ✅ Monitor performance over time
+# 3. Prepare your data (one-time per dataset)
+# Copy your SOC logs to ../custom_dataset/
+ls -la ../custom_dataset/*.json
 
-**Good Performance (AUROC 0.80-0.90)**
-- ⚠️ Acceptable but room for improvement
-- Consider threshold tuning
-- May benefit from fine-tuning
+# 4. Preprocess data (one-time per dataset)
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc
 
-**Poor Performance (AUROC < 0.80)**
-- ❌ Model not suitable for your data
-- Try different model
-- Consider retraining on labeled data
+# 5. Run evaluation (main workflow)
+./scripts/run_evaluation.sh --data-path data/custom_soc
+
+# 6. View results
+cat results/evaluation_*/comparison.json
+```
 
 ---
 
 ## 🔧 Advanced Options
 
-### Evaluate Specific Model
+### Preprocessing Options
 
 ```bash
-# MAGIC only (fastest evaluation)
-./scripts/run_evaluation.sh --model magic
+# Custom time window (default: 3600 seconds)
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc \
+    --window-size 7200  # 2-hour windows
 
-# Kairos only
-./scripts/run_evaluation.sh --model kairos
+# Filter specific event types
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc \
+    --event-types process file  # Exclude network events
 
-# Continuum_FL only
-./scripts/run_evaluation.sh --model continuum_fl
+# See all options
+python scripts/preprocess_data.py --help
 ```
 
-### Custom Data Path
+### Evaluation Options
 
 ```bash
-# Evaluate on data from different location
-./scripts/run_evaluation.sh --data-path /path/to/soc/logs
-```
+# Evaluate specific models only
+./scripts/run_evaluation.sh --models magic kairos --data-path data/custom_soc
 
-### Use GPU (if available)
+# Use GPU (if available)
+./scripts/run_evaluation.sh --data-path data/custom_soc --device 0
 
-```bash
-# Check if GPU is available
-python -c "import torch; print(f'GPU available: {torch.cuda.is_available()}')"
+# Custom output directory
+./scripts/run_evaluation.sh --data-path data/custom_soc --output-dir results/my_eval
 
-# Force GPU usage for evaluation
-CUDA_VISIBLE_DEVICES=0 ./scripts/run_evaluation.sh
-
-# Specify GPU device (if multiple GPUs)
-CUDA_VISIBLE_DEVICES=1 ./scripts/run_evaluation.sh --model magic
-```
-
-### Skip Steps (Already Completed)
-
-```bash
-# Skip downloading weights (already downloaded)
-./scripts/run_evaluation.sh --skip-download
-
-# Skip preprocessing (data already preprocessed)
-./scripts/run_evaluation.sh --skip-preprocess
-
-# Skip both
-./scripts/run_evaluation.sh --skip-download --skip-preprocess
-```
-
-### Custom Output Directory
-
-```bash
-# Specify where to save results
-./scripts/run_evaluation.sh --output-dir results/my_evaluation
-
-# Results will be in: results/my_evaluation/
+# See all options
+./scripts/run_evaluation.sh --help
 ```
 
 ---
 
-## 🔄 Advanced Feature: Retrain Models (Optional)
+## 🔄 Advanced: Retraining Models (Optional)
 
 > ⚠️ **Only needed if pretrained models achieve AUROC < 0.80 on your data**
 
-### Prerequisites for Retraining
-
+### Prerequisites
 - Labeled attack data (ground truth)
-- Sufficient data (thousands of events)
+- Sufficient training data (thousands of events)
 - Time (training can take hours)
 
-### Step-by-Step Retraining
-
-#### 1. Prepare Labeled Data
+### Quick Retraining Guide
 
 ```bash
-# Create ground truth file
+# 1. Prepare labeled data
 cat > data/custom_soc/ground_truth.json << EOF
 {
   "attacks": [
     {
-      "start_time": "2025-10-13T08:00:00Z",
-      "end_time": "2025-10-13T09:00:00Z",
+      "start_time": "2025-10-14T08:00:00Z",
+      "end_time": "2025-10-14T09:00:00Z",
       "attack_type": "apt",
       "entities": [1234, 1235, 1236]
     }
   ]
 }
 EOF
-```
 
-#### 2. Preprocess Data with Labels
-
-```bash
-# Preprocess with ground truth
+# 2. Preprocess with labels
 python scripts/preprocess_data.py \
-    --input-dir ../custom_dataset/ \
-    --labels-file data/custom_soc/ground_truth.json \
+    --input-dir ../custom_dataset \
     --output-dir data/custom_soc \
-    --dataset-name custom_soc
-```
+    --dataset-name custom_soc \
+    --labels-file data/custom_soc/ground_truth.json
 
-#### 3. Train Model (CPU by default)
-
-```bash
-# Train MAGIC on custom data (CPU)
+# 3. Train model (CPU)
 python experiments/train.py \
     --model magic \
     --dataset custom_soc \
     --data-path data/custom_soc \
     --epochs 100 \
     --batch-size 32 \
-    --device -1 \
-    --save-dir checkpoints
+    --device -1
 
-# Train on GPU (if available)
-python experiments/train.py \
-    --model magic \
-    --dataset custom_soc \
-    --data-path data/custom_soc \
-    --epochs 100 \
-    --batch-size 32 \
-    --device 0
-```
-
-#### 4. Evaluate Retrained Model
-
-```bash
-# Evaluate the retrained model
+# 4. Evaluate retrained model
 python experiments/evaluate.py \
     --model magic \
     --checkpoint checkpoints/magic_custom_soc_best.pt \
     --dataset custom_soc \
-    --data-path data/custom_soc \
-    --device -1
+    --data-path data/custom_soc
 ```
 
-#### 5. Compare Pretrained vs Retrained
-
+**Fine-tuning (recommended over training from scratch):**
 ```bash
-# Compare performance
-python experiments/compare.py \
-    --checkpoints checkpoints/magic/checkpoint-cadets-e3.pt checkpoints/magic_custom_soc_best.pt \
-    --labels "Pretrained" "Retrained" \
-    --dataset custom_soc \
-    --output-dir results/comparison
-```
-
-### Fine-tune Pretrained Model
-
-```bash
-# Fine-tune (transfer learning) instead of training from scratch
 python experiments/train.py \
     --model magic \
-    --pretrained checkpoints/magic/checkpoint-cadets-e3.pt \
+    --pretrained checkpoints/magic/checkpoint-cadets.pt \
     --dataset custom_soc \
     --data-path data/custom_soc \
     --epochs 50 \
@@ -600,181 +622,83 @@ python experiments/train.py \
 
 ## 🐛 Troubleshooting
 
-### Issue 1: Conda Not Found
+### Common Issues
 
-**Error:** `conda: command not found`
-
-**Solution:**
+#### 1. Conda Not Found
 ```bash
 # Install Miniconda
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
-
-# Or on macOS
-curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-bash Miniconda3-latest-MacOSX-x86_64.sh
-
 # Restart terminal and retry
 ```
 
-### Issue 2: Environment Not Activated
-
-**Error:** `conda environment 'pids_framework' not activated`
-
-**Solution:**
+#### 2. Environment Not Activated
 ```bash
-# Activate environment
 conda activate pids_framework
-
-# Verify
-echo $CONDA_DEFAULT_ENV  # Should show: pids_framework
-
-# Add to ~/.bashrc or ~/.zshrc for auto-activation (optional)
-echo "conda activate pids_framework" >> ~/.zshrc
+# Verify: echo $CONDA_DEFAULT_ENV
 ```
 
-### Issue 3: Data Path Does Not Exist
-
-**Error:** `Data path does not exist: ../custom_dataset`
-
-**Solution:**
+#### 3. Custom Dataset Not Found
 ```bash
-# Create directory and add data
+# Create and populate directory
 mkdir -p ../custom_dataset
-
-# Copy your JSON logs
 cp /path/to/your/logs/*.json ../custom_dataset/
-
-# Verify
 ls -la ../custom_dataset/
 ```
 
-### Issue 4: Pretrained Weights Not Found
-
-**Error:** `Pretrained weights not found for model: magic`
-
-**Solution:**
+#### 4. Pretrained Weights Missing
 ```bash
-# Option 1: Copy from existing checkpoints
-python scripts/download_weights.py --copy-existing --all-models
+# Re-run model setup
+python scripts/setup_models.py --all
 
-# Option 2: Download from URLs
-python scripts/download_weights.py --model magic
-
-# Option 3: Manual copy
-mkdir -p checkpoints/magic
-cp ../MAGIC/checkpoints/*.pt checkpoints/magic/
-cp ../Continuum_FL/checkpoints/*.pt checkpoints/continuum_fl/
-
-# Verify
-ls -la checkpoints/
+# Or copy from local directories
+python scripts/setup_models.py --models magic --copy-local
 ```
 
-### Issue 5: Out of Memory
-
-**Error:** `RuntimeError: CUDA out of memory` or `MemoryError`
-
-**Solution:**
+#### 5. Out of Memory
 ```bash
-# Solution 1: Use CPU (default, safer)
-python experiments/train.py --device -1
+# Use CPU instead of GPU
+./scripts/run_evaluation.sh --device -1
 
-# Solution 2: Reduce batch size
-# Edit configs/models/MODEL.yaml:
-training:
-  batch_size: 8  # or even smaller: 4, 2, 1
-
-# Solution 3: Process data in chunks
-python scripts/preprocess_data.py --chunk-size 1000
+# Or reduce batch size in preprocessing
+python scripts/preprocess_data.py --batch-size 16
 ```
 
-### Issue 6: Import Errors
+#### 6. PyTorch MKL Error
+**Error:** `undefined symbol: iJIT_NotifyEvent`
 
-**Error:** `ModuleNotFoundError: No module named 'torch'`
+**Solution:** The setup script already applies the fix automatically. If error persists:
+```bash
+conda activate pids_framework
+export MKL_THREADING_LAYER=GNU
+# Test: python -c "import torch; print(torch.__version__)"
+```
 
-**Solution:**
+#### 7. Import Errors
 ```bash
 # Ensure environment is activated
 conda activate pids_framework
 
-# Reinstall PyTorch
-conda install pytorch==1.12.1 torchvision torchaudio cudatoolkit=11.6 -c pytorch -c conda-forge
-
-# Verify
-python -c "import torch; print(torch.__version__)"
+# Reinstall dependencies
+./scripts/setup.sh
 ```
 
-### PyTorch MKL / "undefined symbol: iJIT_NotifyEvent" error
-
-If you see an import error mentioning `iJIT_NotifyEvent` (or other MKL-related symbol errors), this is usually caused by a mismatch between PyTorch and Intel MKL threading libraries. The repository includes an automated fixer to resolve this quickly.
-
-Preferred automated fix:
-
+#### 8. Permission Denied
 ```bash
-# Activate environment first
-conda activate pids_framework
-
-# Make the fix script executable and run it
-chmod +x scripts/fix_pytorch_mkl.sh
-./scripts/fix_pytorch_mkl.sh
-
-# Re-run verification
-python scripts/test_pytorch.py
-```
-
-Quick manual fix (applies to current session and can be made permanent):
-
-```bash
-# For current session
-export MKL_THREADING_LAYER=GNU
-
-# To persist for the conda env
-conda activate pids_framework
-mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-echo 'export MKL_THREADING_LAYER=GNU' > $CONDA_PREFIX/etc/conda/activate.d/mkl_fix.sh
-```
-
-If the automated script and manual fix do not work, try reinstalling a compatible MKL version:
-
-```bash
-conda activate pids_framework
-conda install "mkl<2024" -c conda-forge --force-reinstall -y
-```
-
-Verification:
-
-```bash
-python -c "import torch; print(f'PyTorch {torch.__version__}'); print('CUDA available:', torch.cuda.is_available())"
-```
-
-See `docs/PYTORCH_MKL_FIX.md` and `scripts/fix_pytorch_mkl.sh` for more details.
-
-### Issue 7: Model Not Registered
-
-**Error:** `KeyError: 'magic'` or `Model not found`
-
-**Solution:**
-```bash
-# Reinstall model dependencies
-./scripts/install_model_deps.sh --models magic
-
-# Verify registration
-python -c "from models import list_available_models; print(list_available_models())"
-
-# Expected output: ['magic', 'kairos', 'orthrus', 'threatrace', 'continuum_fl', ...]
-```
-
-### Issue 8: Permission Denied
-
-**Error:** `Permission denied: ./scripts/run_evaluation.sh`
-
-**Solution:**
-```bash
-# Make scripts executable
 chmod +x scripts/*.sh
-
-# Retry
 ./scripts/run_evaluation.sh
+```
+
+### Get Help
+
+```bash
+# Script help
+python scripts/preprocess_data.py --help
+./scripts/run_evaluation.sh --help
+python scripts/setup_models.py --help
+
+# Check installation
+python -c "import torch; import dgl; import torch_geometric; print('All imports OK')"
 ```
 
 ---
@@ -808,74 +732,86 @@ python scripts/verify_installation.py
 
 ## 🎯 Quick Reference
 
-### Essential Commands
+### Essential Workflow
 
 ```bash
-# 1. Setup (once)
+# ONE-TIME SETUP (Steps 1-4)
+# 1. Setup environment
 ./scripts/setup.sh
 conda activate pids_framework
 
-# 2. Install model dependencies (once)
-./scripts/install_model_deps.sh --all
+# 2. Setup models
+python scripts/setup_models.py --all
 
-# 3. Download/copy weights (once)
-python scripts/download_weights.py --copy-existing --all-models
+# 3. Prepare data (copy your SOC logs)
+ls -la ../custom_dataset/*.json
 
-# 4. Verify setup (once)
-python scripts/verify_installation.py
+# 4. Preprocess data
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc
 
-# 5. Prepare data (once per dataset)
-mkdir -p ../custom_dataset
-cp /path/to/logs/*.json ../custom_dataset/
+# MAIN WORKFLOW (Steps 5-6)
+# 5. Run evaluation
+./scripts/run_evaluation.sh --data-path data/custom_soc
 
-# 6. Run evaluation (main workflow)
-./scripts/run_evaluation.sh
-
-# 7. View results
-cat results/evaluation_*/comparison_report.json
+# 6. View results
+cat results/evaluation_*/comparison.json
 ```
 
-### Quick Workflow Summary
+### Quick Commands
+
+```bash
+# Activate environment
+conda activate pids_framework
+
+# Evaluate specific model
+./scripts/run_evaluation.sh --models magic --data-path data/custom_soc
+
+# Use GPU
+./scripts/run_evaluation.sh --data-path data/custom_soc --device 0
+
+# Get help
+python scripts/preprocess_data.py --help
+./scripts/run_evaluation.sh --help
+python scripts/setup_models.py --help
+```
+
+### Workflow Diagram
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  PIDS Framework Workflow                 │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  Setup:                                                  │
-│  1. ./scripts/setup.sh                                   │
-│  2. conda activate pids_framework                        │
-│  3. ./scripts/install_model_deps.sh --all                │
-│  4. python scripts/download_weights.py --copy-existing   │
-│                                                           │
-│  Prepare Data:                                           │
-│  5. mkdir -p ../custom_dataset                           │
-│  6. cp logs/*.json ../custom_dataset/                    │
-│                                                           │
-│  Evaluate:                                               │
-│  7. ./scripts/run_evaluation.sh                          │
-│                                                           │
-│  Results:                                                │
-│  8. cat results/evaluation_*/comparison_report.json      │
-│                                                           │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│         PIDS Framework - Simple Workflow        │
+├─────────────────────────────────────────────────┤
+│                                                  │
+│  ONE-TIME SETUP:                                │
+│  1. ./scripts/setup.sh                          │
+│  2. python scripts/setup_models.py --all        │
+│  3. Copy data → ../custom_dataset/*.json        │
+│  4. python scripts/preprocess_data.py           │
+│                                                  │
+│  MAIN WORKFLOW:                                 │
+│  5. ./scripts/run_evaluation.sh                 │
+│  6. cat results/evaluation_*/comparison.json    │
+│                                                  │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🎉 Success Checklist
+## 🎉 Pre-Evaluation Checklist
 
 Before running evaluation, verify:
 
-- ✅ Conda environment `pids_framework` is activated
-- ✅ All model dependencies installed (`./scripts/install_model_deps.sh --all`)
-- ✅ Pretrained weights downloaded/copied to `checkpoints/`
-- ✅ Custom dataset present in `../custom_dataset/`
-- ✅ Verification script passes (`python scripts/verify_installation.py`)
+- ✅ Environment activated: `conda activate pids_framework`
+- ✅ Models setup: `ls -la checkpoints/*/`
+- ✅ Data present: `ls -la ../custom_dataset/*.json`
+- ✅ Data preprocessed: `ls -la data/custom_soc/graph.bin`
 
-If all checks pass, you're ready to run:
+**If all checks pass:**
 ```bash
-./scripts/run_evaluation.sh
+./scripts/run_evaluation.sh --data-path data/custom_soc
 ```
 
 ---

@@ -22,9 +22,11 @@ import pickle
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.common import setup_logger, load_config
+from utils.common import setup_logging, load_config
+import logging
 
-logger = setup_logger("preprocess_data")
+logger = setup_logging()
+logger = logging.getLogger("preprocess_data")
 
 
 class SOCDataPreprocessor:
