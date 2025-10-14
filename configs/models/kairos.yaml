@@ -1,0 +1,76 @@
+# Kairos Model Configuration
+# Temporal Graph Attention Networks for Provenance Analysis
+# Paper: IEEE S&P 2024
+
+model_name: kairos
+model_type: temporal_gnn
+
+# Model Architecture
+architecture:
+  in_channels: 100         # Input feature dimension
+  out_channels: 100        # Output embedding dimension
+  msg_dim: 100             # Message dimension
+  memory_dim: 100          # Temporal memory dimension
+  time_dim: 100            # Time encoding dimension
+  num_layers: 2            # Number of graph attention layers
+  num_heads: 8             # Number of attention heads
+  dropout: 0.1             # Dropout rate
+  
+  # Temporal encoding
+  time_encoder: cosine     # cosine or learnable
+  max_time_delta: 86400    # Max time delta in seconds (24 hours)
+  
+  # Memory
+  max_nodes: 268435        # Maximum nodes in memory (from CADETS E3)
+  memory_updater: gru      # gru or lstm
+  
+# Training
+training:
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  num_epochs: 100
+  batch_size: 200          # Temporal batch size
+  optimizer: adam
+  scheduler:
+    type: step
+    step_size: 20
+    gamma: 0.5
+  
+  # Early stopping
+  patience: 20
+  min_delta: 0.001
+  
+  # Loss configuration
+  loss_type: cross_entropy
+  
+  # Negative sampling
+  num_negative_samples: 1
+  
+# Evaluation
+evaluation:
+  eval_interval: 5         # Evaluate every N epochs
+  metrics:
+    - auroc
+    - auprc
+    - f1_score
+    - precision
+    - recall
+    
+# Dataset-specific settings
+dataset:
+  name: cadets_e3          # cadets_e3, theia_e3, trace_e3, custom
+  num_classes: 2
+  temporal: true
+  max_seq_length: 1000     # Max sequence length for temporal batching
+  
+# Device
+device: cuda
+seed: 42
+
+# Checkpointing
+checkpoint:
+  save_dir: checkpoints/kairos
+  save_interval: 5
+  keep_best_only: true
+  metric: auroc
+  mode: max

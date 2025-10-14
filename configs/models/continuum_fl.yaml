@@ -1,0 +1,117 @@
+# Continuum_FL Model Configuration
+# Federated Learning PIDS with Spatiotemporal GNN AutoEncoder
+# Based on MAGIC architecture with federated learning extensions
+
+model_name: continuum_fl
+model_type: federated_autoencoder
+
+# Model Architecture
+architecture:
+  # Input/Output dimensions
+  n_dim: 100               # Node feature dimension
+  e_dim: 64                # Edge feature dimension
+  hidden_dim: 256          # Hidden layer dimension
+  out_dim: 64              # Output embedding dimension
+  
+  # STGNN Architecture
+  n_layers: 4              # Number of GAT layers
+  n_heads: 4               # Number of attention heads
+  n_snapshot: 10           # Number of temporal snapshots
+  
+  # Activation and regularization
+  activation: prelu        # prelu, relu, or elu
+  feat_drop: 0.1           # Feature dropout rate
+  negative_slope: 0.2      # LeakyReLU negative slope
+  residual: true           # Use residual connections
+  norm: BatchNorm          # Normalization type
+  
+  # Pooling
+  pooling: mean            # mean, max, or sum
+  
+  # Loss function
+  loss_fn: sce             # sce (scaled cosine error), mse, or mae
+  alpha_l: 2               # Loss scaling factor
+  
+  # Architecture variant
+  use_all_hidden: true     # Use all hidden layers (true for StreamSpot)
+
+# Training
+training:
+  learning_rate: 0.0005
+  weight_decay: 0.0
+  num_epochs: 500
+  batch_size: 1            # Process whole graph at once
+  optimizer: adam
+  scheduler: null
+  
+  # Early stopping
+  patience: 50
+  min_delta: 0.001
+  
+  # Federated learning specific
+  federated:
+    enabled: false          # Enable federated learning mode
+    num_clients: 4          # Number of federated clients
+    rounds: 100             # Number of federated rounds
+    local_epochs: 5         # Local training epochs per round
+    aggregation: fedavg     # fedavg, fedopt, or fedprox
+    
+# Evaluation
+evaluation:
+  method: knn              # knn or threshold
+  k_neighbors: 20          # For k-NN anomaly detection
+  distance_metric: cosine  # Distance metric
+  threshold_percentile: 95 # Anomaly threshold
+  
+# Dataset-specific settings
+dataset:
+  name: streamspot         # streamspot, darpa, custom
+  num_classes: 2
+  temporal: true           # Use temporal snapshots
+  snapshot_size: 3600      # Snapshot window in seconds
+  
+# Device
+device: cuda              # cuda or cpu
+seed: 42
+
+# Checkpointing
+checkpoint:
+  save_dir: checkpoints/continuum_fl
+  save_interval: 10
+  keep_best_only: true
+  metric: auroc
+  mode: max
+
+# Dataset-specific presets
+presets:
+  # StreamSpot configuration
+  streamspot:
+    architecture:
+      n_layers: 5
+      out_dim: 64
+      n_snapshot: 6
+      use_all_hidden: true
+    training:
+      num_epochs: 6
+      
+  # DARPA datasets configuration
+  darpa:
+    architecture:
+      n_layers: 4
+      out_dim: 64
+      n_snapshot: 50
+      use_all_hidden: false
+    training:
+      num_epochs: 50
+      
+  # CADETS E3
+  cadets_e3:
+    architecture:
+      n_layers: 4
+      gnn_layer: 4
+      
+  # SC2 dataset
+  sc2:
+    architecture:
+      n_layers: 3
+      gnn_layer: 3

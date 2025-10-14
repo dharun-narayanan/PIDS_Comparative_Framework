@@ -1,0 +1,137 @@
+# Custom SOC Dataset Configuration
+# For custom Security Operations Center logs in JSON format
+
+dataset_name: custom_soc
+dataset_type: custom
+
+# Data paths
+data:
+  # Path to custom dataset folder
+  root_dir: ../custom_dataset/
+  
+  # JSON files containing logs
+  files:
+    - endpoint_file.json      # File system events
+    - endpoint_network.json   # Network events
+    - endpoint_process.json   # Process events
+  
+  # Output paths
+  processed_dir: data/processed/custom_soc/
+  graph_cache_dir: data/cache/custom_soc/
+  
+# Data format
+format:
+  type: json               # json, csv, or parquet
+  schema: elastic          # elastic (ELK stack) or custom
+  
+  # JSON structure
+  event_field: "@timestamp"
+  source_field: "source"
+  target_field: "target"
+  type_field: "event_type"
+  attributes_fields:
+    - "process_name"
+    - "file_path"
+    - "ip_address"
+    - "port"
+    
+# Graph construction
+graph:
+  # Node types
+  node_types:
+    - file
+    - process
+    - network
+    - registry
+    
+  # Edge types (provenance relationships)
+  edge_types:
+    - read
+    - write
+    - execute
+    - connect
+    - modify
+    
+  # Graph features
+  node_features:
+    type: categorical       # categorical, numerical, or both
+    embedding_dim: 100
+    use_text_features: false
+    
+  edge_features:
+    use_timestamps: true
+    use_attributes: true
+    
+  # Temporal settings
+  temporal:
+    enabled: true
+    window_size: 3600       # 1 hour windows (in seconds)
+    stride: 1800            # 30 minute stride
+    
+# Preprocessing
+preprocessing:
+  # Data cleaning
+  remove_duplicates: true
+  handle_missing: drop     # drop, fill, or ignore
+  
+  # Feature engineering
+  extract_time_features: true
+  normalize_features: true
+  
+  # Filtering
+  min_node_degree: 1
+  max_graph_size: 100000   # Max nodes per graph
+  
+  # Entity resolution
+  entity_resolution:
+    enabled: true
+    match_fields:
+      - process_name
+      - file_path
+      
+# Labels
+labels:
+  # Label source
+  source: groundtruth      # groundtruth or heuristic
+  label_file: Ground_Truth/custom_labels.json
+  
+  # Label mapping
+  benign: 0
+  malicious: 1
+  
+  # Class balancing
+  balance_classes: false
+  oversample_minority: false
+  undersample_majority: false
+  
+# Splitting
+split:
+  method: temporal         # temporal, random, or stratified
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  # Temporal split (if method=temporal)
+  temporal_split:
+    by: day                # day, week, or custom
+    train_days: 14
+    val_days: 3
+    test_days: 3
+    
+# Data statistics
+statistics:
+  compute_stats: true
+  stats_output: data/stats/custom_soc.json
+  
+# Performance optimization
+optimization:
+  chunk_size: 10000        # Process data in chunks (for large files)
+  num_workers: 4           # Parallel processing workers
+  cache_processed: true    # Cache preprocessed data
+  use_mmap: true           # Use memory mapping for large files
+  
+# Validation
+validation:
+  validate_schema: true
+  check_consistency: true
+  report_anomalies: true

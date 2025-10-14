@@ -1,0 +1,58 @@
+# MAGIC Model Configuration
+# Masked Graph Autoencoder for Provenance-based Intrusion Detection
+# Paper: USENIX Security 2024
+
+model_name: magic
+model_type: autoencoder
+
+# Model Architecture
+architecture:
+  num_hidden: 256          # Hidden dimension size
+  num_layers: 4            # Number of GNN layers
+  mask_rate: 0.3           # Masking rate for autoencoder (30%)
+  n_dim: 128               # Node feature dimension
+  e_dim: 64                # Edge feature dimension
+  activation: prelu        # Activation function
+  norm: batchnorm          # Normalization layer
+  encoding_type: mlp       # Encoding type for features
+  decoder_type: mlp        # Decoder type for reconstruction
+
+# Training
+training:
+  learning_rate: 0.0005
+  weight_decay: 0.0
+  num_epochs: 500
+  batch_size: 1            # Process whole graph at once
+  optimizer: adam
+  scheduler: null          # No learning rate scheduling
+  
+  # Early stopping
+  patience: 50
+  min_delta: 0.001
+  
+  # Loss weights
+  loss_weights:
+    reconstruction: 1.0
+    
+# Evaluation
+evaluation:
+  k_neighbors: 20          # For k-NN anomaly detection
+  distance_metric: cosine  # Distance metric for k-NN
+  threshold_percentile: 95 # Anomaly threshold
+  
+# Dataset-specific settings
+dataset:
+  name: streamspot         # streamspot, darpa, custom
+  num_classes: 2           # Binary classification
+  
+# Device
+device: cuda              # cuda or cpu
+seed: 42
+
+# Checkpointing
+checkpoint:
+  save_dir: checkpoints/magic
+  save_interval: 10        # Save every N epochs
+  keep_best_only: true
+  metric: auroc           # Metric to monitor
+  mode: max               # Maximize AUROC

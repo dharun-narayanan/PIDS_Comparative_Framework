@@ -1,0 +1,102 @@
+# Orthrus Model Configuration
+# Multi-Decoder Provenance Learning with Contrastive Learning
+# Paper: USENIX Security 2025
+
+model_name: orthrus
+model_type: multi_decoder
+
+# Model Architecture
+architecture:
+  # Node/Edge dimensions
+  num_nodes: 100000        # Expected number of nodes
+  in_dim: 100              # Input feature dimension
+  out_dim: 100             # Output embedding dimension
+  
+  # Encoder
+  encoder_type: gat        # gat, gcn, or sage
+  encoder_layers: 3
+  encoder_heads: 4         # For GAT
+  encoder_dropout: 0.1
+  
+  # Decoders
+  num_decoders: 3          # Number of decoder heads
+  decoder_type: mlp        # mlp or attention
+  decoder_hidden_dim: 128
+  
+  # Contrastive Learning
+  use_contrastive_learning: true
+  contrastive_loss_weight: 0.5
+  temperature: 0.07        # Temperature for contrastive loss
+  
+  # Edge type information
+  num_edge_types: 10       # Number of different edge types
+  use_edge_attr: true      # Use edge attributes
+  
+# Training
+training:
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  num_epochs: 200
+  batch_size: 4            # Number of graphs per batch
+  optimizer: adam
+  scheduler:
+    type: cosine
+    T_max: 200
+    eta_min: 0.00001
+  
+  # Early stopping
+  patience: 30
+  min_delta: 0.0005
+  
+  # Loss weights (for multi-task learning)
+  loss_weights:
+    decoder_1: 1.0
+    decoder_2: 1.0
+    decoder_3: 1.0
+    contrastive: 0.5
+    
+  # Gradient clipping
+  grad_clip: 1.0
+  
+# Evaluation
+evaluation:
+  eval_interval: 10
+  metrics:
+    - auroc
+    - auprc
+    - f1_score
+    - precision
+    - recall
+  
+  # Anomaly detection
+  anomaly_threshold_method: percentile  # percentile or adaptive
+  threshold_percentile: 95
+    
+# Dataset-specific settings
+dataset:
+  name: darpa             # darpa, streamspot, custom
+  num_classes: 2
+  preprocess:
+    normalize_features: true
+    add_self_loops: true
+  
+# Device
+device: cuda
+seed: 42
+
+# Checkpointing
+checkpoint:
+  save_dir: checkpoints/orthrus
+  save_interval: 10
+  keep_best_only: true
+  metric: auroc
+  mode: max
+  
+# Database configuration (for Orthrus original implementation)
+database:
+  use_database: false      # Set to true if using PostgreSQL backend
+  host: localhost
+  port: 5432
+  dbname: orthrus
+  user: postgres
+  password: null

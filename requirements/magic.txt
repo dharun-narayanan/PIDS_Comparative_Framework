@@ -1,0 +1,7 @@
+# Model-specific dependencies for MAGIC
+torch==1.12.1
+dgl==1.0.0
+scikit-learn==1.2.2
+xxhash==3.2.0
+numpy==1.23.5
+tqdm==4.65.0

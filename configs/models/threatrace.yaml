@@ -1,0 +1,91 @@
+# ThreaTrace Model Configuration
+# GraphChi-based Graph Neural Network for Threat Detection
+# Paper: IEEE TIFS 2022
+
+model_name: threatrace
+model_type: gcn
+
+# Model Architecture
+architecture:
+  hidden_dim: 128          # Hidden layer dimension
+  num_layers: 2            # Number of GCN layers
+  dropout: 0.5             # Dropout rate
+  activation: relu         # Activation function
+  
+  # Graph convolution
+  gcn_type: gcnconv        # gcnconv or sage
+  normalization: both      # both, source, or none
+  add_self_loops: true
+  
+  # Classification head
+  classifier_hidden: 64
+  num_classes: 2
+  
+  # GraphChi integration
+  use_graphchi: false      # Use GraphChi for large-scale graphs
+  graphchi_niters: 10      # Number of GraphChi iterations
+  graphchi_nshards: 4      # Number of shards for disk-based processing
+  
+# Training
+training:
+  learning_rate: 0.01
+  weight_decay: 0.0005
+  num_epochs: 200
+  batch_size: 32           # Batch size for mini-batch training
+  optimizer: adam
+  scheduler:
+    type: step
+    step_size: 50
+    gamma: 0.1
+  
+  # Early stopping
+  patience: 25
+  min_delta: 0.001
+  
+  # Loss configuration
+  loss_type: cross_entropy
+  class_weights: null      # Set to balance classes if needed
+  
+# Evaluation
+evaluation:
+  eval_interval: 10
+  metrics:
+    - auroc
+    - auprc
+    - f1_score
+    - precision
+    - recall
+    - accuracy
+    
+# Dataset-specific settings
+dataset:
+  name: streamspot         # streamspot, darpa, custom
+  num_classes: 2
+  
+  # Preprocessing
+  preprocess:
+    normalize_features: true
+    add_self_loops: true
+    undirected: false      # Keep directed edges
+    
+  # Sampling (for large graphs)
+  use_sampling: false
+  sample_neighbors: 10     # Number of neighbors to sample
+  
+# Device
+device: cuda
+seed: 42
+
+# Checkpointing
+checkpoint:
+  save_dir: checkpoints/threatrace
+  save_interval: 10
+  keep_best_only: true
+  metric: f1_score
+  mode: max
+  
+# GraphChi-specific settings
+graphchi:
+  exec_path: ../threaTrace/graphchi-cpp-master/bin/
+  data_dir: data/graphchi/
+  format: edgelist         # edgelist or adjlist

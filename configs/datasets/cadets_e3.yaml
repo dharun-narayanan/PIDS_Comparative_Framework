@@ -1,0 +1,152 @@
+# DARPA TC CADETS E3 Dataset Configuration
+# Transparent Computing Engagement 3 - BSD System
+
+dataset_name: cadets_e3
+dataset_type: darpa_tc
+
+# Data paths
+data:
+  # Path to DARPA TC data
+  root_dir: ../kairos/DARPA/CADETS_E3/
+  
+  # Data files
+  train_file: train.txt
+  test_file: test.txt
+  
+  # Node mapping
+  node2id_file: nodeid.txt
+  
+  # Output paths
+  processed_dir: data/processed/cadets_e3/
+  graph_cache_dir: data/cache/cadets_e3/
+  
+# Dataset information
+info:
+  description: "DARPA TC Engagement 3 - CADETS (BSD)"
+  num_nodes: 268435        # Total nodes in dataset
+  num_edges: 6166794       # Total edges
+  duration_days: 5         # Data collection duration
+  attack_types:
+    - firefox_exploit
+    - persistence
+    - lateral_movement
+    
+# Data format
+format:
+  type: text               # Text format with node IDs
+  separator: "\t"          # Tab-separated
+  has_header: false
+  columns:
+    - source_id
+    - target_id
+    - edge_type
+    - timestamp
+    
+# Graph construction
+graph:
+  # Node types (DARPA TC schema)
+  node_types:
+    - Subject          # Process
+    - FileObject       # File
+    - NetFlowObject    # Network connection
+    - RegistryKeyObject
+    - MemoryObject
+    
+  # Edge types (provenance events)
+  edge_types:
+    - EVENT_READ
+    - EVENT_WRITE
+    - EVENT_EXECUTE
+    - EVENT_OPEN
+    - EVENT_CLOSE
+    - EVENT_SENDTO
+    - EVENT_RECVFROM
+    - EVENT_CONNECT
+    
+  # Graph features
+  node_features:
+    type: numerical
+    embedding_dim: 100
+    use_pretrained: false
+    
+  edge_features:
+    use_timestamps: true
+    use_edge_types: true
+    normalize_time: true
+    
+  # Temporal settings
+  temporal:
+    enabled: true
+    window_size: 3600       # 1 hour
+    stride: 900             # 15 minutes
+    
+# Preprocessing
+preprocessing:
+  # Node ID mapping
+  map_node_ids: true
+  start_id: 0
+  
+  # Time normalization
+  normalize_timestamps: true
+  time_reference: first    # first or absolute
+  
+  # Feature extraction
+  extract_node_features: true
+  extract_edge_features: true
+  
+  # Filtering
+  remove_self_loops: true
+  min_edge_frequency: 1
+  
+# Labels
+labels:
+  # Ground truth from DARPA
+  source: groundtruth
+  label_file: ../kairos/DARPA/CADETS_E3/attack_labels.txt
+  
+  # Attack windows
+  attack_windows:
+    - start: "2018-04-05 14:00:00"
+      end: "2018-04-05 16:00:00"
+      type: firefox_exploit
+    - start: "2018-04-06 10:00:00"
+      end: "2018-04-06 12:00:00"
+      type: persistence
+      
+  # Label propagation
+  propagation:
+    enabled: true
+    method: temporal       # temporal or graph-based
+    radius: 2              # Propagation radius (hops)
+    
+  # Class mapping
+  benign: 0
+  malicious: 1
+  
+# Splitting
+split:
+  method: temporal
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  # Ensure attack samples in test
+  stratify_attacks: true
+  
+# Data statistics
+statistics:
+  compute_stats: true
+  stats_output: data/stats/cadets_e3.json
+  
+# Performance optimization
+optimization:
+  chunk_size: 50000
+  num_workers: 8
+  cache_processed: true
+  use_mmap: true
+  
+# Validation
+validation:
+  validate_schema: true
+  check_temporal_order: true
+  verify_labels: true

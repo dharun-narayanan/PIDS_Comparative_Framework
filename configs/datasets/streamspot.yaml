@@ -1,0 +1,162 @@
+# StreamSpot Dataset Configuration
+# Scene-based provenance graph dataset
+
+dataset_name: streamspot
+dataset_type: streamspot
+
+# Data paths
+data:
+  # Path to StreamSpot data
+  root_dir: ../kairos/StreamSpot/
+  
+  # Data files (100 scenes per category)
+  categories:
+    - youtube
+    - gmail
+    - vgame
+    - download
+    - cnn
+    
+  # Output paths
+  processed_dir: data/processed/streamspot/
+  graph_cache_dir: data/cache/streamspot/
+  
+# Dataset information
+info:
+  description: "StreamSpot scene-based provenance graphs"
+  num_scenes: 600          # 100 scenes × 6 categories
+  avg_nodes_per_scene: 200
+  avg_edges_per_scene: 300
+  attack_category: drive_by_download
+  
+# Data format
+format:
+  type: text
+  separator: "\t"
+  has_header: false
+  columns:
+    - source_id
+    - target_id
+    - edge_type
+    - timestamp
+    - scene_id
+    
+# Graph construction
+graph:
+  # Scene-based graphs
+  scene_based: true
+  scene_window: 3600       # 1 hour per scene
+  
+  # Node types (simplified provenance)
+  node_types:
+    - process
+    - file
+    - network
+    
+  # Edge types
+  edge_types:
+    - read
+    - write
+    - execute
+    - connect
+    
+  # Graph features
+  node_features:
+    type: categorical
+    embedding_dim: 256      # Larger for scene-based learning
+    use_node_names: true
+    
+  edge_features:
+    use_timestamps: false   # StreamSpot uses scene-level
+    use_edge_types: true
+    
+  # Graph-level features
+  graph_features:
+    enabled: true
+    features:
+      - num_nodes
+      - num_edges
+      - avg_degree
+      - num_components
+      
+# Preprocessing
+preprocessing:
+  # Scene extraction
+  extract_scenes: true
+  scene_overlap: 0         # No overlap between scenes
+  
+  # Feature engineering
+  compute_graph_statistics: true
+  node_degree_features: true
+  
+  # Filtering
+  min_nodes_per_scene: 10
+  max_nodes_per_scene: 5000
+  remove_isolated_nodes: true
+  
+# Labels
+labels:
+  # Scene-level labels
+  level: scene             # scene or node
+  
+  # Benign categories
+  benign_categories:
+    - youtube
+    - gmail
+    - cnn
+    
+  # Malicious categories
+  malicious_categories:
+    - drive_by_download
+    - exploit
+    - attack
+    
+  # Class mapping
+  benign: 0
+  malicious: 1
+  
+# Splitting
+split:
+  method: stratified       # Stratified by category
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  # Ensure balanced categories
+  balance_categories: true
+  
+# Data augmentation
+augmentation:
+  enabled: false
+  techniques:
+    - node_dropping: 0.1
+    - edge_perturbation: 0.05
+    - feature_masking: 0.1
+    
+# Data statistics
+statistics:
+  compute_stats: true
+  stats_output: data/stats/streamspot.json
+  per_category_stats: true
+  
+# Performance optimization
+optimization:
+  chunk_size: 100          # Process 100 scenes at a time
+  num_workers: 4
+  cache_processed: true
+  precompute_graphs: true  # Precompute all scene graphs
+  
+# Validation
+validation:
+  validate_schema: true
+  check_scene_integrity: true
+  verify_categories: true
+  
+# Model-specific settings
+model_specific:
+  # For MAGIC
+  magic:
+    mask_scenes: 0.3       # Mask 30% of scenes
+    
+  # For graph classification
+  pooling: mean            # mean, sum, or attention
