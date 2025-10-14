@@ -122,6 +122,30 @@ fi
 
 echo ""
 
+# Optional preinstall: Intel OpenMP and prebuilt PyG wheels
+# This helps avoid pip trying to build torch-scatter/torch-sparse/torch-cluster
+# from source (which can fail if torch's native libs can't be imported during build).
+print_step "Step 4.1/7: Pre-install optional runtime helpers"
+print_info "Installing intel-openmp and prebuilt PyG wheels (best-effort; non-fatal)"
+
+# Install Intel OpenMP runtime into the active environment (provides ITT/OpenMP symbols)
+if ! conda install -c conda-forge intel-openmp -y; then
+    print_warning "intel-openmp install failed. Continuing; this may require manual intervention."
+else
+    print_info "intel-openmp installed"
+fi
+
+# Attempt to install prebuilt PyG wheels for PyTorch 1.12.1 + CUDA 11.6 so pip won't build from source.
+# If your environment uses a different PyTorch/CUDA combo, update the wheel index URL accordingly.
+PYG_WHL_INDEX="https://data.pyg.org/whl/torch-1.12.1+cu116.html"
+if ! python -m pip install -U -f "$PYG_WHL_INDEX" \
+    torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 torch-geometric==2.1.0 dgl==1.0.0; then
+    print_warning "Prebuilt PyG/dgl install failed or fell back to source builds. The script will continue but you may need to retry these installs manually."
+else
+    print_info "Prebuilt PyG and DGL (where available) installed successfully"
+fi
+
+
 # Step 5: Apply PyTorch MKL Fix (integrated from fix_pytorch_mkl.sh)
 print_step "Step 5/7: Applying PyTorch MKL threading fix"
 print_info "Setting MKL_THREADING_LAYER=GNU to prevent symbol conflicts..."

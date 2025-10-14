@@ -51,7 +51,7 @@ The framework has been optimized to minimize setup steps. You now need only **3 
 
 ```bash
 # Navigate to the framework
-cd /Users/lakshmid/Downloads/Research/Final\ PIDS/PIDS_Files/PIDS_Comparative_Framework
+cd ../PIDS_Comparative_Framework
 
 # Verify you're in the correct directory
 ls
