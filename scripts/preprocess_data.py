@@ -318,14 +318,22 @@ def main():
     parser.add_argument(
         '--input-dir',
         type=Path,
-        help='Input directory containing JSON files (overrides config)'
+        required=True,
+        help='Input directory containing JSON files'
     )
     
     parser.add_argument(
-        '--output',
+        '--output-dir',
         type=Path,
-        default=project_root / 'data' / 'processed' / 'custom_soc_graph.pkl',
-        help='Output file for graph data'
+        default=project_root / 'data' / 'processed',
+        help='Output directory for preprocessed data'
+    )
+    
+    parser.add_argument(
+        '--dataset-name',
+        type=str,
+        default='custom_soc',
+        help='Name of the dataset (used for output filename)'
     )
     
     parser.add_argument(
@@ -336,6 +344,10 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # Construct output path from output-dir and dataset-name
+    output_file = args.output_dir / f'{args.dataset_name}_graph.pkl'
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     
     # Load configuration
     logger.info(f"Loading configuration from: {args.config}")
@@ -377,13 +389,14 @@ def main():
     graph_data = preprocessor.build_graph(all_events)
     
     # Save graph
-    preprocessor.save_graph(graph_data, args.output)
+    preprocessor.save_graph(graph_data, output_file)
     
     # Print statistics
     preprocessor.print_statistics()
     
     logger.info(f"\nPreprocessing complete!")
-    logger.info(f"Graph data saved to: {args.output}")
+    logger.info(f"Graph data saved to: {output_file}")
+    logger.info(f"Statistics saved to: {output_file.with_suffix('.json')}")
 
 
 if __name__ == '__main__':
