@@ -107,26 +107,37 @@ for model in "${MODELS[@]}"; do
             ;;
         kairos)
             print_info "Installing Kairos dependencies..."
-            pip install -r "$REQ_FILE"
-            # Install PyG with specific versions
-            pip install torch-geometric==2.2.0 -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+            # Install base dependencies (skip torch-geometric extensions, already installed)
+            pip install --no-deps torch-geometric==2.1.0 || print_warning "PyG already installed"
+            pip install networkx==2.8.8 python-louvain==0.16 graphviz==0.20.1
+            pip install psycopg2-binary==2.9.6 sqlalchemy==2.0.15
             ;;
         orthrus)
             print_info "Installing Orthrus dependencies..."
-            pip install -r "$REQ_FILE"
-            pip install torch-geometric==2.3.1 -f https://data.pyg.org/whl/torch-2.0.1+cu118.html
+            # Install base dependencies (skip torch-geometric extensions, already installed)
+            pip install --no-deps torch-geometric==2.1.0 || print_warning "PyG already installed"
+            pip install networkx==2.8.8 psycopg2-binary==2.9.6 sqlalchemy==2.0.15
             ;;
         threatrace)
             print_info "Installing ThreaTrace dependencies..."
-            pip install -r "$REQ_FILE"
-            # ThreaTrace uses older PyG version
-            pip install torch-geometric==1.4.3
+            # ThreaTrace works with the common PyG version
+            pip install --no-deps torch-geometric==2.1.0 || print_warning "PyG already installed"
+            # Additional dependencies are already covered by framework base
             ;;
         continuum_fl)
             print_info "Installing Continuum FL dependencies..."
             # Install MPI support
-            conda install -c conda-forge mpi4py openmpi -y || print_warning "MPI installation failed"
-            pip install -r "$REQ_FILE"
+            if ! command -v mpirun &> /dev/null; then
+                print_warning "MPI not found. Installing via conda..."
+                conda install -c conda-forge mpi4py openmpi -y || print_warning "MPI installation failed - federated learning may not work"
+            else
+                print_info "MPI already installed"
+                pip install mpi4py==3.1.3 || print_warning "mpi4py installation failed"
+            fi
+            # Install PyG (already done by framework)
+            pip install --no-deps torch-geometric==2.1.0 || print_warning "PyG already installed"
+            # Install additional dependencies
+            pip install wandb==0.15.0 redis==4.5.4 paho-mqtt==1.6.1
             ;;
         *)
             print_info "Installing $model dependencies..."

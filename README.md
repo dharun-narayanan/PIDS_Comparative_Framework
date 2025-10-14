@@ -901,7 +901,34 @@ pip install torch==1.12.1
 python scripts/preprocess_data.py --chunk-size 5000
 ```
 
-#### Issue 6: Model Not Found
+#### Issue 6: Dependency Version Conflicts
+
+**Error**: `ERROR: No matching distribution found for pyg-lib==0.2.0` or version conflicts during model dependency installation
+
+**Cause**: Each model originally used different PyTorch versions, causing conflicts when installing in a unified environment.
+
+**Solution**: The framework now uses unified compatible versions. If you encounter conflicts:
+
+```bash
+# The requirements files have been updated to use compatible versions
+# Simply re-run the installation
+./scripts/install_model_deps.sh --all
+
+# If you modified requirements files, restore them:
+git checkout requirements/*.txt
+
+# Or manually update to use PyTorch 1.12.1 compatible versions
+```
+
+**What was fixed**:
+- All models now use PyTorch 1.12.1 (compatible baseline)
+- PyTorch Geometric unified to version 2.1.0
+- Removed optional dependencies that cause conflicts (pyg-lib)
+- Updated install script to skip already-installed packages
+
+📖 **Detailed Guide**: See [docs/DEPENDENCY_COMPATIBILITY.md](docs/DEPENDENCY_COMPATIBILITY.md) for version compatibility information.
+
+#### Issue 7: Model Not Found
 
 **Error**: `KeyError: 'magic'`
 

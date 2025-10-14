@@ -1,12 +1,13 @@
 # Model-specific dependencies for Orthrus
-torch==2.0.1
-torch-geometric==2.3.1
-pyg-lib==0.3.1
-torch-scatter==2.1.1
-torch-sparse==0.6.17
-networkx==3.1
+# Note: Using PyTorch 1.12.1 for compatibility with framework
+# torch==1.12.1  # Already installed by framework
+torch-geometric==2.1.0
+# pyg-lib is optional
+torch-scatter==2.1.0
+torch-sparse==0.6.16
+networkx==2.8.8
 psycopg2-binary==2.9.6
-sqlalchemy==2.0.25
+sqlalchemy==2.0.15
 pyyaml==6.0
-numpy==1.24.3
-pandas==2.0.3
+numpy==1.23.5
+pandas==1.5.3
