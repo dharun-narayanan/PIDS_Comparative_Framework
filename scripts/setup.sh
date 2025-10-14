@@ -222,16 +222,42 @@ print_info "Checking Python version..."
 python --version
 
 print_info "Checking PyTorch installation..."
-python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+# Set MKL threading layer to avoid symbol conflicts
+export MKL_THREADING_LAYER=GNU
+if ! python -c "import torch; print(f'PyTorch version: {torch.__version__}')" 2>/dev/null; then
+    print_warning "PyTorch import failed. Attempting to fix MKL threading issue..."
+    print_info "Installing compatible MKL version..."
+    conda install "mkl<2024" -c conda-forge --force-reinstall -y -q
+    
+    # Try again with environment variable
+    if MKL_THREADING_LAYER=GNU python -c "import torch; print(f'PyTorch version: {torch.__version__}')" 2>/dev/null; then
+        print_info "PyTorch working with MKL_THREADING_LAYER=GNU"
+        print_info "Adding MKL fix to conda environment activation..."
+        
+        # Add MKL_THREADING_LAYER to conda env activation script
+        mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
+        echo 'export MKL_THREADING_LAYER=GNU' > "${CONDA_PREFIX}/etc/conda/activate.d/mkl_fix.sh"
+        
+        print_info "✓ MKL threading fix applied automatically on environment activation"
+    else
+        print_error "PyTorch installation verification failed."
+        print_error "Please try manual fix:"
+        echo "  export MKL_THREADING_LAYER=GNU"
+        echo "  or reinstall with: conda install pytorch==1.12.1 -c pytorch --force-reinstall"
+        exit 1
+    fi
+else
+    python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+fi
 
 print_info "Checking CUDA availability..."
-python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else \"N/A\"}'); print(f'Number of GPUs: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
+MKL_THREADING_LAYER=GNU python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else \"N/A\"}'); print(f'Number of GPUs: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
 print_info "Checking DGL installation..."
-python -c "import dgl; print(f'DGL version: {dgl.__version__}')" || print_warning "DGL not installed or not working"
+MKL_THREADING_LAYER=GNU python -c "import dgl; print(f'DGL version: {dgl.__version__}')" || print_warning "DGL not installed or not working"
 
 print_info "Checking PyTorch Geometric..."
-python -c "import torch_geometric; print(f'PyG version: {torch_geometric.__version__}')" || print_warning "PyG not installed or not working"
+MKL_THREADING_LAYER=GNU python -c "import torch_geometric; print(f'PyG version: {torch_geometric.__version__}')" || print_warning "PyG not installed or not working"
 
 echo ""
 
@@ -271,7 +297,7 @@ echo "   - README.md          - Complete documentation"
 echo ""
 echo "============================================"
 echo ""
-python -c "
+MKL_THREADING_LAYER=GNU python -c "
 import sys
 try:
     import torch

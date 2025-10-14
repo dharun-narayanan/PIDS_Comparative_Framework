@@ -840,7 +840,48 @@ training:
   gradient_checkpointing: true
 ```
 
-#### Issue 3: Import Errors
+#### Issue 3: PyTorch Import Error (MKL Symbol)
+
+**Error**: `ImportError: .../libtorch_cpu.so: undefined symbol: iJIT_NotifyEvent`
+
+**Cause**: This is a compatibility issue between PyTorch and Intel MKL threading layers.
+
+**Quick Fix**:
+```bash
+conda activate pids_framework
+./scripts/fix_pytorch_mkl.sh
+```
+
+**Manual Solutions**:
+```bash
+# Option 1: Set environment variable (recommended)
+export MKL_THREADING_LAYER=GNU
+python -c "import torch; print(torch.__version__)"
+
+# Make it permanent for your environment
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export MKL_THREADING_LAYER=GNU' > $CONDA_PREFIX/etc/conda/activate.d/mkl_fix.sh
+
+# Option 2: Reinstall compatible MKL
+conda install "mkl<2024" -c conda-forge --force-reinstall
+
+# Option 3: Use pip-installed PyTorch
+conda uninstall pytorch torchvision torchaudio
+pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116
+```
+
+**Verification**:
+```bash
+# Test PyTorch installation
+python scripts/test_pytorch.py
+
+# Or manually
+python -c "import torch; print(f'PyTorch {torch.__version__} working!')"
+```
+
+📖 **Detailed Guide**: See [docs/PYTORCH_MKL_FIX.md](docs/PYTORCH_MKL_FIX.md) for comprehensive troubleshooting.
+
+#### Issue 4: Other Import Errors
 
 **Error**: `ModuleNotFoundError: No module named 'torch'`
 
@@ -850,7 +891,7 @@ conda activate pids_framework
 pip install torch==1.12.1
 ```
 
-#### Issue 4: JSON Files Too Large
+#### Issue 5: JSON Files Too Large
 
 **Error**: `MemoryError: Unable to allocate array`
 
@@ -860,7 +901,7 @@ pip install torch==1.12.1
 python scripts/preprocess_data.py --chunk-size 5000
 ```
 
-#### Issue 5: Model Not Found
+#### Issue 6: Model Not Found
 
 **Error**: `KeyError: 'magic'`
 
