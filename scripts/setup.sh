@@ -162,9 +162,36 @@ else
     print_info "Installing CPU wheels for PyG extensions. If you have CUDA available, re-run with CUDA-enabled PyTorch."
 fi
 
-# Install the prebuilt extension wheels from the appropriate index
-pip install --no-cache-dir --quiet torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 -f ${WHEEL_INDEX}
-pip install --no-cache-dir --quiet torch-geometric==2.1.0
+# Attempt installation from multiple wheel indices to improve compatibility.
+# Preferred order: detected index, cu116, cu113, cpu.
+declare -a TRY_INDICES=()
+TRY_INDICES+=("${WHEEL_INDEX}")
+TRY_INDICES+=("https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cu116.html")
+TRY_INDICES+=("https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cu113.html")
+TRY_INDICES+=("https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cpu.html")
+
+INSTALL_SUCCESS=0
+for IDX in "${TRY_INDICES[@]}"; do
+    print_info "Trying PyG wheel index: ${IDX}"
+    # Try to install extensions from this index
+    if pip install --no-cache-dir --quiet torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 -f ${IDX}; then
+        if pip install --no-cache-dir --quiet torch-geometric==2.1.0; then
+            print_info "Installed PyG extensions successfully using index: ${IDX}"
+            INSTALL_SUCCESS=1
+            break
+        else
+            print_warning "torch-geometric install failed for index ${IDX}; trying next index"
+        fi
+    else
+        print_warning "PyG extension wheel install failed for index ${IDX}; trying next index"
+    fi
+done
+
+if [ ${INSTALL_SUCCESS} -ne 1 ]; then
+    print_error "Failed to install PyG extension wheels from known indices."
+    print_error "You can try manual installation (see QUICKSTART.md) or install a matching PyTorch build first."
+    exit 1
+fi
 
 # Install additional utilities
 pip install --quiet tqdm scikit-learn pandas matplotlib seaborn pyyaml
