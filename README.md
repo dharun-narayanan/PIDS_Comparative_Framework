@@ -12,7 +12,7 @@
 
 </div>
 
-> **📚 Documentation**: This README provides complete framework documentation. For quick setup, see [QUICKSTART.md](QUICKSTART.md).
+> **📚 Documentation**: This README provides complete framework documentation. For quick setup, see [setup.md](setup.md).
 
 ---
 

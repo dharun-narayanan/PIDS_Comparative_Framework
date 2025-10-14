@@ -23,9 +23,6 @@ dependencies:
   
   # Graph Libraries
   - networkx=2.8.8
-  # The Graphviz Python package (rendering backend binary may be required on the OS).
-  # Installing via pip is more portable across channels; the system 'graphviz' binary
-  # can be installed separately (e.g., `brew install graphviz` on macOS).
   
   # Utilities
   - tqdm
@@ -37,9 +34,13 @@ dependencies:
   - matplotlib=3.7.1
   - seaborn=0.12.2
   
-  # Database
+  # Database (for Kairos and Orthrus)
   - psycopg2=2.9.6
   - sqlalchemy=2.0.15
+  
+  # Federated Learning (for Continuum_FL)
+  - mpi4py=3.1.3
+  - redis=4.5.4
   
   # Development
   - pytest
@@ -49,18 +50,37 @@ dependencies:
   
   # Pip dependencies
   - pip:
+    # Core graph deep learning
     - dgl==1.0.0
+    - torch-geometric==2.1.0
+    - torch-scatter==2.1.0
+    - torch-sparse==0.6.16
+    - torch-cluster==1.6.0
+    
+    # Model-specific dependencies
+    - xxhash==3.2.0
     - graphviz==0.20.1
-      - xxhash==3.2.0
-      - wandb==0.15.0
-      - tensorboard==2.13.0
-      - hydra-core==1.3.2
-      - omegaconf==2.3.0
-      - plotly==5.14.1
-      - fastapi==0.95.2
-      - uvicorn==0.22.0
-      - flask==2.3.2
-      - python-louvain==0.16
+    - python-louvain==0.16
+    
+    # Experiment tracking and logging
+    - wandb==0.15.0
+    - tensorboard==2.13.0
+    
+    # Configuration management
+    - hydra-core==1.3.2
+    - omegaconf==2.3.0
+    
+    # Visualization
+    - plotly==5.14.1
+    
+    # Web frameworks (optional for deployment)
+    - fastapi==0.95.2
+    - uvicorn==0.22.0
+    - flask==2.3.2
+    
+    # Federated learning (Continuum_FL)
+    - paho-mqtt==1.6.1
+    
+    # Download utilities
     - gdown
     - requests
-    - tqdm

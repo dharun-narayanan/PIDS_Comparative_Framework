@@ -1,4 +1,4 @@
-# PIDS Framework - Quick Start Guide
+# PIDS Framework - Complete Setup Guide
 
 ## 🎯 Overview
 
@@ -9,7 +9,7 @@ This framework evaluates **5 pretrained PIDS models** on your custom SOC data:
 - **ThreaTrace** - Scalable Graph Processing
 - **Continuum_FL** - Federated Learning PIDS
 
-**Default workflow**: Download pretrained weights → Preprocess data → Evaluate models → Compare performance
+**Default workflow**: Setup environment → Setup models & weights → Preprocess data → Evaluate models → Compare performance
 
 ---
 
@@ -18,7 +18,8 @@ This framework evaluates **5 pretrained PIDS models** on your custom SOC data:
 Before starting, ensure you have:
 - ✅ **Conda** installed (Anaconda or Miniconda)
 - ✅ **Python 3.8+** (will be installed via conda)
- - ✅ **Graphviz (system binary)** - required for some visualization tools. The Python package is installed via pip in the environment, but the system `graphviz` binary (provides `dot`) should be installed separately. On macOS:
+- ✅ **Graphviz (system binary)** - required for visualization (optional but recommended). 
+On macOS:
 ```bash
 # Install Graphviz via Homebrew
 brew install graphviz
@@ -42,7 +43,9 @@ conda --version
 
 ---
 
-## 🚀 Complete Setup Guide (Step-by-Step)
+## 🚀 Streamlined Setup (3 Simple Steps)
+
+The framework has been optimized to minimize setup steps. You now need only **3 commands** to get started!
 
 ### Step 1: Navigate to Framework Directory
 
@@ -52,20 +55,25 @@ cd /Users/lakshmid/Downloads/Research/Final\ PIDS/PIDS_Files/PIDS_Comparative_Fr
 
 # Verify you're in the correct directory
 ls
-# Expected output: README.md, QUICKSTART.md, scripts/, models/, etc.
+# Expected output: README.md, setup.md, scripts/, models/, etc.
 ```
 
 ---
 
-### Step 2: Run Automated Setup
+### Step 2: Run Complete Environment Setup
 
-This will create a conda environment and install all dependencies.
+**This single script does everything:**
+- ✅ Creates conda environment
+- ✅ Installs all core dependencies
+- ✅ Applies PyTorch MKL fix automatically
+- ✅ Creates directory structure
+- ✅ Verifies installation
 
 ```bash
 # Make setup script executable (if not already)
 chmod +x scripts/setup.sh
 
-# Run the setup script
+# Run the complete setup script
 ./scripts/setup.sh
 ```
 
@@ -75,24 +83,40 @@ chmod +x scripts/setup.sh
 3. ✅ Installs PyTorch 1.12.1 with CUDA 11.6
 4. ✅ Installs DGL 1.0.0 (Deep Graph Library)
 5. ✅ Installs PyTorch Geometric 2.1.0
-6. ✅ Installs all framework dependencies
+6. ✅ Applies MKL threading fix automatically (no separate step needed!)
 7. ✅ Creates necessary directories
+8. ✅ Verifies installation
 
 **Expected output:**
 ```
-Step 1/8: Checking for Conda installation...
+Step 1/7: Checking for Conda installation...
 ✓ Conda is installed: conda 23.x.x
 
-Step 2/8: Creating pids_framework environment...
+Step 2/7: Creating pids_framework environment...
 ✓ Environment created successfully
 
-...
+Step 3/7: Initializing Conda for shell...
+✓ Conda initialized
 
-Step 8/8: Verifying installation...
-✓ Installation complete!
+Step 4/7: Activating environment...
+✓ Environment activated: pids_framework
+
+Step 5/7: Applying PyTorch MKL threading fix...
+✓ MKL threading fix applied (will auto-activate with environment)
+✓ PyTorch is working!
+
+Step 6/7: Creating directory structure...
+✓ Directory structure created
+
+Step 7/7: Verifying installation...
+✓ All core dependencies installed successfully
+
+============================================
+✓ Setup completed successfully!
+============================================
 ```
 
-**If setup fails**, see [Troubleshooting](#troubleshooting) section below.
+**If setup fails**, the script includes automatic fixes for common issues. See [Troubleshooting](#troubleshooting) section if problems persist.
 
 ---
 
@@ -111,109 +135,92 @@ echo $CONDA_DEFAULT_ENV
 
 ---
 
-### Step 4: Install Model-Specific Dependencies
+### Step 4: Setup Models and Pretrained Weights
 
-Each model has specific dependencies that need to be installed.
+**This unified script handles everything:**
+- ✅ Installs model-specific dependencies
+- ✅ **Downloads pretrained weights from GitHub repositories** (primary method)
+- ✅ Falls back to local directories if GitHub download fails
 
 ```bash
-# Install dependencies for ALL models (recommended)
-./scripts/install_model_deps.sh --all
+# Setup ALL models (recommended - downloads from GitHub!)
+python scripts/setup_models.py --all
 
-# OR install for specific models only
-./scripts/install_model_deps.sh --models magic kairos orthrus
+# OR setup specific models only
+python scripts/setup_models.py --models magic kairos orthrus
+
+# List available models and their GitHub repos
+python scripts/setup_models.py --list
 ```
 
-**This installs:**
-- MAGIC: Additional graph processing libraries
-- Kairos: Temporal modeling dependencies
-- Orthrus: Contrastive learning packages
-- ThreaTrace: GraphChi libraries
-- Continuum_FL: Federated learning tools
+**How it works:**
+1. **Primary Method**: Downloads weights directly from official GitHub repositories:
+   - **MAGIC**: https://github.com/FDUDSDE/MAGIC
+   - **Continuum_FL**: https://github.com/kamelferrahi/Continuum_FL
+   - **ThreaTrace**: https://github.com/threaTrace-detector/threaTrace
+   - **Orthrus**: https://github.com/ubc-provenance/orthrus
+   - **Kairos**: https://github.com/ubc-provenance/kairos
+
+2. **Fallback Method**: If GitHub download fails, searches local directories:
+   - `../MAGIC/checkpoints/`
+   - `../Continuum_FL/checkpoints/`
+   - `../orthrus/weights/`
+   - `../kairos/DARPA/`
+   - `../threaTrace/example_models/`
 
 **Expected output:**
 ```
-Installing dependencies for magic...
+================================================================================
+  PIDS Framework - Model Setup (GitHub Download)
+================================================================================
+Setting up models: magic, kairos, orthrus, threatrace, continuum_fl
+Strategy: Download from GitHub → Fallback to local if needed
+
+================================================================================
+  Setting up MAGIC
+================================================================================
+Description: Masked Graph Autoencoder for APT Detection
+GitHub: https://github.com/FDUDSDE/MAGIC
+
+Installing dependencies for MAGIC...
 ✓ MAGIC dependencies installed
 
-Installing dependencies for kairos...
-✓ Kairos dependencies installed
-
-...
-All model dependencies installed successfully!
-```
-
----
-
-### Step 5: Download/Copy Pretrained Model Weights
-
-**Option A: Copy from Existing Checkpoints (Recommended - No Extra Dependencies)**
-
-If you already have pretrained weights in the parent directories (MAGIC/, Continuum_FL/, etc.):
-
-```bash
-# Use the simple copy script (no external dependencies required)
-python scripts/copy_weights.py
-
-# This automatically finds and copies weights from:
-#   - ../MAGIC/checkpoints/
-#   - ../Continuum_FL/checkpoints/
-#   - ../orthrus/weights/
-#   - ../kairos/DARPA/
-#   - ../threaTrace/models/
-```
-
-**What this does:**
-- Scans parent directories for MAGIC, Continuum_FL, Orthrus, Kairos, ThreaTrace weights
-- Copies all found checkpoints (.pt, .pkl files) to framework's `checkpoints/` directory
-- Organizes by model name automatically
-- No external dependencies required (pure Python)
-
-**Expected output:**
-```
-================================================================================
-  PIDS Framework - Copy Existing Pretrained Weights
-================================================================================
-
-📦 Checking MAGIC weights...
-  ✓ Copied: checkpoint-cadets-e3.pt -> magic/checkpoint-cadets-e3.pt
-  ✓ Copied: checkpoint-streamspot.pt -> magic/checkpoint-streamspot.pt
-  ...
-  ✓ Copied 4 MAGIC checkpoint(s)
-
-📦 Checking Continuum_FL weights...
-  ✓ Copied: checkpoint-cadets-e3.pt -> continuum_fl/checkpoint-cadets-e3.pt
-  ...
-  ✓ Copied 3 Continuum_FL checkpoint(s)
+Downloading weights for MAGIC...
+   Repository: https://github.com/FDUDSDE/MAGIC
+   📥 streamspot: MAGIC trained on StreamSpot dataset
+   Downloading with curl: checkpoint-streamspot.pt
+   ✓ Downloaded: checkpoint-streamspot.pt
+   📥 cadets: MAGIC trained on DARPA CADETS
+   ✓ Downloaded: checkpoint-cadets.pt
+   ...
+✓ Downloaded 5 checkpoint(s) from GitHub/official sources
 
 ...
 
-✅ Successfully copied 9 checkpoint(s)
-📁 Checkpoints saved to: checkpoints/
+================================================================================
+  Setup Summary
+================================================================================
+✓ Dependencies installed for 5 model(s)
+✓ Downloaded 18 checkpoint(s) from GitHub/official sources
+✓ Copied 2 checkpoint(s) from local fallback
+
+Checkpoints saved to: checkpoints/
+
+Next steps:
+  1. Verify weights: ls -lh checkpoints/*/
+  2. Preprocess data: python scripts/preprocess_data.py
+  3. Run evaluation: ./scripts/run_evaluation.sh
 ```
 
-**Option B: Use Enhanced Download Script (Requires gdown)**
+**Note on Special Cases:**
+- **Kairos**: Pre-trained weights available from [Google Drive](https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_hBvvEB6C) (manual download required)
+- **Orthrus**: Pre-trained weights available from [Zenodo](https://zenodo.org/records/14641605) (automatic download via curl/wget)
 
-If you need to download from Google Drive or want to use the full-featured script:
-
-```bash
-# First install optional dependencies
-pip install gdown requests tqdm
-
-# Copy existing weights from local directories
-python scripts/download_weights.py --copy-existing --all-models
-
-# Or download specific model weights from URLs
-python scripts/download_weights.py --model magic --variant cadets_e3
-
-# List available pretrained weights
-python scripts/download_weights.py --list
-```
-
-**Note:** Option A (`copy_weights.py`) is simpler and recommended for most users. Option B (`download_weights.py`) is for downloading from online sources.
+The script will automatically use `curl` or `wget` (whichever is available) to download weights.
 
 ---
 
-### Step 6: Prepare Your Custom Dataset
+### Step 5: Prepare Your Custom Dataset
 
 Place your SOC data in the `custom_dataset` directory (sibling to framework).
 
