@@ -9,19 +9,20 @@ including Google Drive, GitHub releases, and direct URLs.
 import os
 import sys
 import argparse
-import requests
+import logging
 from pathlib import Path
-from tqdm import tqdm
-import gdown
 from urllib.parse import urlparse
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.common import setup_logger
-
-logger = setup_logger("download_weights")
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 # Pretrained model weights URLs
@@ -75,6 +76,14 @@ PRETRAINED_WEIGHTS = {
 def download_from_google_drive(url: str, output_path: Path):
     """Download file from Google Drive."""
     try:
+        # Import gdown only when needed
+        try:
+            import gdown
+        except ImportError:
+            logger.error("gdown not installed. Install with: pip install gdown")
+            logger.info("For copying existing weights, use --copy-existing flag instead")
+            return False
+        
         # Extract file ID from URL
         if 'drive.google.com' in url:
             gdown.download(url, str(output_path), quiet=False, fuzzy=True)
@@ -88,6 +97,14 @@ def download_from_google_drive(url: str, output_path: Path):
 def download_from_url(url: str, output_path: Path):
     """Download file from direct URL with progress bar."""
     try:
+        # Import requests and tqdm only when needed
+        try:
+            import requests
+            from tqdm import tqdm
+        except ImportError:
+            logger.error("requests or tqdm not installed. Install with: pip install requests tqdm")
+            return False
+        
         response = requests.get(url, stream=True)
         response.raise_for_status()
         

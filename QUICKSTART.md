@@ -146,49 +146,70 @@ All model dependencies installed successfully!
 
 ### Step 5: Download/Copy Pretrained Model Weights
 
-**Option A: Copy from Existing Checkpoints (Recommended)**
+**Option A: Copy from Existing Checkpoints (Recommended - No Extra Dependencies)**
 
 If you already have pretrained weights in the parent directories (MAGIC/, Continuum_FL/, etc.):
 
 ```bash
-# Copy existing weights from MAGIC, Continuum_FL directories
-python scripts/download_weights.py --copy-existing --all-models
+# Use the simple copy script (no external dependencies required)
+python scripts/copy_weights.py
 
-# Verify weights were copied
-ls checkpoints/
-# Expected: magic/, kairos/, orthrus/, threatrace/, continuum_fl/
+# This automatically finds and copies weights from:
+#   - ../MAGIC/checkpoints/
+#   - ../Continuum_FL/checkpoints/
+#   - ../orthrus/weights/
+#   - ../kairos/DARPA/
+#   - ../threaTrace/models/
 ```
 
 **What this does:**
-- Scans `../MAGIC/checkpoints/` for MAGIC weights
-- Scans `../Continuum_FL/checkpoints/` for Continuum_FL weights
-- Copies all found checkpoints to framework's `checkpoints/` directory
-- Organizes by model name
+- Scans parent directories for MAGIC, Continuum_FL, Orthrus, Kairos, ThreaTrace weights
+- Copies all found checkpoints (.pt, .pkl files) to framework's `checkpoints/` directory
+- Organizes by model name automatically
+- No external dependencies required (pure Python)
 
 **Expected output:**
 ```
-Checking for existing weights in project...
-Found MAGIC checkpoints: ../MAGIC/checkpoints
-Copied: checkpoint-cadets-e3.pt -> checkpoints/magic/checkpoint-cadets-e3.pt
-Copied: checkpoint-streamspot.pt -> checkpoints/magic/checkpoint-streamspot.pt
+================================================================================
+  PIDS Framework - Copy Existing Pretrained Weights
+================================================================================
+
+📦 Checking MAGIC weights...
+  ✓ Copied: checkpoint-cadets-e3.pt -> magic/checkpoint-cadets-e3.pt
+  ✓ Copied: checkpoint-streamspot.pt -> magic/checkpoint-streamspot.pt
+  ...
+  ✓ Copied 4 MAGIC checkpoint(s)
+
+📦 Checking Continuum_FL weights...
+  ✓ Copied: checkpoint-cadets-e3.pt -> continuum_fl/checkpoint-cadets-e3.pt
+  ...
+  ✓ Copied 3 Continuum_FL checkpoint(s)
+
 ...
-✓ All existing weights copied
+
+✅ Successfully copied 9 checkpoint(s)
+📁 Checkpoints saved to: checkpoints/
 ```
 
-**Option B: Download from URLs (If weights not available locally)**
+**Option B: Use Enhanced Download Script (Requires gdown)**
+
+If you need to download from Google Drive or want to use the full-featured script:
 
 ```bash
-# List available pretrained weights
-python scripts/download_weights.py --list
+# First install optional dependencies
+pip install gdown requests tqdm
 
-# Download specific model weights
+# Copy existing weights from local directories
+python scripts/download_weights.py --copy-existing --all-models
+
+# Or download specific model weights from URLs
 python scripts/download_weights.py --model magic --variant cadets_e3
 
-# Download all available weights
-python scripts/download_weights.py --model all
+# List available pretrained weights
+python scripts/download_weights.py --list
 ```
 
-**Note:** Some weights may require Google Drive authentication or may not be publicly available. Use Option A if you have local weights.
+**Note:** Option A (`copy_weights.py`) is simpler and recommended for most users. Option B (`download_weights.py`) is for downloading from online sources.
 
 ---
 

@@ -881,7 +881,30 @@ python -c "import torch; print(f'PyTorch {torch.__version__} working!')"
 
 📖 **Detailed Guide**: See [docs/PYTORCH_MKL_FIX.md](docs/PYTORCH_MKL_FIX.md) for comprehensive troubleshooting.
 
-#### Issue 4: Other Import Errors
+#### Issue 4: Missing gdown Module
+
+**Error**: `ModuleNotFoundError: No module named 'gdown'` when running `download_weights.py`
+
+**Cause**: The script needs optional dependencies for downloading from Google Drive.
+
+**Solution (Choose One)**:
+
+```bash
+# Option 1: Use the simple copy script (NO dependencies required - RECOMMENDED)
+python scripts/copy_weights.py
+
+# Option 2: Install optional dependencies and use full-featured script
+pip install gdown requests tqdm
+python scripts/download_weights.py --copy-existing --all-models
+```
+
+**The simple `copy_weights.py` script:**
+- ✅ No external dependencies needed
+- ✅ Automatically finds weights in parent directories
+- ✅ Copies MAGIC, Continuum_FL, Orthrus, Kairos, ThreaTrace weights
+- ✅ Clear output with progress indicators
+
+#### Issue 5: Other Import Errors
 
 **Error**: `ModuleNotFoundError: No module named 'torch'`
 
@@ -891,7 +914,7 @@ conda activate pids_framework
 pip install torch==1.12.1
 ```
 
-#### Issue 5: JSON Files Too Large
+#### Issue 6: JSON Files Too Large
 
 **Error**: `MemoryError: Unable to allocate array`
 
@@ -901,7 +924,7 @@ pip install torch==1.12.1
 python scripts/preprocess_data.py --chunk-size 5000
 ```
 
-#### Issue 6: Dependency Version Conflicts
+#### Issue 7: Dependency Version Conflicts
 
 **Error**: `ERROR: No matching distribution found for pyg-lib==0.2.0` or version conflicts during model dependency installation
 
@@ -928,7 +951,7 @@ git checkout requirements/*.txt
 
 📖 **Detailed Guide**: See [docs/DEPENDENCY_COMPATIBILITY.md](docs/DEPENDENCY_COMPATIBILITY.md) for version compatibility information.
 
-#### Issue 7: Model Not Found
+#### Issue 8: Model Not Found
 
 **Error**: `KeyError: 'magic'`
 
