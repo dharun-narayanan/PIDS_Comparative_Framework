@@ -1,7 +1,12 @@
 #!/bin/bash
 
-# PIDS Comparative Framework - Automated Setup Script
-# This script sets up the framework environment and dependencies
+# PIDS Comparative Framework - Unified Setup Script
+# This script sets up the complete framework environment including:
+#   - Conda environment creation
+#   - All dependencies installation
+#   - PyTorch MKL fix (integrated)
+#   - Directory structure creation
+#   - Installation verification
 #
 # Prerequisites:
 #   - Conda (Anaconda or Miniconda) must be installed
@@ -13,7 +18,7 @@
 set -e  # Exit on error
 
 echo "============================================"
-echo "PIDS Comparative Framework Setup"
+echo "PIDS Comparative Framework - Complete Setup"
 echo "============================================"
 echo ""
 
@@ -42,7 +47,7 @@ print_step() {
 }
 
 # Step 1: Check if conda is installed
-print_step "Step 1/8: Checking for Conda installation"
+print_step "Step 1/7: Checking for Conda installation"
 if ! command -v conda &> /dev/null; then
     print_error "Conda not found! Please install Anaconda or Miniconda first."
     echo ""
@@ -61,7 +66,7 @@ echo ""
 
 # Step 2: Create conda environment
 ENV_NAME="pids_framework"
-print_step "Step 2/8: Creating conda environment: ${ENV_NAME}"
+print_step "Step 2/7: Creating conda environment: ${ENV_NAME}"
 
 # Check if environment exists
 if conda env list | grep -q "^${ENV_NAME} "; then
@@ -85,7 +90,7 @@ fi
 echo ""
 
 # Step 3: Initialize conda for shell
-print_step "Step 3/8: Initializing Conda for shell"
+print_step "Step 3/7: Initializing Conda for shell"
 conda init bash 2>/dev/null || true
 conda init zsh 2>/dev/null || true
 
@@ -103,7 +108,7 @@ eval "$(conda shell.bash hook)"
 echo ""
 
 # Step 4: Activate environment
-print_step "Step 4/8: Activating environment"
+print_step "Step 4/7: Activating environment"
 conda activate ${ENV_NAME}
 
 # Verify activation
@@ -117,90 +122,58 @@ fi
 
 echo ""
 
-# Step 5: Install PyTorch Geometric and additional dependencies
-print_step "Step 5/8: Installing PyTorch Geometric and additional dependencies"
-print_info "This may take a few minutes..."
+# Step 5: Apply PyTorch MKL Fix (integrated from fix_pytorch_mkl.sh)
+print_step "Step 5/7: Applying PyTorch MKL threading fix"
+print_info "Setting MKL_THREADING_LAYER=GNU to prevent symbol conflicts..."
 
-# Install PyG extension wheels that match the installed PyTorch/CUDA build.
-# We try to import torch to detect the CUDA version. If that fails, fall back
-# to checking for cudatoolkit in the conda environment. Default to CPU wheels.
-PYG_TORCH_VERSION="1.12.1"
-WHEEL_INDEX="https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cpu.html"
+# Create activation/deactivation scripts for the conda environment
+mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
+mkdir -p "${CONDA_PREFIX}/etc/conda/deactivate.d"
 
-PYTHON_CHECK='import importlib,sys
-try:
-    import torch
-    v = getattr(torch, "version", None)
-    cuda = getattr(torch, "version", None) and torch.version.cuda
-    if cuda is not None and "11.6" in str(cuda):
-        print("cu116")
-    else:
-        print("cpu")
-except Exception:
-    # fallback to checking conda-installed cudatoolkit
-    try:
-        import subprocess, json
-        out = subprocess.check_output(["conda", "list", "cudatoolkit", "--json"]).decode()
-        entries = json.loads(out)
-        if entries and any("11.6" in e.get("version","") for e in entries):
-            print("cu116")
-        else:
-            print("cpu")
-    except Exception:
-        print("cpu")
-'
+# Create activation script
+cat > "${CONDA_PREFIX}/etc/conda/activate.d/mkl_fix.sh" << 'EOF'
+#!/bin/bash
+export MKL_THREADING_LAYER=GNU
+EOF
 
-PYG_CUDA_TAG=$(python - <<PY
-${PYTHON_CHECK}
-PY
-)
+# Create deactivation script
+cat > "${CONDA_PREFIX}/etc/conda/deactivate.d/mkl_fix.sh" << 'EOF'
+#!/bin/bash
+unset MKL_THREADING_LAYER
+EOF
 
-if [ "${PYG_CUDA_TAG}" = "cu116" ]; then
-    WHEEL_INDEX="https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cu116.html"
-    print_info "Detected CUDA 11.6-compatible PyTorch. Installing CUDA wheels (+cu116)."
+chmod +x "${CONDA_PREFIX}/etc/conda/activate.d/mkl_fix.sh"
+chmod +x "${CONDA_PREFIX}/etc/conda/deactivate.d/mkl_fix.sh"
+
+# Apply the fix for current session
+export MKL_THREADING_LAYER=GNU
+
+print_info "✓ MKL threading fix applied (will auto-activate with environment)"
+
+# Test PyTorch import
+print_info "Testing PyTorch import..."
+if python -c "import torch; print(f'PyTorch {torch.__version__} loaded successfully!')" 2>/dev/null; then
+    print_info "✓ PyTorch is working!"
 else
-    print_info "Installing CPU wheels for PyG extensions. If you have CUDA available, re-run with CUDA-enabled PyTorch."
-fi
-
-# Attempt installation from multiple wheel indices to improve compatibility.
-# Preferred order: detected index, cu116, cu113, cpu.
-declare -a TRY_INDICES=()
-TRY_INDICES+=("${WHEEL_INDEX}")
-TRY_INDICES+=("https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cu116.html")
-TRY_INDICES+=("https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cu113.html")
-TRY_INDICES+=("https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cpu.html")
-
-INSTALL_SUCCESS=0
-for IDX in "${TRY_INDICES[@]}"; do
-    print_info "Trying PyG wheel index: ${IDX}"
-    # Try to install extensions from this index
-    if pip install --no-cache-dir --quiet torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 -f ${IDX}; then
-        if pip install --no-cache-dir --quiet torch-geometric==2.1.0; then
-            print_info "Installed PyG extensions successfully using index: ${IDX}"
-            INSTALL_SUCCESS=1
-            break
-        else
-            print_warning "torch-geometric install failed for index ${IDX}; trying next index"
-        fi
+    print_warning "PyTorch import test failed. Trying alternative fix..."
+    
+    # Method 2: Reinstall with compatible MKL
+    print_info "Reinstalling MKL to compatible version..."
+    conda install "mkl<2024" -c conda-forge --force-reinstall -y
+    
+    # Test again
+    if python -c "import torch; print(f'PyTorch {torch.__version__} loaded successfully!')" 2>/dev/null; then
+        print_info "✓ PyTorch is working after MKL reinstall!"
     else
-        print_warning "PyG extension wheel install failed for index ${IDX}; trying next index"
+        print_error "PyTorch still not working. Manual intervention may be required."
+        print_error "Please see documentation for advanced troubleshooting."
     fi
-done
-
-if [ ${INSTALL_SUCCESS} -ne 1 ]; then
-    print_error "Failed to install PyG extension wheels from known indices."
-    print_error "You can try manual installation (see QUICKSTART.md) or install a matching PyTorch build first."
-    exit 1
 fi
 
-# Install additional utilities
-pip install --quiet tqdm scikit-learn pandas matplotlib seaborn pyyaml
-
-print_info "PyTorch Geometric installed successfully"
 echo ""
 
 # Step 6: Create directory structure
-print_step "Step 6/8: Creating directory structure"
+print_step "Step 6/7: Creating directory structure"
 mkdir -p data/{darpa_tc,streamspot,custom,processed,cache}
 mkdir -p checkpoints/{magic,kairos,orthrus,threatrace,continuum_fl}
 mkdir -p results/{experiments,comparisons,evaluation,plots}
@@ -216,95 +189,31 @@ echo "  └── configs/        - Configuration files"
 echo ""
 
 # Step 7: Verify installation
-print_step "Step 7/8: Verifying installation"
+print_step "Step 7/7: Verifying installation"
 
 print_info "Checking Python version..."
 python --version
 
 print_info "Checking PyTorch installation..."
-# Set MKL threading layer to avoid symbol conflicts in the current session
-export MKL_THREADING_LAYER=GNU
-if ! python -c "import torch; print(f'PyTorch version: {torch.__version__}')" 2>/dev/null; then
-    print_warning "PyTorch import failed. Attempting automated fix using scripts/fix_pytorch_mkl.sh..."
-
-    # Try to run packaged fix script which handles activation scripts and MKL reinstall
-    if [ -x "$(pwd)/scripts/fix_pytorch_mkl.sh" ]; then
-        print_info "Running scripts/fix_pytorch_mkl.sh (may prompt for conda privileges)..."
-        ./scripts/fix_pytorch_mkl.sh || true
-    else
-        print_warning "scripts/fix_pytorch_mkl.sh not found or not executable. Falling back to manual steps."
-    fi
-
-    # After running the fix script (or fallback), try again
-    if MKL_THREADING_LAYER=GNU python -c "import torch; print(f'PyTorch version: {torch.__version__}')" 2>/dev/null; then
-        print_info "PyTorch working with MKL_THREADING_LAYER=GNU"
-        # Ensure activation script exists (if CONDA_PREFIX is set)
-        if [ -n "${CONDA_PREFIX}" ]; then
-            mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
-            echo 'export MKL_THREADING_LAYER=GNU' > "${CONDA_PREFIX}/etc/conda/activate.d/mkl_fix.sh"
-        fi
-        print_info "✓ MKL threading fix applied (activation script created if possible)"
-    else
-        print_error "PyTorch installation verification failed after automated fix."
-        print_error "You can try manual fixes:" 
-        echo "  1) Export for current session: export MKL_THREADING_LAYER=GNU"
-        echo "  2) Run the fix script: chmod +x scripts/fix_pytorch_mkl.sh && ./scripts/fix_pytorch_mkl.sh"
-        echo "  3) Reinstall a compatible MKL: conda install 'mkl<2024' -c conda-forge --force-reinstall -y"
-        echo "  4) Reinstall PyTorch matching your CUDA: conda install pytorch==1.12.1 torchvision torchaudio cudatoolkit=11.6 -c pytorch -y"
-        exit 1
-    fi
-else
-    python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
-fi
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')" || {
+    print_error "PyTorch verification failed"
+    exit 1
+}
 
 print_info "Checking CUDA availability..."
-MKL_THREADING_LAYER=GNU python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else \"N/A\"}'); print(f'Number of GPUs: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else \"N/A\"}'); print(f'Number of GPUs: {torch.cuda.device_count() if torch.cuda.is_available() else 0}')"
 
 print_info "Checking DGL installation..."
-MKL_THREADING_LAYER=GNU python -c "import dgl; print(f'DGL version: {dgl.__version__}')" || print_warning "DGL not installed or not working"
+python -c "import dgl; print(f'DGL version: {dgl.__version__}')" || print_warning "DGL not installed or not working"
 
 print_info "Checking PyTorch Geometric..."
-MKL_THREADING_LAYER=GNU python -c "import torch_geometric; print(f'PyG version: {torch_geometric.__version__}')" || print_warning "PyG not installed or not working"
+python -c "import torch_geometric; print(f'PyG version: {torch_geometric.__version__}')" || print_warning "PyG not installed or not working"
 
 echo ""
 
-# Step 8: Final instructions
-print_step "Step 8/8: Setup complete!"
-echo ""
-echo "============================================"
-echo "  Setup Summary"
-echo "============================================"
-echo "✅ Conda environment created: ${ENV_NAME}"
-echo "✅ Dependencies installed"
-echo "✅ Directory structure created"
-echo "✅ Installation verified"
-echo ""
-echo "============================================"
-echo "  Next Steps"
-echo "============================================"
-echo ""
-echo "1. Activate the environment:"
-echo "   conda activate ${ENV_NAME}"
-echo ""
-echo "2. Install model-specific dependencies:"
-echo "   ./scripts/install_model_deps.sh --all"
-echo ""
-echo "3. Copy existing pretrained weights:"
-echo "   python scripts/download_weights.py --copy-existing"
-echo ""
-echo "4. Preprocess your custom SOC data:"
-echo "   python scripts/preprocess_data.py --input-dir ../custom_dataset/"
-echo ""
-echo "5. Start training:"
-echo "   python experiments/train.py --model magic --dataset custom_soc"
-echo ""
-echo "📖 For detailed instructions, see:"
-echo "   - QUICKSTART.md      - Quick start guide"
-echo "   - README.md          - Complete documentation"
-echo ""
-echo "============================================"
-echo ""
-MKL_THREADING_LAYER=GNU python -c "
+# Final verification
+print_info "Running comprehensive dependency check..."
+python -c "
 import sys
 try:
     import torch
@@ -320,23 +229,30 @@ except ImportError as e:
 "
 
 if [ $? -eq 0 ]; then
-    print_info "Core dependencies verification passed!"
+    echo ""
+    echo "============================================"
+    echo -e "${GREEN}✓ Setup completed successfully!${NC}"
+    echo "============================================"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Activate the environment (if not already active):"
+    echo "   conda activate ${ENV_NAME}"
+    echo ""
+    echo "2. Setup models and download pretrained weights:"
+    echo "   python scripts/setup_models.py --all"
+    echo ""
+    echo "3. Preprocess your custom SOC data:"
+    echo "   python scripts/preprocess_data.py --input-dir ../custom_dataset/"
+    echo ""
+    echo "4. Run evaluation on all models:"
+    echo "   ./scripts/run_evaluation.sh"
+    echo ""
+    echo "📖 For detailed instructions, see:"
+    echo "   - setup.md        - Step-by-step setup guide"
+    echo "   - README.md       - Complete documentation"
+    echo ""
 else
     print_error "Core dependencies verification failed!"
     exit 1
 fi
-
-echo ""
-echo "============================================"
-echo -e "${GREEN}Setup completed successfully!${NC}"
-echo "============================================"
-echo ""
-echo "Next steps:"
-echo "1. Activate the environment: conda activate ${ENV_NAME}"
-echo "2. Download model weights: python scripts/download_weights.py"
-echo "3. Prepare datasets: See docs/datasets.md"
-echo "4. Run example: python experiments/train.py --help"
-echo ""
-echo "For model-specific dependencies, run:"
-echo "  ./scripts/install_model_deps.sh --models magic kairos orthrus"
-echo ""

@@ -114,26 +114,26 @@ if [[ ! -d "$DATA_PATH" ]]; then
 fi
 
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 1/4: Downloading Pretrained Weights${NC}"
+echo -e "${CYAN}Step 1/4: Setting up Models and Pretrained Weights${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
 if [[ "$SKIP_DOWNLOAD" == false ]]; then
-    echo -e "${BLUE}Downloading pretrained weights from existing checkpoints...${NC}"
+    echo -e "${BLUE}Setting up models and copying pretrained weights...${NC}"
     
     if [[ "$MODEL" == "all" ]]; then
-        python scripts/download_weights.py --copy-existing --all-models
+        python scripts/setup_models.py --all --no-install
     else
-        python scripts/download_weights.py --copy-existing --model "$MODEL"
+        python scripts/setup_models.py --models "$MODEL" --no-install
     fi
     
     if [[ $? -eq 0 ]]; then
-        echo -e "${GREEN}✓ Weights downloaded successfully${NC}"
+        echo -e "${GREEN}✓ Model weights setup successfully${NC}"
     else
         echo -e "${YELLOW}⚠ Warning: Some weights may not be available${NC}"
         echo -e "${YELLOW}  Continuing with available weights...${NC}"
     fi
 else
-    echo -e "${YELLOW}Skipping weight download (--skip-download specified)${NC}"
+    echo -e "${YELLOW}Skipping model setup (--skip-download specified)${NC}"
 fi
 
 echo ""
