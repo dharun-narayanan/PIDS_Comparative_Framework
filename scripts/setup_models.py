@@ -157,27 +157,27 @@ MODEL_CONFIGS = {
         'weights': {
             'streamspot': {
                 'filename': 'checkpoint-streamspot.pt',
-                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/main/checkpoints/checkpoint-streamspot.pt',
+                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/master/checkpoints/checkpoint-streamspot.pt',
                 'description': 'Continuum_FL trained on StreamSpot'
             },
             'cadets_e3': {
                 'filename': 'checkpoint-cadets-e3.pt',
-                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/main/checkpoints/checkpoint-cadets-e3.pt',
+                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/master/checkpoints/checkpoint-cadets-e3.pt',
                 'description': 'Continuum_FL trained on CADETS E3'
             },
             'theia_e3': {
                 'filename': 'checkpoint-theia-e3.pt',
-                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/main/checkpoints/checkpoint-theia-e3.pt',
+                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/master/checkpoints/checkpoint-theia-e3.pt',
                 'description': 'Continuum_FL trained on THEIA E3'
             },
             'trace_e3': {
                 'filename': 'checkpoint-trace-e3.pt',
-                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/main/checkpoints/checkpoint-trace-e3.pt',
+                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/master/checkpoints/checkpoint-trace-e3.pt',
                 'description': 'Continuum_FL trained on TRACE E3'
             },
             'clearscope_e3': {
                 'filename': 'checkpoint-clearscope-e3.pt',
-                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/main/checkpoints/checkpoint-clearscope-e3.pt',
+                'url': 'https://raw.githubusercontent.com/kamelferrahi/Continuum_FL/master/checkpoints/checkpoint-clearscope-e3.pt',
                 'description': 'Continuum_FL trained on CLEARSCOPE E3'
             }
         }
