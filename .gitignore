@@ -1,7 +1,6 @@
 checkpoints/
 logs/
 results/
-threatrace/
 data/
 models/__pycache__/
 utils/__pycache__/
