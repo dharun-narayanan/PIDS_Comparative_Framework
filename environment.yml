@@ -23,7 +23,9 @@ dependencies:
   
   # Graph Libraries
   - networkx=2.8.8
-  - graphviz=0.20.1
+  # The Graphviz Python package (rendering backend binary may be required on the OS).
+  # Installing via pip is more portable across channels; the system 'graphviz' binary
+  # can be installed separately (e.g., `brew install graphviz` on macOS).
   
   # Utilities
   - tqdm
@@ -47,11 +49,8 @@ dependencies:
   
   # Pip dependencies
   - pip:
-      - dgl==1.0.0
-      - torch-geometric==2.1.0
-      - torch-scatter==2.0.9
-      - torch-sparse==0.6.15
-      - torch-cluster==1.6.0
+    - dgl==1.0.0
+    - graphviz==0.20.1
       - xxhash==3.2.0
       - wandb==0.15.0
       - tensorboard==2.13.0

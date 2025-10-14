@@ -121,8 +121,50 @@ echo ""
 print_step "Step 5/8: Installing PyTorch Geometric and additional dependencies"
 print_info "This may take a few minutes..."
 
-pip install --quiet torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 -f https://data.pyg.org/whl/torch-1.12.1+cu116.html
-pip install --quiet torch-geometric==2.1.0
+# Install PyG extension wheels that match the installed PyTorch/CUDA build.
+# We try to import torch to detect the CUDA version. If that fails, fall back
+# to checking for cudatoolkit in the conda environment. Default to CPU wheels.
+PYG_TORCH_VERSION="1.12.1"
+WHEEL_INDEX="https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cpu.html"
+
+PYTHON_CHECK='import importlib,sys
+try:
+    import torch
+    v = getattr(torch, "version", None)
+    cuda = getattr(torch, "version", None) and torch.version.cuda
+    if cuda is not None and "11.6" in str(cuda):
+        print("cu116")
+    else:
+        print("cpu")
+except Exception:
+    # fallback to checking conda-installed cudatoolkit
+    try:
+        import subprocess, json
+        out = subprocess.check_output(["conda", "list", "cudatoolkit", "--json"]).decode()
+        entries = json.loads(out)
+        if entries and any("11.6" in e.get("version","") for e in entries):
+            print("cu116")
+        else:
+            print("cpu")
+    except Exception:
+        print("cpu")
+'
+
+PYG_CUDA_TAG=$(python - <<PY
+${PYTHON_CHECK}
+PY
+)
+
+if [ "${PYG_CUDA_TAG}" = "cu116" ]; then
+    WHEEL_INDEX="https://data.pyg.org/whl/torch-${PYG_TORCH_VERSION}+cu116.html"
+    print_info "Detected CUDA 11.6-compatible PyTorch. Installing CUDA wheels (+cu116)."
+else
+    print_info "Installing CPU wheels for PyG extensions. If you have CUDA available, re-run with CUDA-enabled PyTorch."
+fi
+
+# Install the prebuilt extension wheels from the appropriate index
+pip install --no-cache-dir --quiet torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 -f ${WHEEL_INDEX}
+pip install --no-cache-dir --quiet torch-geometric==2.1.0
 
 # Install additional utilities
 pip install --quiet tqdm scikit-learn pandas matplotlib seaborn pyyaml

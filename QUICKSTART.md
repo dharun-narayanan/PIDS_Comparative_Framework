@@ -18,6 +18,17 @@ This framework evaluates **5 pretrained PIDS models** on your custom SOC data:
 Before starting, ensure you have:
 - ✅ **Conda** installed (Anaconda or Miniconda)
 - ✅ **Python 3.8+** (will be installed via conda)
+ - ✅ **Graphviz (system binary)** - required for some visualization tools. The Python package is installed via pip in the environment, but the system `graphviz` binary (provides `dot`) should be installed separately. On macOS:
+```bash
+# Install Graphviz via Homebrew
+brew install graphviz
+# Verify
+dot -V
+```
+On Debian/Ubuntu:
+```bash
+sudo apt-get update && sudo apt-get install -y graphviz
+```
 - ✅ **Git** (for cloning repositories)
 - ✅ **50GB+** free disk space
 - ✅ **16GB+** RAM (8GB minimum)
