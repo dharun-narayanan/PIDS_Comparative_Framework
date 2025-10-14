@@ -424,10 +424,19 @@ def download_weights(model: str, force_download: bool = False) -> int:
             
         dest_file = dest_dir / filename
         
-        # Skip if already exists and not forcing download
-        if dest_file.exists() and not force_download:
-            logger.info(f"   ⏭️  {variant}: Already exists ({filename})")
-            continue
+        # Special handling for Google Drive folders - check if actual model files exist
+        folder_id = weight_info.get('folder_id')
+        if folder_id and weight_info.get('gdrive', False):
+            # For Google Drive folders, check if the destination directory has model files
+            # instead of checking for the placeholder filename
+            if dest_dir.exists() and any(dest_dir.glob('*.pt')):
+                logger.info(f"   ⏭️  {variant}: Already exists (found model files in checkpoints/{model}/)")
+                continue
+        else:
+            # Standard file check
+            if dest_file.exists() and not force_download:
+                logger.info(f"   ⏭️  {variant}: Already exists ({filename})")
+                continue
         
         # Skip if no URL
         if not url:
