@@ -222,28 +222,35 @@ print_info "Checking Python version..."
 python --version
 
 print_info "Checking PyTorch installation..."
-# Set MKL threading layer to avoid symbol conflicts
+# Set MKL threading layer to avoid symbol conflicts in the current session
 export MKL_THREADING_LAYER=GNU
 if ! python -c "import torch; print(f'PyTorch version: {torch.__version__}')" 2>/dev/null; then
-    print_warning "PyTorch import failed. Attempting to fix MKL threading issue..."
-    print_info "Installing compatible MKL version..."
-    conda install "mkl<2024" -c conda-forge --force-reinstall -y -q
-    
-    # Try again with environment variable
+    print_warning "PyTorch import failed. Attempting automated fix using scripts/fix_pytorch_mkl.sh..."
+
+    # Try to run packaged fix script which handles activation scripts and MKL reinstall
+    if [ -x "$(pwd)/scripts/fix_pytorch_mkl.sh" ]; then
+        print_info "Running scripts/fix_pytorch_mkl.sh (may prompt for conda privileges)..."
+        ./scripts/fix_pytorch_mkl.sh || true
+    else
+        print_warning "scripts/fix_pytorch_mkl.sh not found or not executable. Falling back to manual steps."
+    fi
+
+    # After running the fix script (or fallback), try again
     if MKL_THREADING_LAYER=GNU python -c "import torch; print(f'PyTorch version: {torch.__version__}')" 2>/dev/null; then
         print_info "PyTorch working with MKL_THREADING_LAYER=GNU"
-        print_info "Adding MKL fix to conda environment activation..."
-        
-        # Add MKL_THREADING_LAYER to conda env activation script
-        mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
-        echo 'export MKL_THREADING_LAYER=GNU' > "${CONDA_PREFIX}/etc/conda/activate.d/mkl_fix.sh"
-        
-        print_info "✓ MKL threading fix applied automatically on environment activation"
+        # Ensure activation script exists (if CONDA_PREFIX is set)
+        if [ -n "${CONDA_PREFIX}" ]; then
+            mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
+            echo 'export MKL_THREADING_LAYER=GNU' > "${CONDA_PREFIX}/etc/conda/activate.d/mkl_fix.sh"
+        fi
+        print_info "✓ MKL threading fix applied (activation script created if possible)"
     else
-        print_error "PyTorch installation verification failed."
-        print_error "Please try manual fix:"
-        echo "  export MKL_THREADING_LAYER=GNU"
-        echo "  or reinstall with: conda install pytorch==1.12.1 -c pytorch --force-reinstall"
+        print_error "PyTorch installation verification failed after automated fix."
+        print_error "You can try manual fixes:" 
+        echo "  1) Export for current session: export MKL_THREADING_LAYER=GNU"
+        echo "  2) Run the fix script: chmod +x scripts/fix_pytorch_mkl.sh && ./scripts/fix_pytorch_mkl.sh"
+        echo "  3) Reinstall a compatible MKL: conda install 'mkl<2024' -c conda-forge --force-reinstall -y"
+        echo "  4) Reinstall PyTorch matching your CUDA: conda install pytorch==1.12.1 torchvision torchaudio cudatoolkit=11.6 -c pytorch -y"
         exit 1
     fi
 else

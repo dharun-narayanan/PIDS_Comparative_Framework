@@ -676,6 +676,51 @@ conda install pytorch==1.12.1 torchvision torchaudio cudatoolkit=11.6 -c pytorch
 python -c "import torch; print(torch.__version__)"
 ```
 
+### PyTorch MKL / "undefined symbol: iJIT_NotifyEvent" error
+
+If you see an import error mentioning `iJIT_NotifyEvent` (or other MKL-related symbol errors), this is usually caused by a mismatch between PyTorch and Intel MKL threading libraries. The repository includes an automated fixer to resolve this quickly.
+
+Preferred automated fix:
+
+```bash
+# Activate environment first
+conda activate pids_framework
+
+# Make the fix script executable and run it
+chmod +x scripts/fix_pytorch_mkl.sh
+./scripts/fix_pytorch_mkl.sh
+
+# Re-run verification
+python scripts/test_pytorch.py
+```
+
+Quick manual fix (applies to current session and can be made permanent):
+
+```bash
+# For current session
+export MKL_THREADING_LAYER=GNU
+
+# To persist for the conda env
+conda activate pids_framework
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export MKL_THREADING_LAYER=GNU' > $CONDA_PREFIX/etc/conda/activate.d/mkl_fix.sh
+```
+
+If the automated script and manual fix do not work, try reinstalling a compatible MKL version:
+
+```bash
+conda activate pids_framework
+conda install "mkl<2024" -c conda-forge --force-reinstall -y
+```
+
+Verification:
+
+```bash
+python -c "import torch; print(f'PyTorch {torch.__version__}'); print('CUDA available:', torch.cuda.is_available())"
+```
+
+See `docs/PYTORCH_MKL_FIX.md` and `scripts/fix_pytorch_mkl.sh` for more details.
+
 ### Issue 7: Model Not Registered
 
 **Error:** `KeyError: 'magic'` or `Model not found`
