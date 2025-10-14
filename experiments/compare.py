@@ -21,12 +21,14 @@ import seaborn as sns
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.common import setup_logger, load_config, set_seed
+from utils.common import setup_logging, load_config, set_seed
 from utils.metrics import compute_detection_metrics
 from models import ModelRegistry
 from data.dataset import get_dataloader
+import logging
 
-logger = setup_logger("compare_models")
+setup_logging()
+logger = logging.getLogger("compare_models")
 
 
 class ModelComparator:

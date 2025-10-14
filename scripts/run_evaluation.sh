@@ -66,17 +66,20 @@ while [[ $# -gt 0 ]]; do
             echo "  --model MODEL          Model to evaluate (magic, kairos, orthrus, threatrace, continuum_fl, all)"
             echo "                         Default: all"
             echo "  --dataset DATASET      Dataset name (default: custom_soc)"
-            echo "  --data-path PATH       Path to your data (default: ../custom_dataset)"
+            echo "  --data-path PATH       Path to preprocessed data (e.g., data/custom_soc)"
+            echo "                         OR path to JSON source files (e.g., ../custom_dataset)"
+            echo "                         Script will auto-detect if data is already preprocessed"
+            echo "                         Default: ../custom_dataset"
             echo "  --skip-download        Skip downloading pretrained weights"
-            echo "  --skip-preprocess      Skip data preprocessing"
+            echo "  --skip-preprocess      Skip data preprocessing (use if already preprocessed)"
             echo "  --output-dir DIR       Output directory for results"
             echo "  --help, -h            Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                                    # Evaluate all models"
-            echo "  $0 --model magic                      # Evaluate MAGIC only"
-            echo "  $0 --data-path /path/to/logs          # Use different data path"
-            echo "  $0 --skip-download --skip-preprocess  # Skip setup steps"
+            echo "  $0                                           # Full workflow (download, preprocess, evaluate)"
+            echo "  $0 --data-path data/custom_soc              # Use already preprocessed data"
+            echo "  $0 --model magic --skip-download            # Evaluate MAGIC, skip weight download"
+            echo "  $0 --data-path ../my_data --dataset my_soc  # Preprocess and evaluate custom data"
             exit 0
             ;;
         *)
@@ -138,26 +141,45 @@ fi
 
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 2/4: Preprocessing Custom Dataset${NC}"
+echo -e "${CYAN}Step 2/4: Checking Preprocessed Data${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
-if [[ "$SKIP_PREPROCESS" == false ]]; then
+# Check if data is already preprocessed (has .pkl or .pt files)
+PREPROCESSED_DATA_PATH="data/${DATASET}"
+if [[ -f "${PREPROCESSED_DATA_PATH}/custom_soc_graph.pkl" ]] || [[ -f "${PREPROCESSED_DATA_PATH}/graph.pkl" ]] || [[ -f "${DATA_PATH}/custom_soc_graph.pkl" ]]; then
+    echo -e "${GREEN}✓ Preprocessed data found${NC}"
+    # If user provided preprocessed data path, use it directly
+    if [[ -f "${DATA_PATH}/custom_soc_graph.pkl" ]] || [[ -f "${DATA_PATH}/graph.pkl" ]]; then
+        PREPROCESSED_DATA_PATH="$DATA_PATH"
+        echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}${NC}"
+    else
+        echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}${NC}"
+    fi
+elif [[ "$SKIP_PREPROCESS" == false ]]; then
+    echo -e "${YELLOW}⚠ Preprocessed data not found${NC}"
     echo -e "${BLUE}Preprocessing your SOC data...${NC}"
     echo -e "${BLUE}This may take several minutes for large datasets (2GB+)${NC}"
+    echo -e "${BLUE}Note: DATA_PATH should point to JSON source files (e.g., ../custom_dataset)${NC}"
     
     python scripts/preprocess_data.py \
         --input-dir "$DATA_PATH" \
-        --output-dir "data/${DATASET}" \
+        --output-dir "${PREPROCESSED_DATA_PATH}" \
         --dataset-name "$DATASET"
     
     if [[ $? -eq 0 ]]; then
         echo -e "${GREEN}✓ Data preprocessing completed${NC}"
     else
         echo -e "${RED}Error: Data preprocessing failed${NC}"
+        echo -e "${YELLOW}Hint: Ensure DATA_PATH points to directory with JSON files${NC}"
+        echo -e "${YELLOW}  Current: ${DATA_PATH}${NC}"
         exit 1
     fi
 else
-    echo -e "${YELLOW}Skipping preprocessing (--skip-preprocess specified)${NC}"
+    echo -e "${RED}Error: No preprocessed data found and --skip-preprocess was specified${NC}"
+    echo -e "${YELLOW}Please either:${NC}"
+    echo -e "${YELLOW}  1. Run preprocessing first: python scripts/preprocess_data.py --input-dir ../custom_dataset --output-dir data/${DATASET} --dataset-name ${DATASET}${NC}"
+    echo -e "${YELLOW}  2. Provide correct --data-path pointing to preprocessed data${NC}"
+    exit 1
 fi
 
 echo ""
@@ -181,7 +203,7 @@ if [[ "$MODEL" == "all" ]]; then
         python experiments/evaluate.py \
             --model "$model_name" \
             --dataset "$DATASET" \
-            --data-path "data/${DATASET}" \
+            --data-path "${PREPROCESSED_DATA_PATH}" \
             --pretrained \
             --checkpoint-dir checkpoints \
             --output-dir "$OUTPUT_DIR" \
@@ -202,7 +224,7 @@ else
     python experiments/evaluate.py \
         --model "$MODEL" \
         --dataset "$DATASET" \
-        --data-path "data/${DATASET}" \
+        --data-path "${PREPROCESSED_DATA_PATH}" \
         --pretrained \
         --checkpoint-dir checkpoints \
         --output-dir "$OUTPUT_DIR" \
