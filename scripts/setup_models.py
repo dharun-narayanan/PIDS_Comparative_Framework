@@ -233,28 +233,22 @@ def copy_local_weights(model: str) -> int:
     
     # Special handling for ThreaTrace - copy entire directory structure
     if model == 'threatrace':
-        # ThreaTrace models go into threaTrace/ not checkpoints/threatrace/
-        dest_base = project_root / 'threaTrace'
-        dest_base.mkdir(parents=True, exist_ok=True)
-        
         for local_path in config.get('local_fallback', []):
             if not local_path.exists():
                 continue
             
             logger.info(f"   Checking local fallback: {local_path.parent.name}/{local_path.name}")
             
-            # Copy the entire example_models directory structure
-            dest_models_dir = dest_base / 'example_models'
-            
-            if dest_models_dir.exists():
+            # Copy the entire example_models directory structure to checkpoints/threatrace/
+            if dest_dir.exists() and any(dest_dir.iterdir()):
                 logger.info(f"      ⏭️  Skipping (already exists): example_models/")
-                logger.info(f"         Target: {dest_models_dir}")
+                logger.info(f"         Target: {dest_dir}")
                 return 1  # Count as success since it exists
             
             try:
-                shutil.copytree(local_path, dest_models_dir)
-                logger.info(f"      ✓ Copied directory: example_models/")
-                logger.info(f"         → {dest_models_dir}")
+                shutil.copytree(local_path, dest_dir, dirs_exist_ok=True)
+                logger.info(f"      ✓ Copied directory: example_models/ → checkpoints/{model}/")
+                logger.info(f"         Target: {dest_dir}")
                 return 1
             except Exception as e:
                 logger.warning(f"      ✗ Failed to copy example_models/: {e}")
@@ -402,15 +396,12 @@ def download_weights(model: str, force_download: bool = False) -> int:
                 logger.info(f"   ℹ️  git sparse-checkout: Missing configuration")
                 continue
             
-            # For ThreaTrace, target is threaTrace/example_models
-            if model == 'threatrace':
-                target_dir = project_root / 'threaTrace' / 'example_models'
-            else:
-                target_dir = dest_dir.parent / sparse_paths[0].split('/')[-1]
+            # Target directory is checkpoints/<model>/ (standard location)
+            target_dir = dest_dir
             
             # Skip if already exists and not forcing download
-            if target_dir.exists() and not force_download:
-                logger.info(f"   ⏭️  {variant}: Already exists ({target_dir.relative_to(project_root)})")
+            if target_dir.exists() and any(target_dir.iterdir()) and not force_download:
+                logger.info(f"   ⏭️  {variant}: Already exists (checkpoints/{model}/)")
                 continue
             
             logger.info(f"   📥 {variant}: {weight_info['description']}")
@@ -420,7 +411,7 @@ def download_weights(model: str, force_download: bool = False) -> int:
             else:
                 failed_downloads.append(variant)
                 logger.warning(f"      ⚠️  Git sparse-checkout failed")
-                logger.info(f"      💡 Alternative: git clone {repo_url} && cd threaTrace && cp -r example_models ../checkpoints/")
+                logger.info(f"      💡 Alternative: git clone {repo_url} && cp -r example_models checkpoints/{model}/")
             continue
         
         filename = weight_info.get('filename')
