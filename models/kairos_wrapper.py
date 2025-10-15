@@ -2,18 +2,15 @@
 Kairos Model Wrapper for PIDS Comparative Framework
 """
 
-import sys
-from pathlib import Path
 import torch
 import torch.nn as nn
 from typing import Dict, Any
 import numpy as np
-
-# Add Kairos directory to path
-KAIROS_DIR = Path(__file__).parent.parent.parent / 'kairos/DARPA/CADETS_E3'
-sys.path.insert(0, str(KAIROS_DIR))
+from pathlib import Path
 
 from models.base_model import BasePIDSModel, ModelRegistry
+# Import from standalone implementation
+from models.implementations.kairos import GraphAttentionEmbedding, LinkPredictor, TimeEncoder, setup_kairos_model, prepare_kairos_batch
 
 
 @ModelRegistry.register('kairos')
@@ -21,43 +18,37 @@ class KairosModel(BasePIDSModel):
     """
     Kairos: Practical Intrusion Detection using Whole-system Provenance
     Paper: IEEE S&P 2024
+    
+    This wrapper uses a standalone implementation of Kairos that is self-contained
+    within the framework and does not depend on external repositories.
     """
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         
-        # Import Kairos components
-        try:
-            from model import GraphAttentionEmbedding, LinkPredictor
-            from kairos_utils import TimeEncoder
-            
-            # Model dimensions
-            self.in_channels = config.get('in_channels', 100)
-            self.out_channels = config.get('out_channels', 100)
-            self.msg_dim = config.get('msg_dim', 100)
-            
-            # Initialize Kairos components
-            self.time_enc = TimeEncoder(self.out_channels)
-            self.gnn = GraphAttentionEmbedding(
-                self.in_channels,
-                self.out_channels,
-                self.msg_dim,
-                self.time_enc
-            )
-            self.link_predictor = LinkPredictor(
-                self.out_channels,
-                self.out_channels
-            )
-            
-            # Memory for temporal information
-            self.memory_dim = config.get('memory_dim', 100)
-            self.max_nodes = config.get('max_nodes', 268243)
-            
-            self.logger.info(f"Kairos model initialized with {self.count_parameters()} parameters")
-            
-        except ImportError as e:
-            self.logger.error(f"Failed to import Kairos components: {e}")
-            raise
+        # Model dimensions
+        self.in_channels = config.get('in_channels', 100)
+        self.out_channels = config.get('out_channels', 100)
+        self.msg_dim = config.get('msg_dim', 100)
+        
+        # Initialize Kairos components using standalone implementation
+        self.time_enc = TimeEncoder(self.out_channels)
+        self.gnn = GraphAttentionEmbedding(
+            self.in_channels,
+            self.out_channels,
+            self.msg_dim,
+            self.time_enc
+        )
+        self.link_predictor = LinkPredictor(
+            self.out_channels,
+            self.out_channels
+        )
+        
+        # Memory for temporal information
+        self.memory_dim = config.get('memory_dim', 100)
+        self.max_nodes = config.get('max_nodes', 268243)
+        
+        self.logger.info(f"Kairos model initialized with {self.count_parameters()} parameters")
     
     def forward(self, batch):
         """Forward pass through Kairos model."""

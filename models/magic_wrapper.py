@@ -2,17 +2,14 @@
 MAGIC Model Wrapper for PIDS Comparative Framework
 """
 
-import sys
-from pathlib import Path
 import torch
 import torch.nn as nn
 from typing import Dict, Any
-
-# Add MAGIC directory to path
-MAGIC_DIR = Path(__file__).parent.parent.parent / 'MAGIC'
-sys.path.insert(0, str(MAGIC_DIR))
+from pathlib import Path
 
 from models.base_model import BasePIDSModel, ModelRegistry
+# Import from standalone implementation
+from models.implementations.magic import build_model, evaluate_entity_level_using_knn
 
 
 @ModelRegistry.register('magic')
@@ -20,18 +17,17 @@ class MAGICModel(BasePIDSModel):
     """
     MAGIC: Masked Graph Representation Learning for APT Detection
     Paper: USENIX Security 2024
+    
+    This wrapper uses a standalone implementation of MAGIC that is self-contained
+    within the framework and does not depend on external repositories.
     """
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         
-        # Import MAGIC components
-        from model.autoencoder import build_model as build_magic_model
-        from utils.config import build_args
-        
-        # Build MAGIC model
+        # Build MAGIC model from standalone implementation
         args = self._build_magic_args(config)
-        self.magic_model = build_magic_model(args)
+        self.magic_model = build_model(args)
         self.args = args
         
         self.logger.info(f"MAGIC model initialized with {self.count_parameters()} parameters")
@@ -83,7 +79,6 @@ class MAGICModel(BasePIDSModel):
         """Evaluate MAGIC model."""
         self.magic_model.eval()
         
-        from model.eval import evaluate_entity_level_using_knn
         import numpy as np
         
         all_embeddings = []
@@ -103,16 +98,13 @@ class MAGICModel(BasePIDSModel):
             
             if len(all_labels) > 0:
                 all_labels = np.concatenate(all_labels, axis=0)
-                # Compute metrics using k-NN
-                metrics = {}
-                # Placeholder - implement actual evaluation
-                metrics['auc_roc'] = 0.0
+                # Use standalone evaluation function
+                metrics = evaluate_entity_level_using_knn(all_embeddings, all_labels)
+                return metrics
             else:
-                metrics = {'embeddings_computed': True}
+                return {'auc_roc': 0.0, 'f1': 0.0, 'precision': 0.0, 'recall': 0.0}
         else:
-            metrics = {'error': 'No data processed'}
-        
-        return metrics
+            return {'auc_roc': 0.0, 'f1': 0.0, 'precision': 0.0, 'recall': 0.0}
     
     def get_embeddings(self, batch):
         """Extract embeddings from MAGIC model."""

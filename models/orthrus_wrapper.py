@@ -2,18 +2,15 @@
 Orthrus Model Wrapper for PIDS Comparative Framework
 """
 
-import sys
-from pathlib import Path
 import torch
 import torch.nn as nn
 from typing import Dict, Any
 import numpy as np
-
-# Add Orthrus directory to path
-ORTHRUS_DIR = Path(__file__).parent.parent.parent / 'orthrus/src'
-sys.path.insert(0, str(ORTHRUS_DIR))
+from pathlib import Path
 
 from models.base_model import BasePIDSModel, ModelRegistry
+# Import from standalone implementation
+from models.implementations.orthrus import Orthrus, get_encoder, get_decoders, setup_orthrus_model, prepare_orthrus_batch
 
 
 @ModelRegistry.register('orthrus')
@@ -21,43 +18,24 @@ class OrthrusModel(BasePIDSModel):
     """
     Orthrus: High Quality Attribution in Provenance-based IDS
     Paper: USENIX Security 2025
+    
+    This wrapper uses a standalone implementation of Orthrus that is self-contained
+    within the framework and does not depend on external repositories.
     """
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         
-        try:
-            from model import Orthrus
-            from encoders import get_encoder
-            from decoders import get_decoders
-            
-            # Model configuration
-            self.num_nodes = config.get('num_nodes', 100000)
-            self.in_dim = config.get('in_dim', 100)
-            self.out_dim = config.get('out_dim', 100)
-            self.use_contrastive = config.get('use_contrastive_learning', True)
-            
-            # Build encoder and decoders
-            encoder = get_encoder(config)
-            decoders = get_decoders(config)
-            
-            # Initialize Orthrus model
-            self.orthrus_model = Orthrus(
-                encoder=encoder,
-                decoders=decoders,
-                num_nodes=self.num_nodes,
-                in_dim=self.in_dim,
-                out_dim=self.out_dim,
-                use_contrastive_learning=self.use_contrastive,
-                device=self.device,
-                graph_reindexer=None
-            )
-            
-            self.logger.info(f"Orthrus model initialized with {self.count_parameters()} parameters")
-            
-        except ImportError as e:
-            self.logger.error(f"Failed to import Orthrus components: {e}")
-            raise
+        # Model configuration
+        self.num_nodes = config.get('num_nodes', 100000)
+        self.in_dim = config.get('in_dim', 100)
+        self.out_dim = config.get('out_dim', 100)
+        self.use_contrastive = config.get('use_contrastive_learning', True)
+        
+        # Build Orthrus model using standalone implementation
+        self.orthrus_model = setup_orthrus_model(config)
+        
+        self.logger.info(f"Orthrus model initialized with {self.count_parameters()} parameters")
     
     def forward(self, batch):
         """Forward pass through Orthrus model."""

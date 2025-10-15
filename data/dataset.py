@@ -236,6 +236,7 @@ def get_dataset(dataset_name: str, data_path: Path, config: Dict[str, Any],
     """
     dataset_map = {
         'custom': CustomSOCDataset,
+        'custom_soc': CustomSOCDataset,
         'graph': GraphDataset,
         'stream': StreamDataset,
     }
@@ -247,3 +248,29 @@ def get_dataset(dataset_name: str, data_path: Path, config: Dict[str, Any],
         dataset_class = dataset_map[dataset_name]
     
     return dataset_class(data_path, config, split)
+
+
+def get_dataloader(dataset: BasePIDSDataset, batch_size: int = 32, 
+                  shuffle: bool = True, num_workers: int = 0, **kwargs):
+    """
+    Create a DataLoader for the dataset.
+    
+    Args:
+        dataset: Dataset instance
+        batch_size: Batch size
+        shuffle: Whether to shuffle
+        num_workers: Number of workers
+        **kwargs: Additional DataLoader arguments
+        
+    Returns:
+        DataLoader instance
+    """
+    from torch.utils.data import DataLoader
+    
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        **kwargs
+    )

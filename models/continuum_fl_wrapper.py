@@ -7,27 +7,19 @@ into the framework's BasePIDSModel interface.
 Paper: Continuum_FL - Federated Learning for Provenance-based IDS
 """
 
-import sys
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import torch
 import torch.nn as nn
 
-# Add Continuum_FL to path
-continuum_fl_path = Path(__file__).parent.parent.parent / "Continuum_FL"
-sys.path.insert(0, str(continuum_fl_path))
-
 from models.base_model import BasePIDSModel, ModelRegistry
 
-# Import Continuum_FL components
-try:
-    from model.model import STGNN_AutoEncoder
-    from utils.config import build_args
-    from utils.poolers import Pooling
-    from model.eval import batch_level_evaluation, evaluate_entity_level_using_knn
-except ImportError as e:
-    print(f"Warning: Could not import Continuum_FL modules: {e}")
-    STGNN_AutoEncoder = None
+# Import Continuum_FL standalone implementation
+from models.implementations.continuum_fl import (
+    STGNN_AutoEncoder,
+    setup_continuum_fl_model,
+    Pooling
+)
 
 
 @ModelRegistry.register('continuum_fl')
@@ -84,41 +76,25 @@ class ContinuumFLModel(BasePIDSModel):
         alpha_l = arch_config.get('alpha_l', 2)
         use_all_hidden = arch_config.get('use_all_hidden', True)
         
-        # Build model
-        if STGNN_AutoEncoder is not None:
-            self.continuum_model = STGNN_AutoEncoder(
-                n_dim=n_dim,
-                e_dim=e_dim,
-                hidden_dim=hidden_dim,
-                out_dim=out_dim,
-                n_layers=n_layers,
-                n_heads=n_heads,
-                device=self.device,
-                number_snapshot=n_snapshot,
-                activation=activation,
-                feat_drop=feat_drop,
-                negative_slope=negative_slope,
-                residual=residual,
-                norm=norm,
-                pooling=pooling,
-                loss_fn=loss_fn,
-                alpha_l=alpha_l,
-                use_all_hidden=use_all_hidden
-            ).to(self.device)
-        else:
-            # Fallback model if Continuum_FL not available
-            print("Warning: Using fallback model (Continuum_FL not available)")
-            self.continuum_model = self._build_fallback_model(n_dim, out_dim)
-    
-    def _build_fallback_model(self, in_dim: int, out_dim: int):
-        """Build a simple fallback model if Continuum_FL is not available."""
-        return nn.Sequential(
-            nn.Linear(in_dim, out_dim * 2),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(out_dim * 2, out_dim),
-            nn.ReLU(),
-            nn.Linear(out_dim, in_dim)
+        # Build model using standalone implementation
+        self.continuum_model = STGNN_AutoEncoder(
+            n_dim=n_dim,
+            e_dim=e_dim,
+            hidden_dim=hidden_dim,
+            out_dim=out_dim,
+            n_layers=n_layers,
+            n_heads=n_heads,
+            device=self.device,
+            number_snapshot=n_snapshot,
+            activation=activation,
+            feat_drop=feat_drop,
+            negative_slope=negative_slope,
+            residual=residual,
+            norm=norm,
+            pooling=pooling,
+            loss_fn=loss_fn,
+            alpha_l=alpha_l,
+            use_all_hidden=use_all_hidden
         ).to(self.device)
     
     def forward(self, batch) -> torch.Tensor:

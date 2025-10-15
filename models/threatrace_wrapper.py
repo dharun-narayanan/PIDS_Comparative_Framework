@@ -2,18 +2,20 @@
 ThreaTrace Model Wrapper for PIDS Comparative Framework
 """
 
-import sys
 from pathlib import Path
 import torch
 import torch.nn as nn
 from typing import Dict, Any
 import numpy as np
 
-# Add ThreaTrace directory to path
-THREATRACE_DIR = Path(__file__).parent.parent.parent / 'threaTrace'
-sys.path.insert(0, str(THREATRACE_DIR))
-
 from models.base_model import BasePIDSModel, ModelRegistry
+
+# Import ThreaTrace standalone implementation
+from models.implementations.threatrace import (
+    ThreaTraceModel as ThreaTraceCore,
+    SketchGenerator,
+    setup_threatrace_model
+)
 
 
 @ModelRegistry.register('threatrace')
@@ -26,57 +28,40 @@ class ThreaTraceModel(BasePIDSModel):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         
-        # ThreaTrace uses GraphChi for graph processing
-        # We'll create a simple wrapper for the Python interface
-        
-        self.model_dir = Path(config.get('model_dir', THREATRACE_DIR / 'models'))
-        self.graph_data_dir = Path(config.get('graph_data_dir', THREATRACE_DIR / 'graphchi-cpp-master/graph_data'))
+        # Get architecture configuration
+        arch_config = config.get('architecture', {})
         
         # Model parameters
-        self.hidden_dim = config.get('hidden_dim', 128)
-        self.num_layers = config.get('num_layers', 2)
+        in_channels = arch_config.get('in_channels', 64)
+        hidden_channels = arch_config.get('hidden_channels', 128)
+        out_channels = arch_config.get('out_channels', 64)
+        encoder_type = arch_config.get('encoder_type', 'sage')
+        num_layers = arch_config.get('num_layers', 2)
+        dropout = arch_config.get('dropout', 0.5)
+        sketch_size = arch_config.get('sketch_size', 256)
+        num_classes = arch_config.get('num_classes', 2)
         
-        # Initialize simple PyTorch model for compatibility
-        self._build_model()
+        # Build model using standalone implementation
+        self.threatrace_model = ThreaTraceCore(
+            in_channels=in_channels,
+            hidden_channels=hidden_channels,
+            out_channels=out_channels,
+            encoder_type=encoder_type,
+            num_layers=num_layers,
+            dropout=dropout,
+            sketch_size=sketch_size,
+            num_classes=num_classes
+        ).to(self.device)
         
-        self.logger.info(f"ThreaTrace model initialized")
-    
-    def _build_model(self):
-        """Build simple GNN model for ThreaTrace."""
-        try:
-            import torch_geometric.nn as pyg_nn
-            
-            self.conv1 = pyg_nn.GCNConv(-1, self.hidden_dim)
-            self.conv2 = pyg_nn.GCNConv(self.hidden_dim, self.hidden_dim)
-            self.classifier = nn.Linear(self.hidden_dim, 2)
-            
-        except ImportError:
-            self.logger.warning("PyTorch Geometric not available, using simple model")
-            # Fallback to simple linear layers
-            self.encoder = nn.Sequential(
-                nn.Linear(128, self.hidden_dim),
-                nn.ReLU(),
-                nn.Linear(self.hidden_dim, self.hidden_dim)
-            )
-            self.classifier = nn.Linear(self.hidden_dim, 2)
+        self.logger.info(f"ThreaTrace model initialized with {encoder_type} encoder")
     
     def forward(self, batch):
         """Forward pass through ThreaTrace model."""
-        if hasattr(self, 'conv1'):
-            # PyG version
-            x = batch.x if hasattr(batch, 'x') else torch.randn(batch.num_nodes, 128).to(self.device)
-            edge_index = batch.edge_index
-            
-            x = torch.relu(self.conv1(x, edge_index))
-            x = torch.relu(self.conv2(x, edge_index))
-            out = self.classifier(x)
-        else:
-            # Simple version
-            x = batch.x if hasattr(batch, 'x') else torch.randn(batch.num_nodes, 128).to(self.device)
-            x = self.encoder(x)
-            out = self.classifier(x)
+        x = batch.x if hasattr(batch, 'x') else torch.randn(batch.num_nodes, 64).to(self.device)
+        edge_index = batch.edge_index
+        batch_assignment = getattr(batch, 'batch', None)
         
-        return out
+        return self.threatrace_model(x, edge_index, batch_assignment)
     
     def train_epoch(self, dataloader, optimizer, **kwargs):
         """Train ThreaTrace for one epoch."""
