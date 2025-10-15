@@ -65,11 +65,31 @@ def check_preprocessed_file(data_path):
         
         if isinstance(data, dict):
             print(f"  Keys: {list(data.keys())}")
+            
+            # Count actual events/edges
+            num_events = 0
+            if 'events' in data:
+                num_events = len(data['events'])
+                print(f"    ✓ Found 'events' key with {num_events} entries")
+            elif 'edges' in data:
+                num_events = len(data['edges'])
+                print(f"    ✓ Found 'edges' key with {num_events} entries (will be used as events)")
+            else:
+                print(f"    ⚠ No 'events' or 'edges' key found!")
+            
+            # Show all keys with their sizes
             for key, value in data.items():
                 if isinstance(value, (list, dict)):
                     print(f"    {key}: {len(value)} items")
                 else:
-                    print(f"    {key}: {type(value)}")
+                    print(f"    {key}: {type(value).__name__} = {value}")
+                    
+            # Show statistics if available
+            if 'stats' in data and isinstance(data['stats'], dict):
+                print(f"\n  Graph Statistics:")
+                for stat_key, stat_val in data['stats'].items():
+                    print(f"    {stat_key}: {stat_val}")
+                    
         elif hasattr(data, '__dict__'):
             print(f"  Attributes: {list(data.__dict__.keys())[:10]}")
             if hasattr(data, 'num_nodes'):

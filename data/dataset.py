@@ -125,15 +125,23 @@ class CustomSOCDataset(BasePIDSDataset):
                 
                 # Extract events and metadata from preprocessed graph
                 if isinstance(graph_data, dict):
-                    self.events = graph_data.get('events', [])
+                    # Support both 'events' and 'edges' keys for compatibility
+                    self.events = graph_data.get('events', graph_data.get('edges', []))
                     self.graph_data = graph_data
-                    logger.info(f"Loaded preprocessed graph with {len(self.events)} events")
+                    
+                    # Log detailed statistics
+                    num_events = len(self.events)
+                    num_nodes = graph_data.get('num_nodes', 0)
+                    logger.info(f"Loaded preprocessed graph with {num_events} events/edges and {num_nodes} nodes")
+                    
+                    if 'stats' in graph_data:
+                        logger.info(f"Graph statistics: {graph_data['stats']}")
                     
                     # Process the preprocessed graph data
                     self.data = [graph_data]  # Single graph
                     self.labels = [0]  # Benign by default
                     
-                    logger.info(f"Total events loaded: {len(self.events)}")
+                    logger.info(f"Total events loaded: {num_events}")
                     logger.info("Processing events into model input format...")
                     logger.info(f"Processed into {len(self.data)} samples")
                     return
