@@ -92,59 +92,119 @@ def evaluate_model(model, dataloader, device, detection_level='entity', k_neighb
         k_neighbors: Number of neighbors for k-NN
         
     Returns:
-        Dictionary of evaluation metrics
+        Dictionary of evaluation metrics and predictions
     """
     model.set_eval_mode()
     
     all_labels = []
     all_scores = []
     all_predictions = []
+    all_embeddings = []
+    
+    logging.info(f"Evaluating model on {len(dataloader)} batches...")
     
     with torch.no_grad():
         for batch_idx, batch in enumerate(dataloader):
             try:
-                # Extract labels (format depends on data)
-                # labels = batch.labels if hasattr(batch, 'labels') else batch[1]
+                # Move batch to device
+                if hasattr(batch, 'to'):
+                    batch = batch.to(device)
                 
-                # Get model predictions
-                # output = model(batch)
-                # scores = output['scores'] if isinstance(output, dict) else output
+                # Extract labels if available
+                labels = None
+                if hasattr(batch, 'y'):
+                    labels = batch.y
+                elif hasattr(batch, 'labels'):
+                    labels = batch.labels
+                elif isinstance(batch, (tuple, list)) and len(batch) > 1:
+                    labels = batch[1]
                 
-                # Placeholder for actual implementation
-                # all_labels.extend(labels.cpu().numpy())
-                # all_scores.extend(scores.cpu().numpy())
+                # Get model output
+                try:
+                    # Try using model's evaluate method first
+                    if hasattr(model, 'get_embeddings') and detection_level == 'entity':
+                        embeddings = model.get_embeddings(batch)
+                        all_embeddings.append(embeddings.cpu().numpy())
+                    else:
+                        output = model(batch)
+                        
+                        # Handle different output formats
+                        if isinstance(output, dict):
+                            scores = output.get('scores', output.get('predictions', output.get('logits')))
+                        else:
+                            scores = output
+                        
+                        # Convert to scores if needed
+                        if scores.dim() > 1 and scores.shape[-1] > 1:
+                            # Multi-class output - use softmax
+                            scores = torch.softmax(scores, dim=-1)
+                            if scores.shape[-1] == 2:
+                                scores = scores[:, 1]  # Get anomaly class probability
+                            preds = torch.argmax(scores, dim=-1) if scores.dim() > 1 else (scores > 0.5).long()
+                        else:
+                            # Binary output - use sigmoid
+                            scores = torch.sigmoid(scores.squeeze())
+                            preds = (scores > 0.5).long()
+                        
+                        all_scores.extend(scores.cpu().numpy().tolist())
+                        all_predictions.extend(preds.cpu().numpy().tolist())
+                        
+                except Exception as e:
+                    logging.warning(f'Error in model forward pass for batch {batch_idx}: {e}')
+                    continue
                 
-                pass
+                # Store labels
+                if labels is not None:
+                    all_labels.extend(labels.cpu().numpy().tolist())
+                    
             except Exception as e:
-                logging.error(f'Error in batch {batch_idx}: {e}')
+                logging.error(f'Error processing batch {batch_idx}: {e}')
                 continue
     
-    # For now, return dummy metrics
-    # In actual implementation, compute based on all_labels and all_scores
+    # Compute metrics
+    metrics = {}
     
-    if detection_level == 'entity' or detection_level == 'both':
-        # Entity-level metrics
-        # metrics = compute_entity_level_metrics(
-        #     np.array(all_labels), 
-        #     np.array(all_scores),
-        #     k_neighbors=k_neighbors
-        # )
+    if len(all_embeddings) > 0 and len(all_labels) > 0:
+        # Entity-level evaluation using embeddings
+        try:
+            all_embeddings = np.concatenate(all_embeddings, axis=0)
+            all_labels = np.array(all_labels)
+            metrics = compute_entity_level_metrics(all_embeddings, all_labels, k_neighbors=k_neighbors)
+        except Exception as e:
+            logging.error(f'Error computing entity-level metrics: {e}')
+            metrics = {'error': str(e)}
+    
+    elif len(all_scores) > 0 and len(all_labels) > 0:
+        # Standard evaluation using scores
+        all_scores = np.array(all_scores)
+        all_labels = np.array(all_labels)
+        all_predictions = np.array(all_predictions)
+        
+        try:
+            metrics = compute_detection_metrics(all_labels, all_predictions, all_scores)
+        except Exception as e:
+            logging.error(f'Error computing detection metrics: {e}')
+            metrics = {'error': str(e)}
+    
+    elif len(all_scores) > 0:
+        # No labels - unsupervised evaluation
+        logging.warning("No labels found in dataset. Computing statistics only.")
+        metrics = {
+            'num_samples': len(all_scores),
+            'mean_score': float(np.mean(all_scores)),
+            'std_score': float(np.std(all_scores)),
+            'min_score': float(np.min(all_scores)),
+            'max_score': float(np.max(all_scores)),
+        }
+    else:
+        # No evaluation possible
+        logging.warning("Could not perform evaluation - no outputs generated")
         metrics = {
             'auc_roc': 0.0,
             'auc_pr': 0.0,
             'f1': 0.0,
             'precision': 0.0,
             'recall': 0.0,
-            'fpr': 0.0
-        }
-    else:
-        # Batch-level metrics
-        metrics = {
-            'auc_roc': 0.0,
-            'auc_pr': 0.0,
-            'f1': 0.0,
-            'precision': 0.0,
-            'recall': 0.0
         }
     
     return metrics, all_predictions

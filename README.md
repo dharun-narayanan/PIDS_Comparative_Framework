@@ -1,565 +1,1127 @@
-# PIDS Comparative Framework
+# PIDS Comparative Framework# PIDS Comparative Framework
 
-<div align="center">
 
-**A Unified Framework for Evaluating State-of-the-Art Provenance-based Intrusion Detection Systems (PIDS)**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+**A Unified, Standalone Framework for Evaluating State-of-the-Art Provenance-based Intrusion Detection Systems (PIDS)**<div align="center">
+
+
+
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)**A Unified Framework for Evaluating State-of-the-Art Provenance-based Intrusion Detection Systems (PIDS)**
+
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red.svg)](https://pytorch.org/)
+
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.12%2B-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Quick Start](#quick-start) | [Installation](#installation) | [Models](#supported-models) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
+---[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-</div>
 
-> **📚 Documentation**: This README provides complete framework documentation. For quick setup, see [setup.md](setup.md).
 
----
+## 📌 Overview[Quick Start](#quick-start) | [Installation](#installation) | [Models](#supported-models) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
 
-## 🎯 **Primary Use Case: Evaluate Pretrained Models**
 
-This framework is designed to **evaluate pretrained PIDS models on your custom SOC data**. The models are already trained on benchmark datasets (DARPA, StreamSpot) and ready to detect intrusions in your environment.
 
-✅ **Default Workflow**: Evaluate pretrained weights → Compare performance → Deploy best model  
-✅ **CPU-First**: Runs on CPU by default (no GPU required)  
+The **PIDS Comparative Framework** is a production-ready platform designed to evaluate and compare state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom Security Operations Center (SOC) data.</div>
+
+
+
+### 🎯 Primary Use Case> **📚 Documentation**: This README provides complete framework documentation. For quick setup, see [setup.md](setup.md).
+
+
+
+**Evaluate pretrained PIDS models on your custom SOC data** to determine which model performs best for your environment.---
+
+
+
+- ✅ **Ready-to-Use**: Pre-trained models included - no training required## 🎯 **Primary Use Case: Evaluate Pretrained Models**
+
+- ✅ **Standalone**: All model implementations self-contained - no external repos needed
+
+- ✅ **Custom Data**: Evaluate on your own JSON-formatted system logsThis framework is designed to **evaluate pretrained PIDS models on your custom SOC data**. The models are already trained on benchmark datasets (DARPA, StreamSpot) and ready to detect intrusions in your environment.
+
+- ✅ **Multi-Model**: Compare 5 state-of-the-art approaches simultaneously
+
+- ✅ **CPU-First**: Runs on CPU by default, GPU optional for faster evaluation✅ **Default Workflow**: Evaluate pretrained weights → Compare performance → Deploy best model  
+
+- 🔄 **Advanced**: Retrain models on custom data (optional feature)✅ **CPU-First**: Runs on CPU by default (no GPU required)  
+
 ✅ **GPU Support**: Automatically uses GPU when available  
-🔄 **Advanced Feature**: Retrain models on custom data (optional)
 
----
+---🔄 **Advanced Feature**: Retrain models on custom data (optional)
 
-## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [System Architecture](#system-architecture)
-- [Supported Models](#supported-models)
+
+## 🏗️ Framework Architecture---
+
+
+
+### Design Principles## 📋 Table of Contents
+
+
+
+1. **Standalone Implementation**: All models are self-contained within the framework with zero dependencies on external repositories- [Overview](#overview)
+
+2. **Unified Interface**: All models implement `BasePIDSModel` for consistent evaluation- [Key Features](#key-features)
+
+3. **Plugin Architecture**: Easy to extend with new models via decorator-based registry- [System Architecture](#system-architecture)
+
+4. **Evaluation-First**: Optimized for evaluating pretrained models on custom data- [Supported Models](#supported-models)
+
 - [Supported Datasets](#supported-datasets)
-- [Requirements](#requirements)
+
+### High-Level Architecture- [Requirements](#requirements)
+
 - [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Usage Examples](#usage-examples)
-- [Configuration](#configuration)
-- [Experiments](#experiments)
-- [Results](#results)
-- [Extending the Framework](#extending-the-framework)
-- [Troubleshooting](#troubleshooting)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [Citation](#citation)
-- [License](#license)
 
----
+```- [Quick Start](#quick-start)
 
-## 🔍 Overview
+┌─────────────────────────────────────────────────────────────┐- [Usage Examples](#usage-examples)
 
-The **PIDS Comparative Framework** is a production-ready platform designed for Security Operations Centers (SOC) to:
+│                  PIDS Comparative Framework                  │- [Configuration](#configuration)
 
-✅ **Evaluate** pretrained PIDS models on your custom SOC data (2GB+ logs supported)  
-✅ **Compare** multiple models with consistent benchmarking and metrics  
-✅ **Deploy** the best-performing model for your specific environment  
-✅ **Train** models on custom data (advanced feature, optional)  
-✅ **Fine-tune** existing models using transfer learning (advanced feature)  
-✅ **Extend** easily with new models through a clean interface  
+│                                                               │- [Experiments](#experiments)
 
-### What is Provenance-based Intrusion Detection?
+│  ┌────────────────────────────────────────────────────────┐ │- [Results](#results)
 
-Provenance graphs capture system-level information flows (process→file, process→network) to model normal behavior and detect anomalous activities indicative of cyber attacks. This framework integrates 5 state-of-the-art deep learning approaches for analyzing provenance data.
+│  │              Model Registry (Plugin System)             │ │- [Extending the Framework](#extending-the-framework)
 
-### Primary Workflow
+│  │  - Auto-discovery of models via @register decorator    │ │- [Troubleshooting](#troubleshooting)
 
-```
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│ Your SOC Data   │ ───> │ Pretrained PIDS  │ ───> │ Performance     │
+│  │  - Consistent BasePIDSModel interface                  │ │- [Documentation](#documentation)
+
+│  └────────────────────────────────────────────────────────┘ │- [Contributing](#contributing)
+
+│                                                               │- [Citation](#citation)
+
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │- [License](#license)
+
+│  │  MAGIC   │  │ Kairos   │  │ Orthrus  │  │ThreaTrace│   │
+
+│  │ Wrapper  │  │ Wrapper  │  │ Wrapper  │  │ Wrapper  │...│---
+
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
+
+│       │             │              │              │          │## 🔍 Overview
+
+│  ┌────▼──────────────▼──────────────▼──────────────▼─────┐ │
+
+│  │        Standalone Model Implementations               │ │The **PIDS Comparative Framework** is a production-ready platform designed for Security Operations Centers (SOC) to:
+
+│  │  (models/implementations/ - No external dependencies) │ │
+
+│  └──────────────────────────────────────────────────────┘ │✅ **Evaluate** pretrained PIDS models on your custom SOC data (2GB+ logs supported)  
+
+│                                                               │✅ **Compare** multiple models with consistent benchmarking and metrics  
+
+│  ┌──────────────────────────────────────────────────────┐  │✅ **Deploy** the best-performing model for your specific environment  
+
+│  │           Data Pipeline                              │  │✅ **Train** models on custom data (advanced feature, optional)  
+
+│  │  - JSON logs → Graph construction → Batching        │  │✅ **Fine-tune** existing models using transfer learning (advanced feature)  
+
+│  │  - Support for custom SOC data formats              │  │✅ **Extend** easily with new models through a clean interface  
+
+│  └──────────────────────────────────────────────────────┘  │
+
+│                                                               │### What is Provenance-based Intrusion Detection?
+
+│  ┌──────────────────────────────────────────────────────┐  │
+
+│  │           Evaluation Engine                          │  │Provenance graphs capture system-level information flows (process→file, process→network) to model normal behavior and detect anomalous activities indicative of cyber attacks. This framework integrates 5 state-of-the-art deep learning approaches for analyzing provenance data.
+
+│  │  - Pretrained weight loading                        │  │
+
+│  │  - Metric computation (AUC-ROC, F1, etc.)           │  │### Primary Workflow
+
+│  │  - Multi-model comparison                           │  │
+
+│  └──────────────────────────────────────────────────────┘  │```
+
+└─────────────────────────────────────────────────────────────┘┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+
+```│ Your SOC Data   │ ───> │ Pretrained PIDS  │ ───> │ Performance     │
+
 │ (JSON Logs)     │      │ Models           │      │ Comparison      │
-└─────────────────┘      └──────────────────┘      └─────────────────┘
+
+### Directory Structure└─────────────────┘      └──────────────────┘      └─────────────────┘
+
                                                             │
-                                                            ▼
-                                                    ┌─────────────────┐
-                                                    │ Deploy Best     │
-                                                    │ Model to SOC    │
-                                                    └─────────────────┘
-```
 
----
+```                                                            ▼
 
-## ✨ Key Features
+PIDS_Comparative_Framework/                                                    ┌─────────────────┐
 
-### 🎯 **Evaluation-First Design**
-- **Pretrained Models**: Use existing weights immediately - no training required
-- **Quick Deployment**: Evaluate all models on your data in minutes
-- **Performance Comparison**: Automatic comparison with statistical significance testing
-- **One-Command Workflow**: `./scripts/run_evaluation.sh` does everything
+├── README.md                       # ← This file - Framework overview                                                    │ Deploy Best     │
 
-### 📊 **Multi-Model Support**
-- **5 State-of-the-Art Models**: MAGIC, Kairos, Orthrus, ThreaTrace, Continuum_FL
-- **Consistent Interface**: All models through unified `BasePIDSModel` API
-- **Automatic Registration**: Dynamic model discovery via decorator pattern
-- **Pretrained Weights**: Ready-to-use checkpoints for all models
+├── SETUP.md                        # ← Step-by-step installation guide                                                    │ Model to SOC    │
 
-### � **Comprehensive Evaluation**
-- **Multiple Metrics**: AUROC, AUPRC, F1-Score, Precision, Recall, Detection Rate
-- **Statistical Analysis**: Significance testing for model comparison
-- **Rich Visualizations**: ROC curves, precision-recall curves, confusion matrices
-- **Detailed Reports**: JSON and text formats with all metrics
+├── EXTEND.md                       # ← Guide to add new models                                                    └─────────────────┘
 
-### 🔧 **Production-Ready**
-- **CPU-First Design**: Runs on CPU by default (no GPU required)
-- **GPU Support**: Automatic GPU detection and utilization when available
-- **Large-Scale Data**: Handles 2GB+ JSON files with chunked loading
-- **Checkpointing**: Save/resume training with early stopping (for retraining)
-- **Logging**: Comprehensive logging for debugging and monitoring
-- **Error Handling**: Graceful degradation and informative error messages
+├── requirements.txt                # Python dependencies```
 
-### 📦 **Easy to Use**
-- **YAML Configurations**: All settings in human-readable configs
-- **One-Command Setup**: Automated environment and dependency installation
-- **Streamlined Workflow**: Evaluation script handles all steps automatically
-- **Comprehensive Docs**: README.md and QUICKSTART.md cover all features
+├── environment.yml                 # Conda environment spec
 
-### 🔬 **Extensible Architecture** (Advanced)
-- **Modular Design**: Separate data, models, training, evaluation
-- **Plugin System**: Add new models with ~200 lines of code
-- **Configurable**: Override any setting via YAML or command-line
-- **Retraining Support**: Optional model training on custom datasets
+│---
 
----
+├── models/                         # 🧠 Model implementations
 
-## 🏗️ System Architecture
+│   ├── base_model.py              # BasePIDSModel & ModelRegistry## ✨ Key Features
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    User Interface Layer                      │
-│  (CLI Commands, Configuration Files, Experiment Scripts)     │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────┴──────────────────────────────────┐
-│                   Framework Core Layer                        │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │   Model     │  │   Dataset    │  │   Experiment     │   │
+│   ├── __init__.py                # Auto-discovery of models
+
+│   │### 🎯 **Evaluation-First Design**
+
+│   ├── implementations/           # 📦 Standalone implementations- **Pretrained Models**: Use existing weights immediately - no training required
+
+│   │   ├── magic/                # MAGIC (USENIX Security 2024)- **Quick Deployment**: Evaluate all models on your data in minutes
+
+│   │   ├── kairos/               # Kairos (IEEE S&P 2024)- **Performance Comparison**: Automatic comparison with statistical significance testing
+
+│   │   ├── orthrus/              # Orthrus (USENIX Security 2025)- **One-Command Workflow**: `./scripts/run_evaluation.sh` does everything
+
+│   │   ├── threatrace/           # ThreaTrace (IEEE TIFS 2022)
+
+│   │   ├── continuum_fl/         # Continuum_FL (Federated Learning)### 📊 **Multi-Model Support**
+
+│   │   └── utils/                # Shared utilities- **5 State-of-the-Art Models**: MAGIC, Kairos, Orthrus, ThreaTrace, Continuum_FL
+
+│   │- **Consistent Interface**: All models through unified `BasePIDSModel` API
+
+│   ├── magic_wrapper.py          # MAGIC → BasePIDSModel adapter- **Automatic Registration**: Dynamic model discovery via decorator pattern
+
+│   ├── kairos_wrapper.py         # Kairos adapter- **Pretrained Weights**: Ready-to-use checkpoints for all models
+
+│   ├── orthrus_wrapper.py        # Orthrus adapter
+
+│   ├── threatrace_wrapper.py     # ThreaTrace adapter### � **Comprehensive Evaluation**
+
+│   └── continuum_fl_wrapper.py   # Continuum_FL adapter- **Multiple Metrics**: AUROC, AUPRC, F1-Score, Precision, Recall, Detection Rate
+
+│- **Statistical Analysis**: Significance testing for model comparison
+
+├── data/                          # 📊 Dataset handling- **Rich Visualizations**: ROC curves, precision-recall curves, confusion matrices
+
+│   └── dataset.py                # Base classes for datasets- **Detailed Reports**: JSON and text formats with all metrics
+
+│
+
+├── experiments/                   # 🧪 Experiment scripts### 🔧 **Production-Ready**
+
+│   ├── evaluate.py               # ⭐ Main evaluation script- **CPU-First Design**: Runs on CPU by default (no GPU required)
+
+│   ├── train.py                  # Training script (advanced)- **GPU Support**: Automatic GPU detection and utilization when available
+
+│   └── compare.py                # Multi-model comparison- **Large-Scale Data**: Handles 2GB+ JSON files with chunked loading
+
+│- **Checkpointing**: Save/resume training with early stopping (for retraining)
+
+├── utils/                         # 🛠️ Framework utilities- **Logging**: Comprehensive logging for debugging and monitoring
+
+│   ├── common.py                 # Common utilities- **Error Handling**: Graceful degradation and informative error messages
+
+│   └── metrics.py                # Evaluation metrics
+
+│### 📦 **Easy to Use**
+
+├── scripts/                       # 📜 Setup & helper scripts- **YAML Configurations**: All settings in human-readable configs
+
+│   ├── setup.sh                  # One-command setup- **One-Command Setup**: Automated environment and dependency installation
+
+│   ├── preprocess_data.py        # Data preprocessing- **Streamlined Workflow**: Evaluation script handles all steps automatically
+
+│   └── run_evaluation.sh         # Quick evaluation runner- **Comprehensive Docs**: README.md and QUICKSTART.md cover all features
+
+│
+
+├── configs/                       # ⚙️ Configuration files### 🔬 **Extensible Architecture** (Advanced)
+
+│   ├── datasets/                 # Dataset configs- **Modular Design**: Separate data, models, training, evaluation
+
+│   ├── models/                   # Model configs- **Plugin System**: Add new models with ~200 lines of code
+
+│   └── experiments/              # Experiment configs- **Configurable**: Override any setting via YAML or command-line
+
+│- **Retraining Support**: Optional model training on custom datasets
+
+├── checkpoints/                   # 💾 Pretrained model weights
+
+│   ├── magic/---
+
+│   ├── kairos/
+
+│   ├── orthrus/## 🏗️ System Architecture
+
+│   ├── threatrace/
+
+│   └── continuum_fl/```
+
+│┌─────────────────────────────────────────────────────────────┐
+
+├── data/                          # 📁 Data directory│                    User Interface Layer                      │
+
+│   ├── custom/                   # ← Your custom SOC data goes here│  (CLI Commands, Configuration Files, Experiment Scripts)     │
+
+│   ├── cadets_e3/               # DARPA datasets (optional)└──────────────────────────┬──────────────────────────────────┘
+
+│   └── streamspot/              # StreamSpot dataset (optional)                           │
+
+│┌──────────────────────────┴──────────────────────────────────┐
+
+└── results/                       # 📈 Evaluation results│                   Framework Core Layer                        │
+
+    └── evaluation_results.json│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+
+```│  │   Model     │  │   Dataset    │  │   Experiment     │   │
+
 │  │  Registry   │  │   Loaders    │  │    Manager       │   │
-│  └─────────────┘  └──────────────┘  └──────────────────┘   │
+
+---│  └─────────────┘  └──────────────┘  └──────────────────┘   │
+
 └──────────────────────────┬──────────────────────────────────┘
-                           │
+
+## 🚀 Quick Start                           │
+
 ┌──────────────────────────┴──────────────────────────────────┐
-│                    Model Layer                                │
+
+### 1. Installation│                    Model Layer                                │
+
 │  ┌──────┐  ┌────────┐  ┌─────────┐  ┌───────────┐ ┌────┐  │
-│  │MAGIC │  │Kairos  │  │Orthrus  │  │ThreaTrace │ │...│   │
-│  └──────┘  └────────┘  └─────────┘  └───────────┘ └────┘  │
+
+```bash│  │MAGIC │  │Kairos  │  │Orthrus  │  │ThreaTrace │ │...│   │
+
+cd PIDS_Comparative_Framework│  └──────┘  └────────┘  └─────────┘  └───────────┘ └────┘  │
+
 └──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────┴──────────────────────────────────┐
-│                     Data Layer                                │
+
+# Run automated setup (installs dependencies, downloads pretrained models)                           │
+
+bash scripts/setup.sh┌──────────────────────────┴──────────────────────────────────┐
+
+```│                     Data Layer                                │
+
 │  ┌──────────────┐  ┌────────────┐  ┌──────────────────┐    │
-│  │  Custom SOC  │  │   DARPA    │  │   StreamSpot     │    │
+
+**See [SETUP.md](SETUP.md) for detailed installation instructions.**│  │  Custom SOC  │  │   DARPA    │  │   StreamSpot     │    │
+
 │  │     Data     │  │   TC E3/E5 │  │   (Scene-based)  │    │
-│  └──────────────┘  └────────────┘  └──────────────────┘    │
+
+### 2. Prepare Your Data│  └──────────────┘  └────────────┘  └──────────────────┘    │
+
 └──────────────────────────────────────────────────────────────┘
-```
 
-### Core Components
+Place your custom SOC logs (JSON format) in `data/custom/`:```
 
-1. **BasePIDSModel**: Abstract interface all models implement
-2. **ModelRegistry**: Dynamic model registration and discovery
-3. **Dataset Loaders**: Handle JSON, DARPA TC, StreamSpot formats
-4. **Training Pipeline**: Consistent training with early stopping, checkpointing
+
+
+```bash### Core Components
+
+data/custom/
+
+├── endpoint_process.json    # Process events1. **BasePIDSModel**: Abstract interface all models implement
+
+├── endpoint_file.json       # File events2. **ModelRegistry**: Dynamic model registration and discovery
+
+└── endpoint_network.json    # Network events3. **Dataset Loaders**: Handle JSON, DARPA TC, StreamSpot formats
+
+```4. **Training Pipeline**: Consistent training with early stopping, checkpointing
+
 5. **Evaluation Pipeline**: Unified metrics computation and reporting
-6. **Experiment Manager**: Orchestrate multi-model comparisons
 
----
+Preprocess the data:6. **Experiment Manager**: Orchestrate multi-model comparisons
 
-## 🤖 Supported Models
 
-| Model | Paper | Year | Architecture | Strengths |
+
+```bash---
+
+python scripts/preprocess_data.py \
+
+    --data-path data/custom \## 🤖 Supported Models
+
+    --output data/custom/preprocessed.pkl
+
+```| Model | Paper | Year | Architecture | Strengths |
+
 |-------|-------|------|--------------|-----------|
-| **MAGIC** | [USENIX Security '24](https://www.usenix.org/conference/usenixsecurity24) | 2024 | Masked Graph Autoencoder | Self-supervised, high accuracy |
+
+### 3. Evaluate Pretrained Models| **MAGIC** | [USENIX Security '24](https://www.usenix.org/conference/usenixsecurity24) | 2024 | Masked Graph Autoencoder | Self-supervised, high accuracy |
+
 | **Kairos** | [IEEE S&P '24](https://www.ieee-security.org/TC/SP2024/) | 2024 | Temporal GNN | Temporal modeling, link prediction |
-| **Orthrus** | [USENIX Security '25](https://www.usenix.org/conference/usenixsecurity25) | 2025 | Multi-Decoder | Contrastive learning, robust |
+
+Evaluate all models on your custom data:| **Orthrus** | [USENIX Security '25](https://www.usenix.org/conference/usenixsecurity25) | 2025 | Multi-Decoder | Contrastive learning, robust |
+
 | **ThreaTrace** | [IEEE TIFS '22](https://ieeexplore.ieee.org/document/9721562) | 2022 | GraphChi GNN | Scalable, disk-based processing |
-| **Continuum_FL** | Federated PIDS | 2023 | Federated STGNN | Privacy-preserving, distributed |
 
-### Model Selection Guide
+```bash| **Continuum_FL** | Federated PIDS | 2023 | Federated STGNN | Privacy-preserving, distributed |
 
-- **Best Overall Accuracy**: MAGIC (AUROC ~0.92-0.95)
-- **Temporal Data**: Kairos (explicit temporal modeling)
-- **Large-Scale Graphs**: ThreaTrace (GraphChi disk-based)
-- **Privacy-Sensitive**: Continuum_FL (federated learning)
+python experiments/evaluate.py \
+
+    --all-models \### Model Selection Guide
+
+    --dataset custom \
+
+    --data-path data/custom \- **Best Overall Accuracy**: MAGIC (AUROC ~0.92-0.95)
+
+    --pretrained \- **Temporal Data**: Kairos (explicit temporal modeling)
+
+    --output-dir results/custom- **Large-Scale Graphs**: ThreaTrace (GraphChi disk-based)
+
+```- **Privacy-Sensitive**: Continuum_FL (federated learning)
+
 - **Robust Features**: Orthrus (contrastive learning)
 
+Or evaluate a specific model:
+
 ---
 
-## 📊 Supported Datasets
+```bash
 
-### 1. Custom SOC Data
-- **Format**: JSON (Elastic/ELK compatible)
-- **Size**: Supports 2GB+ files
-- **Types**: endpoint_file.json, endpoint_network.json, endpoint_process.json
+python experiments/evaluate.py \## 📊 Supported Datasets
+
+    --model magic \
+
+    --dataset custom \### 1. Custom SOC Data
+
+    --data-path data/custom \- **Format**: JSON (Elastic/ELK compatible)
+
+    --pretrained- **Size**: Supports 2GB+ files
+
+```- **Types**: endpoint_file.json, endpoint_network.json, endpoint_process.json
+
 - **Features**: Automatic graph construction from provenance events
 
+### 4. View Results
+
 ### 2. DARPA Transparent Computing (TC)
-- **Engagements**: E3, E5
-- **Systems**: CADETS (BSD), THEIA (Linux), TRACE (Android), CLEARSCOPE, FiveDirections
-- **Events**: 268K+ nodes, 6M+ edges (CADETS E3)
+
+```bash- **Engagements**: E3, E5
+
+cat results/custom/evaluation_results_custom.json- **Systems**: CADETS (BSD), THEIA (Linux), TRACE (Android), CLEARSCOPE, FiveDirections
+
+```- **Events**: 268K+ nodes, 6M+ edges (CADETS E3)
+
 - **Ground Truth**: Attack scenarios with timestamps
 
+---
+
 ### 3. StreamSpot
-- **Type**: Scene-based provenance graphs
+
+## 🎓 Supported Models- **Type**: Scene-based provenance graphs
+
 - **Categories**: YouTube, Gmail, VGame, Download, CNN, Drive-by-Download (attack)
-- **Scenes**: 600 total (100 per category)
+
+The framework includes **5 state-of-the-art PIDS models** with pretrained weights:- **Scenes**: 600 total (100 per category)
+
 - **Features**: Graph-level classification
 
-### 4. Unicorn Wget
-- **Type**: Simulated attack scenarios
-- **Variants**: wget, wget-long
-- **Features**: Controlled attack injection
+| Model | Paper | Venue | Architecture | Key Features |
 
----
+|-------|-------|-------|--------------|--------------|### 4. Unicorn Wget
 
-## 💻 Requirements
+| **MAGIC** | Masked Graph Representation Learning | USENIX Security 2024 | Masked GAT AutoEncoder | Entity-level detection, unsupervised |- **Type**: Simulated attack scenarios
 
-### System Requirements
-- **OS**: Linux (Ubuntu 18.04+), macOS (10.14+), Windows (with WSL2)
-- **CPU**: 4+ cores recommended (framework runs on CPU by default)
-- **RAM**: 16GB+ recommended (8GB minimum)
-- **GPU**: Optional - NVIDIA GPU with 8GB+ VRAM (auto-detected if available)
-- **Storage**: 50GB+ free space
+| **Kairos** | Practical Intrusion Detection using Provenance | IEEE S&P 2024 | Temporal GNN + Link Prediction | Temporal modeling, investigation |- **Variants**: wget, wget-long
+
+| **Orthrus** | High Quality Attribution in Provenance IDS | USENIX Security 2025 | Graph Transformer + Multi-task | High-quality attribution, contrastive learning |- **Features**: Controlled attack injection
+
+| **ThreaTrace** | Thread-Level Provenance Graph Analysis | IEEE TIFS 2022 | Sketch + GNN | Scalable, thread-level detection |
+
+| **Continuum_FL** | Federated Learning PIDS | Research | STGNN AutoEncoder | Federated learning, privacy-preserving |---
+
+
+
+### Model Capabilities Matrix## 💻 Requirements
+
+
+
+| Model | Entity Detection | Graph Detection | Temporal Modeling | Multi-task | Federated |### System Requirements
+
+|-------|-----------------|-----------------|-------------------|------------|-----------|- **OS**: Linux (Ubuntu 18.04+), macOS (10.14+), Windows (with WSL2)
+
+| MAGIC | ✅ | ✅ | ❌ | ❌ | ❌ |- **CPU**: 4+ cores recommended (framework runs on CPU by default)
+
+| Kairos | ✅ | ✅ | ✅ | ❌ | ❌ |- **RAM**: 16GB+ recommended (8GB minimum)
+
+| Orthrus | ✅ | ✅ | ✅ | ✅ | ❌ |- **GPU**: Optional - NVIDIA GPU with 8GB+ VRAM (auto-detected if available)
+
+| ThreaTrace | ✅ | ✅ | ✅ | ❌ | ❌ |- **Storage**: 50GB+ free space
+
+| Continuum_FL | ✅ | ✅ | ✅ | ❌ | ✅ |
 
 ### Software Requirements
-- **Conda**: Anaconda or Miniconda (required)
+
+---- **Conda**: Anaconda or Miniconda (required)
+
 - **Python**: 3.8, 3.9, 3.10, or 3.11
-- **CUDA**: 11.6+ (optional, only for GPU acceleration)
+
+## 📊 Evaluation Workflow- **CUDA**: 11.6+ (optional, only for GPU acceleration)
+
 - **Git**: For cloning repositories
 
-**Note**: The framework defaults to CPU execution. GPU is automatically used if available and can be controlled via `CUDA_VISIBLE_DEVICES` environment variable or `--device` parameter.
-
----
-
-## 🚀 Installation
-
-### Step 1: Clone the Repository
-
-```bash
-cd /path/to/PIDS_Files
-# Framework is already in PIDS_Comparative_Framework/
 ```
 
-### Step 2: Automated Setup (Recommended)
+┌──────────────────────────────────────────────────────────────┐**Note**: The framework defaults to CPU execution. GPU is automatically used if available and can be controlled via `CUDA_VISIBLE_DEVICES` environment variable or `--device` parameter.
 
-```bash
-cd PIDS_Comparative_Framework
+│  STEP 1: Data Preparation                                    │
 
-# Run the automated setup script
-./scripts/setup.sh
+│  ┌────────────────┐                                          │---
+
+│  │ Custom SOC     │  JSON logs (Elastic, Splunk, etc.)      │
+
+│  │ Logs           │  - Process events                        │## 🚀 Installation
+
+│  └────────┬───────┘  - File events                           │
+
+│           │          - Network events                         │### Step 1: Clone the Repository
+
+│           ▼                                                   │
+
+│  ┌────────────────┐                                          │```bash
+
+│  │ Preprocessing  │  Extract entities & relations            │cd /path/to/PIDS_Files
+
+│  │ Script         │  → Build provenance graph                │# Framework is already in PIDS_Comparative_Framework/
+
+│  └────────┬───────┘  → Create temporal snapshots             │```
+
+│           │                                                   │
+
+└───────────┼───────────────────────────────────────────────────┘### Step 2: Automated Setup (Recommended)
+
+            │
+
+┌───────────┼───────────────────────────────────────────────────┐```bash
+
+│  STEP 2: Model Loading                                       │cd PIDS_Comparative_Framework
+
+│           ▼                                                   │
+
+│  ┌────────────────┐                                          │# Run the automated setup script
+
+│  │ Load Pretrained│  Checkpoints from:                       │./scripts/setup.sh
+
+│  │ Models         │  - DARPA TC training                     │```
+
+│  └────────┬───────┘  - StreamSpot training                   │
+
+│           │          - Other benchmark datasets               │**What `setup.sh` does:**
+
+│           │                                                   │1. Checks for Conda installation
+
+│  ┌───────▼────┬────────┬────────┬──────────┬───────────┐   │2. Creates `pids_framework` conda environment (Python 3.10)
+
+│  │  MAGIC     │ Kairos │Orthrus │ThreaTrace│Continuum_FL│   │3. Installs PyTorch 1.12.1 with CUDA 11.6
+
+│  └────────┬───┴───┬────┴───┬────┴────┬─────┴─────┬─────┘   │4. Installs DGL 1.0.0 and PyTorch Geometric
+
+│           │       │        │         │           │           │5. Installs core dependencies
+
+└───────────┼───────┼────────┼─────────┼───────────┼───────────┘6. Creates necessary directories
+
+            │       │        │         │           │7. Verifies installation
+
+┌───────────┼───────┼────────┼─────────┼───────────┼───────────┐
+
+│  STEP 3: Evaluation                                          │### Step 3: Install Model-Specific Dependencies
+
+│           │       │        │         │           │           │
+
+│           ▼       ▼        ▼         ▼           ▼           │```bash
+
+│  ┌────────────────────────────────────────────────────────┐ │# Activate the environment
+
+│  │  Forward Pass Through Models                           │ │conda activate pids_framework
+
+│  │  - Entity embeddings / Anomaly scores                  │ │
+
+│  │  - Graph-level predictions                             │ │# Install dependencies for all models
+
+│  └──────────────────────┬─────────────────────────────────┘ │./scripts/install_model_deps.sh --all
+
+│                         │                                    │
+
+│                         ▼                                    │# OR install for specific models
+
+│  ┌────────────────────────────────────────────────────────┐ │./scripts/install_model_deps.sh --models magic kairos orthrus
+
+│  │  Metric Computation                                    │ │```
+
+│  │  - AUC-ROC, AUC-PR                                     │ │
+
+│  │  - F1, Precision, Recall                               │ │### Step 4: Verify Installation
+
+│  │  - Detection Rate, FPR                                 │ │
+
+│  └──────────────────────┬─────────────────────────────────┘ │```bash
+
+└─────────────────────────┼─────────────────────────────────────┘# Test model registry
+
+                          │python -c "from models import list_available_models; print(list_available_models())"
+
+┌─────────────────────────┼─────────────────────────────────────┐
+
+│  STEP 4: Comparison & Results                               │# Expected output:
+
+│                         ▼                                    │# ['magic', 'magic_streamspot', 'magic_darpa', 'kairos', 'orthrus', 
+
+│  ┌────────────────────────────────────────────────────────┐ │#  'threatrace', 'continuum_fl', 'continuum_fl_streamspot', 'continuum_fl_darpa']
+
+│  │  Statistical Comparison                                │ │```
+
+│  │  - Rank models by performance                          │ │
+
+│  │  - Statistical significance tests                      │ │### Manual Installation (If Automated Fails)
+
+│  │  - Best model recommendation                           │ │
+
+│  └──────────────────────┬─────────────────────────────────┘ │<details>
+
+│                         │                                    │<summary>Click to expand manual installation steps</summary>
+
+│                         ▼                                    │
+
+│  ┌────────────────────────────────────────────────────────┐ │```bash
+
+│  │  Generate Report                                       │ │# 1. Create conda environment
+
+│  │  - JSON results                                        │ │conda create -n pids_framework python=3.10 -y
+
+│  │  - HTML visualization                                  │ │conda activate pids_framework
+
+│  │  - Detailed logs                                       │ │
+
+│  └────────────────────────────────────────────────────────┘ │# 2. Install PyTorch with CUDA
+
+└──────────────────────────────────────────────────────────────┘conda install pytorch==1.12.1 torchvision torchaudio cudatoolkit=11.6 -c pytorch -c conda-forge -y
+
 ```
-
-**What `setup.sh` does:**
-1. Checks for Conda installation
-2. Creates `pids_framework` conda environment (Python 3.10)
-3. Installs PyTorch 1.12.1 with CUDA 11.6
-4. Installs DGL 1.0.0 and PyTorch Geometric
-5. Installs core dependencies
-6. Creates necessary directories
-7. Verifies installation
-
-### Step 3: Install Model-Specific Dependencies
-
-```bash
-# Activate the environment
-conda activate pids_framework
-
-# Install dependencies for all models
-./scripts/install_model_deps.sh --all
-
-# OR install for specific models
-./scripts/install_model_deps.sh --models magic kairos orthrus
-```
-
-### Step 4: Verify Installation
-
-```bash
-# Test model registry
-python -c "from models import list_available_models; print(list_available_models())"
-
-# Expected output:
-# ['magic', 'magic_streamspot', 'magic_darpa', 'kairos', 'orthrus', 
-#  'threatrace', 'continuum_fl', 'continuum_fl_streamspot', 'continuum_fl_darpa']
-```
-
-### Manual Installation (If Automated Fails)
-
-<details>
-<summary>Click to expand manual installation steps</summary>
-
-```bash
-# 1. Create conda environment
-conda create -n pids_framework python=3.10 -y
-conda activate pids_framework
-
-# 2. Install PyTorch with CUDA
-conda install pytorch==1.12.1 torchvision torchaudio cudatoolkit=11.6 -c pytorch -c conda-forge -y
 
 # 3. Install DGL
-conda install -c dglteam dgl-cuda11.6==1.0.0 -y
 
-# 4. Install PyTorch Geometric
+---conda install -c dglteam dgl-cuda11.6==1.0.0 -y
+
+
+
+## 📈 Evaluation Metrics# 4. Install PyTorch Geometric
+
 pip install torch-scatter==2.1.0 torch-sparse==0.6.16 torch-cluster==1.6.0 -f https://data.pyg.org/whl/torch-1.12.1+cu116.html
-pip install torch-geometric==2.1.0
 
-# 5. Install core dependencies
-pip install -r requirements.txt
+The framework computes comprehensive detection metrics:pip install torch-geometric==2.1.0
 
-# 6. Install model-specific dependencies
-pip install -r requirements/magic.txt
-pip install -r requirements/kairos.txt
-pip install -r requirements/orthrus.txt
-pip install -r requirements/threatrace.txt
+
+
+### Detection Metrics# 5. Install core dependencies
+
+- **AUC-ROC**: Area Under ROC Curve - Overall detection capabilitypip install -r requirements.txt
+
+- **AUC-PR**: Area Under Precision-Recall Curve - Performance on imbalanced data
+
+- **F1 Score**: Harmonic mean of precision and recall# 6. Install model-specific dependencies
+
+- **Precision**: True positives / (True positives + False positives)pip install -r requirements/magic.txt
+
+- **Recall**: True positives / (True positives + False negatives)pip install -r requirements/kairos.txt
+
+- **FPR**: False Positive Rate - Critical for SOC usabilitypip install -r requirements/orthrus.txt
+
+- **TPR**: True Positive Rate (Detection Rate)pip install -r requirements/threatrace.txt
+
 pip install -r requirements/continuum_fl.txt
-```
 
-</details>
+### Entity-Level Metrics (for applicable models)```
+
+- **k-NN Detection**: Entity-level anomaly detection using k-nearest neighbors
+
+- **Entity Precision/Recall**: Per-entity detection accuracy</details>
+
+- **Temporal Detection Rate**: Detection performance over time windows
+
+---
 
 ---
 
 ## ⚡ Quick Start
 
+## 🔧 Advanced Features
+
 > **TL;DR**: Run `./scripts/run_evaluation.sh` to evaluate all pretrained models on your data! (CPU by default)
+
+### 1. Train Models from Scratch
 
 ### Default Workflow: Evaluate Pretrained Models (3 Steps)
 
-#### Step 1: Setup Environment
-
 ```bash
-cd PIDS_Comparative_Framework
-./scripts/setup.sh
-conda activate pids_framework
-```
 
-#### Step 2: Prepare Your Data
+python experiments/train.py \#### Step 1: Setup Environment
 
-```bash
+    --model magic \
+
+    --dataset custom \```bash
+
+    --data-path data/custom \cd PIDS_Comparative_Framework
+
+    --epochs 50 \./scripts/setup.sh
+
+    --batch-size 32 \conda activate pids_framework
+
+    --lr 0.001 \```
+
+    --save-dir checkpoints/custom
+
+```#### Step 2: Prepare Your Data
+
+
+
+### 2. Fine-Tune Pretrained Models```bash
+
 # Ensure your SOC data is in JSON format at ../custom_dataset/
-ls ../custom_dataset/
-# Expected: endpoint_file.json, endpoint_network.json, endpoint_process.json
+
+```bashls ../custom_dataset/
+
+python experiments/train.py \# Expected: endpoint_file.json, endpoint_network.json, endpoint_process.json
+
+    --model magic \```
+
+    --dataset custom \
+
+    --pretrained \#### Step 3: Run Evaluation (CPU by default)
+
+    --checkpoint checkpoints/magic/checkpoint-streamspot.pt \
+
+    --fine-tune \```bash
+
+    --epochs 20 \# Evaluate ALL pretrained models on your custom data (runs on CPU)
+
+    --lr 0.0001./scripts/run_evaluation.sh
+
 ```
-
-#### Step 3: Run Evaluation (CPU by default)
-
-```bash
-# Evaluate ALL pretrained models on your custom data (runs on CPU)
-./scripts/run_evaluation.sh
 
 # Results saved to: results/evaluation_YYYYMMDD_HHMMSS/
-```
 
-**That's it!** The script will:
-1. ✅ Download/copy pretrained weights from existing checkpoints
-2. ✅ Preprocess your custom SOC data
-3. ✅ Evaluate all models on your data (CPU default, GPU auto-detected if available)
-4. ✅ Generate comparison report with metrics (AUROC, AUPRC, F1, etc.)
+### 3. Compare Multiple Models```
 
-### View Results
 
-```bash
+
+```bash**That's it!** The script will:
+
+python experiments/compare.py \1. ✅ Download/copy pretrained weights from existing checkpoints
+
+    --models magic kairos orthrus \2. ✅ Preprocess your custom SOC data
+
+    --dataset custom \3. ✅ Evaluate all models on your data (CPU default, GPU auto-detected if available)
+
+    --pretrained \4. ✅ Generate comparison report with metrics (AUROC, AUPRC, F1, etc.)
+
+    --output-dir results/comparison
+
+```### View Results
+
+
+
+### 4. Custom Configurations```bash
+
 # Navigate to results directory
-cd results/evaluation_YYYYMMDD_HHMMSS/
 
-# View comparison report
-cat comparison_report.json
+Use YAML config files:cd results/evaluation_YYYYMMDD_HHMMSS/
 
-# Check individual model performance
+
+
+```bash# View comparison report
+
+python experiments/evaluate.py \cat comparison_report.json
+
+    --config configs/experiments/evaluate_custom.yaml
+
+```# Check individual model performance
+
 cat magic_evaluation.log
-cat kairos_evaluation.log
+
+---cat kairos_evaluation.log
+
 ```
+
+## 🧪 Working with Custom Data
 
 ### Evaluate Specific Model
 
+### Supported Data Formats
+
 ```bash
-# MAGIC only (CPU)
+
+The framework accepts JSON logs from common SOC platforms:# MAGIC only (CPU)
+
 ./scripts/run_evaluation.sh --model magic
 
-# With custom data path
-./scripts/run_evaluation.sh --model kairos --data-path /path/to/logs
+- **Elastic/ELK Stack**: Endpoint logs
 
-# Force GPU usage (if available)
+- **Splunk**: Security events# With custom data path
+
+- **Sysmon**: Windows system monitoring./scripts/run_evaluation.sh --model kairos --data-path /path/to/logs
+
+- **Auditd**: Linux audit logs
+
+- **Custom JSON**: Any JSON with entity information# Force GPU usage (if available)
+
 CUDA_VISIBLE_DEVICES=0 ./scripts/run_evaluation.sh --model magic
-```
 
-### Alternative: Manual Step-by-Step Evaluation
+### Expected Schema```
 
-<details>
-<summary>Click to expand manual evaluation steps</summary>
 
-```bash
-# 1. Download pretrained weights
-python scripts/download_weights.py --copy-existing --all-models
 
-# 2. Preprocess your data
-python scripts/preprocess_data.py \
-    --input-dir ../custom_dataset/ \
-    --output-dir data/custom_soc \
-    --dataset-name custom_soc
+```json### Alternative: Manual Step-by-Step Evaluation
 
-# 3. Evaluate single model (CPU by default)
-python experiments/evaluate.py \
-    --model magic \
-    --dataset custom_soc \
-    --data-path data/custom_soc \
-    --pretrained \
+{
+
+  "@timestamp": "2024-10-14T10:30:00.000Z",<details>
+
+  "event": {<summary>Click to expand manual evaluation steps</summary>
+
+    "kind": "event",
+
+    "category": ["process"]```bash
+
+  },# 1. Download pretrained weights
+
+  "process": {python scripts/download_weights.py --copy-existing --all-models
+
+    "pid": 1234,
+
+    "name": "bash",# 2. Preprocess your data
+
+    "executable": "/bin/bash",python scripts/preprocess_data.py \
+
+    "parent": {"pid": 1000}    --input-dir ../custom_dataset/ \
+
+  },    --output-dir data/custom_soc \
+
+  "file": {    --dataset-name custom_soc
+
+    "path": "/etc/passwd"
+
+  },# 3. Evaluate single model (CPU by default)
+
+  "network": {python experiments/evaluate.py \
+
+    "destination": {"ip": "192.168.1.1", "port": 443}    --model magic \
+
+  }    --dataset custom_soc \
+
+}    --data-path data/custom_soc \
+
+```    --pretrained \
+
     --checkpoint-dir checkpoints \
-    --device -1  # -1 for CPU (default), 0+ for GPU
+
+### Preprocessing Pipeline    --device -1  # -1 for CPU (default), 0+ for GPU
+
     --output-dir results/magic_eval
 
-# 4. Compare all models
-python experiments/compare.py \
-    --results-dir results/ \
-    --dataset custom_soc \
-    --output-file results/comparison.json
-```
-
-</details>
-
-### Advanced: Retrain on Custom Data (Optional)
-
-> ⚠️ **Note**: Retraining is an **advanced feature**. Start with pretrained evaluation first!
-
-<details>
-<summary>Click to expand retraining instructions</summary>
-
 ```bash
-# Retrain MAGIC on your custom data
-python experiments/train.py \
-    --model magic \
-    --dataset custom_soc \
-    --data-path data/custom_soc \
-    --epochs 100 \
-    --batch-size 32 \
-    --config configs/experiments/train_single.yaml
 
-# Evaluate retrained model
-python experiments/evaluate.py \
-    --model magic \
-    --checkpoint checkpoints/magic_custom_soc_best.pt \
-    --dataset custom_soc
+python scripts/preprocess_data.py \# 4. Compare all models
 
-# Compare with pretrained baseline
-python experiments/compare.py \
-    --checkpoints checkpoints/magic_pretrained.pt checkpoints/magic_custom_soc_best.pt \
-    --labels "Pretrained" "Retrained" \
-    --dataset custom_soc
-```
+    --data-path data/custom \python experiments/compare.py \
 
-</details>
+    --output data/custom/preprocessed.pkl \    --results-dir results/ \
+
+    --time-window 3600 \    --dataset custom_soc \
+
+    --entity-types process file network    --output-file results/comparison.json
+
+``````
+
+
+
+**Steps:**</details>
+
+1. Parse JSON logs
+
+2. Extract entities (processes, files, IPs)### Advanced: Retrain on Custom Data (Optional)
+
+3. Build provenance graph (edges = causal relationships)
+
+4. Create temporal snapshots> ⚠️ **Note**: Retraining is an **advanced feature**. Start with pretrained evaluation first!
+
+5. Generate node/edge features
+
+6. Save in PyTorch-compatible format<details>
+
+<summary>Click to expand retraining instructions</summary>
 
 ---
 
-## 📖 Usage Examples
-
-### Example 1: Evaluate All Models on Custom SOC Data (PRIMARY USE CASE)
-
 ```bash
-# One command to evaluate everything
-./scripts/run_evaluation.sh
 
-# View results
-cat results/evaluation_*/comparison_report.json
-```
+## 📚 Documentation# Retrain MAGIC on your custom data
 
-**Expected Output:**
-```json
-{
-  "dataset": "custom_soc",
-  "timestamp": "2025-10-13T10:30:00",
-  "models": {
-    "magic": {
-      "auc_roc": 0.9234,
-      "auc_pr": 0.8967,
-      "f1": 0.8756,
-      "precision": 0.8543,
-      "recall": 0.8978
-    },
-    "kairos": {
-      "auc_roc": 0.9156,
-      "auc_pr": 0.8834,
-      "f1": 0.8623,
-      "precision": 0.8412,
-      "recall": 0.8845
-    },
-    ...
-  }
-}
-```
+python experiments/train.py \
 
-### Example 2: Evaluate Specific Model with Detailed Options
+- **[SETUP.md](SETUP.md)**: Complete installation and setup guide    --model magic \
 
-```bash
-# Evaluate MAGIC with custom settings
-./scripts/run_evaluation.sh \
+- **[EXTEND.md](EXTEND.md)**: Add new PIDS models to the framework    --dataset custom_soc \
+
+- **This README**: Architecture and usage overview    --data-path data/custom_soc \
+
+    --epochs 100 \
+
+---    --batch-size 32 \
+
+    --config configs/experiments/train_single.yaml
+
+## 🤝 Adding New Models
+
+# Evaluate retrained model
+
+The framework is designed for **easy extension** with new state-of-the-art PIDS models.python experiments/evaluate.py \
+
     --model magic \
-    --data-path /path/to/soc/logs \
-    --output-dir results/magic_detailed \
-    --skip-download  # If weights already exist
-```
 
-### Example 3: Compare Models Across Multiple Datasets
+**Quick Steps:**    --checkpoint checkpoints/magic_custom_soc_best.pt \
+
+    --dataset custom_soc
+
+1. Create implementation in `models/implementations/your_model/`
+
+2. Create wrapper class inheriting from `BasePIDSModel`# Compare with pretrained baseline
+
+3. Register with `@ModelRegistry.register('your_model')`python experiments/compare.py \
+
+4. Add config in `configs/models/your_model.yaml`    --checkpoints checkpoints/magic_pretrained.pt checkpoints/magic_custom_soc_best.pt \
+
+5. Done! Framework auto-discovers your model    --labels "Pretrained" "Retrained" \
+
+    --dataset custom_soc
+
+**See [EXTEND.md](EXTEND.md) for complete tutorial with examples.**```
+
+
+
+---</details>
+
+
+
+## 📊 Performance Benchmarks---
+
+
+
+Typical evaluation times on **CPU** (Intel i7, 16GB RAM):## 📖 Usage Examples
+
+
+
+| Dataset Size | MAGIC | Kairos | Orthrus | ThreaTrace | Continuum_FL |### Example 1: Evaluate All Models on Custom SOC Data (PRIMARY USE CASE)
+
+|-------------|-------|--------|---------|------------|--------------|
+
+| 10K events | 2 min | 3 min | 4 min | 2 min | 5 min |```bash
+
+| 100K events | 15 min | 20 min | 25 min | 15 min | 30 min |# One command to evaluate everything
+
+| 1M events | 2 hours | 3 hours | 4 hours | 2 hours | 5 hours |./scripts/run_evaluation.sh
+
+
+
+**GPU Acceleration** (NVIDIA RTX 3090):# View results
+
+- **10-20x faster** for large datasetscat results/evaluation_*/comparison_report.json
+
+- Automatic detection and usage```
+
+
+
+---**Expected Output:**
+
+```json
+
+## ⚙️ System Requirements{
+
+  "dataset": "custom_soc",
+
+### Minimum  "timestamp": "2025-10-13T10:30:00",
+
+- **Python**: 3.8+  "models": {
+
+- **RAM**: 8GB    "magic": {
+
+- **Disk**: 10GB      "auc_roc": 0.9234,
+
+- **CPU**: 2+ cores      "auc_pr": 0.8967,
+
+      "f1": 0.8756,
+
+### Recommended      "precision": 0.8543,
+
+- **Python**: 3.9+      "recall": 0.8978
+
+- **RAM**: 16GB    },
+
+- **Disk**: 50GB (with datasets)    "kairos": {
+
+- **GPU**: 6GB+ VRAM (optional)      "auc_roc": 0.9156,
+
+- **CPU**: 4+ cores      "auc_pr": 0.8834,
+
+      "f1": 0.8623,
+
+---      "precision": 0.8412,
+
+      "recall": 0.8845
+
+## 🐛 Troubleshooting    },
+
+    ...
+
+### Common Issues  }
+
+}
+
+**Out of Memory**```
 
 ```bash
-# Evaluate on DARPA CADETS E3
+
+# Solution: Reduce batch size### Example 2: Evaluate Specific Model with Detailed Options
+
+python experiments/evaluate.py --model magic --batch-size 16
+
+``````bash
+
+# Evaluate MAGIC with custom settings
+
+**CUDA Errors**./scripts/run_evaluation.sh \
+
+```bash    --model magic \
+
+# Solution: Use CPU    --data-path /path/to/soc/logs \
+
+python experiments/evaluate.py --model magic --device -1    --output-dir results/magic_detailed \
+
+```    --skip-download  # If weights already exist
+
+```
+
+**Missing Pretrained Weights**
+
+```bash### Example 3: Compare Models Across Multiple Datasets
+
+# Solution: Download weights
+
+bash scripts/download_weights.sh```bash
+
+```# Evaluate on DARPA CADETS E3
+
 ./scripts/run_evaluation.sh --dataset cadets_e3 --data-path data/darpa_cadets_e3/
 
-# Evaluate on StreamSpot
-./scripts/run_evaluation.sh --dataset streamspot --data-path data/streamspot/
+**Import Errors**
 
-# Evaluate on Custom SOC
+```bash# Evaluate on StreamSpot
+
+# Solution: Reinstall dependencies./scripts/run_evaluation.sh --dataset streamspot --data-path data/streamspot/
+
+pip install -r requirements.txt --upgrade
+
+```# Evaluate on Custom SOC
+
 ./scripts/run_evaluation.sh --dataset custom_soc --data-path ../custom_dataset/
 
+**See [SETUP.md](SETUP.md) for more troubleshooting.**
+
 # Aggregate results
-python experiments/aggregate_results.py \
+
+---python experiments/aggregate_results.py \
+
     --results results/evaluation_*/comparison_report.json \
-    --output results/cross_dataset_comparison.csv
+
+## 📝 Citation    --output results/cross_dataset_comparison.csv
+
 ```
+
+If you use this framework in your research:
 
 ### Example 4: Train MAGIC on DARPA CADETS E3 (Advanced - Retraining)
 
-```bash
-python experiments/train.py \
-    --model magic_darpa \
-    --dataset cadets_e3 \
-    --epochs 500 \
-    --batch-size 1 \
-    --learning-rate 0.0005 \
+```bibtex
+
+@software{pids_comparative_framework2025,```bash
+
+  title={PIDS Comparative Framework: A Unified Platform for Evaluating python experiments/train.py \
+
+         Provenance-based Intrusion Detection Systems},    --model magic_darpa \
+
+  year={2025},    --dataset cadets_e3 \
+
+  url={https://github.com/yourusername/PIDS_Comparative_Framework}    --epochs 500 \
+
+}    --batch-size 1 \
+
+```    --learning-rate 0.0005 \
+
     --device cuda
-```
 
-### Example 2: Fine-tune Pretrained Model
+**And cite the individual models you evaluate.**```
 
-```yaml
+
+
+---### Example 2: Fine-tune Pretrained Model
+
+
+
+## 📜 License```yaml
+
 # Create config: configs/experiments/finetune_magic.yaml
-model:
+
+MIT License - see [LICENSE](LICENSE) for details.model:
+
   name: magic
-  pretrained_checkpoint: checkpoints/magic/checkpoint-cadets-e3.pt
 
-dataset:
+Individual model implementations retain their original licenses.  pretrained_checkpoint: checkpoints/magic/checkpoint-cadets-e3.pt
+
+
+
+---dataset:
+
   name: custom_soc
-  config: configs/datasets/custom_soc.yaml
 
-training:
-  num_epochs: 50              # Fewer epochs
-  learning_rate: 0.0001       # Lower learning rate
-  freeze_encoder: false       # Fine-tune all layers
-```
+## 🙏 Acknowledgments  config: configs/datasets/custom_soc.yaml
+
+
+
+This framework integrates the following excellent works:training:
+
+- MAGIC (USENIX Security 2024)  num_epochs: 50              # Fewer epochs
+
+- Kairos (IEEE S&P 2024)  learning_rate: 0.0001       # Lower learning rate
+
+- Orthrus (USENIX Security 2025)  freeze_encoder: false       # Fine-tune all layers
+
+- ThreaTrace (IEEE TIFS 2022)```
+
+- Continuum_FL (Federated Learning Research)
 
 ```bash
-python experiments/train.py --config configs/experiments/finetune_magic.yaml
+
+Thanks to the authors for their contributions to the community.python experiments/train.py --config configs/experiments/finetune_magic.yaml
+
 ```
+
+---
 
 ### Example 3: Evaluate All Models
 
+## 📧 Contact & Support
+
 ```bash
-# Evaluate all models on test set
-python experiments/evaluate.py \
+
+- **Issues**: [GitHub Issues](https://github.com/yourusername/PIDS_Comparative_Framework/issues)# Evaluate all models on test set
+
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/PIDS_Comparative_Framework/discussions)python experiments/evaluate.py \
+
     --all-models \
-    --dataset custom_soc \
+
+---    --dataset custom_soc \
+
     --output results/evaluation/
-```
+
+**Made with ❤️ for the Security Research Community**```
+
 
 ### Example 4: Custom Dataset Configuration
 
