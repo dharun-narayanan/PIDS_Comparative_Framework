@@ -39,7 +39,9 @@ class ContinuumFLModel(BasePIDSModel):
     def __init__(self, config: Dict):
         super().__init__(config)
         self.config = config
-        self.device = torch.device(config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu'))
+        
+        # Device is already set in parent __init__ with safe handling
+        # No need to override it here
         
         # Build Continuum_FL model
         self._build_model()

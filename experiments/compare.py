@@ -374,6 +374,24 @@ def main():
         help='Dataset to use (overrides config)'
     )
     
+    parser.add_argument(
+        '--results-dir',
+        type=Path,
+        help='Directory containing evaluation results'
+    )
+    
+    parser.add_argument(
+        '--output-file',
+        type=Path,
+        help='Output file for comparison report'
+    )
+    
+    parser.add_argument(
+        '--generate-plots',
+        action='store_true',
+        help='Generate comparison plots'
+    )
+    
     args = parser.parse_args()
     
     # Load configuration
@@ -389,6 +407,14 @@ def main():
     if args.dataset:
         config['dataset']['name'] = args.dataset
         config['dataset']['config'] = f'configs/datasets/{args.dataset}.yaml'
+    
+    # Override results directory if specified
+    if args.results_dir:
+        config['results_dir'] = str(args.results_dir)
+    
+    # Override output file if specified
+    if args.output_file:
+        config['output_file'] = str(args.output_file)
     
     # Create comparator
     comparator = ModelComparator(config)

@@ -29,7 +29,17 @@ class BasePIDSModel(ABC, nn.Module):
         super(BasePIDSModel, self).__init__()
         self.config = config
         self.model_name = config.get('model_name', 'base_model')
-        self.device = config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # Safe device handling
+        device_str = config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        try:
+            self.device = torch.device(device_str)
+        except RuntimeError:
+            # Fallback to CPU if device string is invalid
+            self.device = torch.device('cpu')
+            self.logger = logging.getLogger(f"{__name__}.{self.model_name}")
+            self.logger.warning(f"Invalid device '{device_str}', falling back to CPU")
+        
         self.logger = logging.getLogger(f"{__name__}.{self.model_name}")
         
     @abstractmethod

@@ -51,9 +51,17 @@ class ThreaTraceModel(BasePIDSModel):
             dropout=dropout,
             sketch_size=sketch_size,
             num_classes=num_classes
-        ).to(self.device)
+        )
         
-        self.logger.info(f"ThreaTrace model initialized with {encoder_type} encoder")
+        # Move to device (device is already set in parent __init__)
+        try:
+            self.threatrace_model = self.threatrace_model.to(self.device)
+        except RuntimeError as e:
+            self.logger.warning(f"Could not move model to {self.device}: {e}. Using CPU.")
+            self.device = torch.device('cpu')
+            self.threatrace_model = self.threatrace_model.to(self.device)
+        
+        self.logger.info(f"ThreaTrace model initialized with {encoder_type} encoder on {self.device}")
     
     def forward(self, batch):
         """Forward pass through ThreaTrace model."""
