@@ -119,6 +119,9 @@ class PipelineBuilder:
         # Create task manager
         self.task_manager = TaskManager(self.config, force_restart=force_restart)
         
+        # Make a copy of dependencies that we can modify
+        task_dependencies = self.TASK_DEPENDENCIES.copy()
+        
         # Determine which tasks to include
         if tasks is None:
             # Use default pipeline tasks
@@ -139,6 +142,8 @@ class PipelineBuilder:
             if window_config.get('size') is None:
                 # Skip time window construction
                 tasks.remove('construct_time_windows')
+                # Update graph_transformation to depend on load_preprocessed_data instead
+                task_dependencies['graph_transformation'] = ['load_preprocessed_data']
                 logger.info(f"Skipping time windowing for {model_name}")
         
         logger.info(f"Pipeline tasks: {tasks}")
@@ -154,8 +159,8 @@ class PipelineBuilder:
             # Get task-specific config with model config merged
             task_config = self._get_task_config(model_name, task_name, model_config)
             
-            # Get dependencies
-            dependencies = self.TASK_DEPENDENCIES.get(task_name, [])
+            # Get dependencies (use modified dependencies if time windows skipped)
+            dependencies = task_dependencies.get(task_name, [])
             
             # Set output path
             output_path = artifact_dir / task_name / 'output.pkl'
