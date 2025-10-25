@@ -137,15 +137,15 @@ class TaskManager:
             logger.debug(f"Task '{task_name}' already completed")
             return task.result
         
-        # Check if can skip
-        if not self.should_run_task(task):
-            return task.result
-        
-        # Execute dependencies first
+        # Execute dependencies first (always needed, even when task is cached)
         dependency_results = {}
         for dep_name in task.dependencies:
             logger.debug(f"Task '{task_name}' requires '{dep_name}'")
             dependency_results[dep_name] = self.execute_task(dep_name)
+        
+        # Check if can skip (after loading dependencies)
+        if not self.should_run_task(task):
+            return task.result
         
         # Execute task
         logger.info(f"Executing task: {task_name}")
