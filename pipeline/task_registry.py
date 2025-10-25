@@ -598,13 +598,23 @@ class TaskRegistry:
                 else:
                     checkpoint_path = None
         
+        # Get input dimension from the batches
+        batches = dependencies['batch_construction']['batches']
+        input_dim = None
+        if batches and len(batches) > 0:
+            first_batch = batches[0]
+            if hasattr(first_batch, 'x') and first_batch.x is not None:
+                input_dim = first_batch.x.shape[1]
+                logger.info(f"Detected input dimension: {input_dim}")
+        
         # Build and load model
         logger.info(f"Building model: {model_name}")
         model = model_builder.build_and_load(
             model_name,
             dataset_name=dataset_name,
             checkpoint_path=checkpoint_path,
-            device=device
+            device=device,
+            input_dim=input_dim
         )
         
         if checkpoint_path is None:

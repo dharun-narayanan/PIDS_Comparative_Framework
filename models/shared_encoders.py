@@ -234,18 +234,20 @@ class SAGEEncoder(nn.Module):
         self.activation = create_activation(activation)
         self.dropout = nn.Dropout(dropout)
     
-    def forward(self, x, edge_index, return_all_layers=False):
+    def forward(self, x, edge_index, edge_attr=None, return_all_layers=False):
         """
         Forward pass through GraphSAGE layers.
         
         Args:
             x: Node features [num_nodes, in_channels]
             edge_index: Edge connectivity [2, num_edges]
+            edge_attr: Edge attributes (optional, ignored by SAGE)
             return_all_layers: Return outputs from all layers
             
         Returns:
             Node embeddings [num_nodes, out_channels]
         """
+        # Note: edge_attr is accepted for compatibility but not used by GraphSAGE
         hidden_list = []
         
         for i, conv in enumerate(self.convs):

@@ -31,7 +31,8 @@ class GenericModel(nn.Module):
         self,
         encoders: Union[nn.Module, List[nn.Module]],
         decoders: Union[nn.Module, Dict[str, nn.Module]],
-        config: Dict[str, Any]
+        config: Dict[str, Any],
+        input_dim: Optional[int] = None
     ):
         """
         Initialize generic model.
@@ -40,11 +41,29 @@ class GenericModel(nn.Module):
             encoders: Single encoder or list of encoders
             decoders: Single decoder or dict of named decoders
             config: Model configuration dictionary
+            input_dim: Actual input feature dimension (for dimension adaptation)
         """
         super(GenericModel, self).__init__()
         
         self.config = config
         self.model_name = config.get('name', 'unknown')
+        
+        # Get expected input dimension from encoder config
+        arch_config = config.get('architecture', {})
+        if isinstance(encoders, list):
+            # Multi-encoder: use first encoder's input dim
+            encoder_config = arch_config.get('encoders', [{}])[0]
+        else:
+            # Single encoder
+            encoder_config = arch_config.get('encoder', {})
+        
+        expected_in_dim = encoder_config.get('in_dim', encoder_config.get('in_channels', None))
+        
+        # Add input projection if dimensions don't match
+        self.input_projection = None
+        if input_dim is not None and expected_in_dim is not None and input_dim != expected_in_dim:
+            logger.info(f"Adding input projection: {input_dim} -> {expected_in_dim}")
+            self.input_projection = nn.Linear(input_dim, expected_in_dim)
         
         # Setup encoders
         if isinstance(encoders, list):
@@ -77,11 +96,16 @@ class GenericModel(nn.Module):
         Returns:
             Node embeddings [num_nodes, embed_dim]
         """
+        # Apply input projection if needed
+        x = data.x
+        if self.input_projection is not None:
+            x = self.input_projection(x)
+        
         if self.multi_encoder:
             # Get embeddings from each encoder
             embeddings = []
             for encoder in self.encoders:
-                h = encoder(data.x, data.edge_index, 
+                h = encoder(x, data.edge_index, 
                            edge_attr=getattr(data, 'edge_attr', None))
                 embeddings.append(h)
             
@@ -95,7 +119,7 @@ class GenericModel(nn.Module):
             else:
                 raise ValueError(f"Unknown combination method: {self.encoder_combination_method}")
         else:
-            return self.encoder(data.x, data.edge_index,
+            return self.encoder(x, data.edge_index,
                               edge_attr=getattr(data, 'edge_attr', None))
     
     def decode(self, h, data, decoder_name=None, inference=False):
@@ -275,10 +299,21 @@ class ModelBuilder:
         # Remove model-specific parameters not supported by base decoders
         unsupported_params = [
             'use_edge_features', 'mask_rate', 'loss_fn', 'alpha_l',
-            'norm', 'use_all_hidden', 'temperature', 'activation'
+            'norm', 'use_all_hidden', 'temperature', 'activation',
+            'in_dim', 'hidden_dim', 'out_dim'  # Remove dimension params for contrastive decoder
         ]
-        for param in unsupported_params:
-            decoder_config.pop(param, None)
+        
+        # Special handling for contrastive decoder
+        if decoder_type.lower() in ['contrastive', 'contrastive_decoder']:
+            # ContrastiveDecoder only accepts temperature and similarity
+            allowed_params = ['temperature', 'similarity']
+            filtered_config = {k: v for k, v in decoder_config.items() if k in allowed_params}
+            decoder_config.clear()
+            decoder_config.update(filtered_config)
+        else:
+            # For other decoders, remove unsupported params
+            for param in unsupported_params:
+                decoder_config.pop(param, None)
         
         decoder = get_decoder(decoder_type, decoder_config)
         
@@ -290,7 +325,8 @@ class ModelBuilder:
     def build_model(
         self,
         model_name: str,
-        override_config: Optional[Dict[str, Any]] = None
+        override_config: Optional[Dict[str, Any]] = None,
+        input_dim: Optional[int] = None
     ) -> GenericModel:
         """
         Build model from configuration file.
@@ -298,6 +334,7 @@ class ModelBuilder:
         Args:
             model_name: Name of the model (corresponds to config file)
             override_config: Optional config overrides
+            input_dim: Actual input feature dimension (for dimension adaptation)
             
         Returns:
             GenericModel instance
@@ -352,8 +389,8 @@ class ModelBuilder:
         else:
             raise ValueError(f"No decoder configuration found for {model_name}")
         
-        # Build model
-        model = GenericModel(encoder, decoder, config)
+        # Build model with input dimension adaptation
+        model = GenericModel(encoder, decoder, config, input_dim)
         
         logger.info(f"Built model: {model_name}")
         logger.info(f"  Encoders: {len(encoder) if isinstance(encoder, list) else 1}")
@@ -425,7 +462,8 @@ class ModelBuilder:
         dataset_name: Optional[str] = None,
         checkpoint_path: Optional[str] = None,
         device: str = 'cpu',
-        override_config: Optional[Dict[str, Any]] = None
+        override_config: Optional[Dict[str, Any]] = None,
+        input_dim: Optional[int] = None
     ) -> GenericModel:
         """
         Build model and optionally load pretrained weights.
@@ -436,12 +474,13 @@ class ModelBuilder:
             checkpoint_path: Explicit checkpoint path (overrides dataset-based path)
             device: Device to load model on
             override_config: Optional config overrides
+            input_dim: Actual input feature dimension (for dimension adaptation)
             
         Returns:
             Model instance with optional pretrained weights
         """
         # Build model
-        model = self.build_model(model_name, override_config)
+        model = self.build_model(model_name, override_config, input_dim)
         model = model.to(device)
         
         # Load checkpoint if specified
