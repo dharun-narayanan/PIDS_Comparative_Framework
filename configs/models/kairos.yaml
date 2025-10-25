@@ -7,22 +7,38 @@ model_type: temporal_gnn
 
 # Model Architecture
 architecture:
-  in_channels: 100         # Input feature dimension
-  out_channels: 100        # Output embedding dimension
-  msg_dim: 100             # Message dimension
-  memory_dim: 100          # Temporal memory dimension
-  time_dim: 100            # Time encoding dimension
-  num_layers: 2            # Number of graph attention layers
-  num_heads: 8             # Number of attention heads
-  dropout: 0.1             # Dropout rate
+  # Encoder configuration - Temporal Graph Attention
+  encoder:
+    type: gat                # Graph Attention Network with temporal features
+    in_dim: 100              # Input feature dimension (in_channels)
+    hidden_dim: 100          # Hidden dimension
+    out_dim: 100             # Output embedding dimension (out_channels)
+    num_layers: 2            # Number of graph attention layers
+    num_heads: 8             # Number of attention heads
+    dropout: 0.1             # Dropout rate
+    activation: relu
+    use_edge_attr: true
+    
+    # Temporal encoding
+    time_encoding: true
+    time_encoder: cosine     # cosine or learnable
+    time_dim: 100            # Time encoding dimension
+    max_time_delta: 86400    # Max time delta in seconds (24 hours)
+    
+    # Memory components
+    memory_dim: 100          # Temporal memory dimension
+    max_nodes: 268435        # Maximum nodes in memory (from CADETS E3)
+    memory_updater: gru      # gru or lstm
+    msg_dim: 100             # Message dimension
   
-  # Temporal encoding
-  time_encoder: cosine     # cosine or learnable
-  max_time_delta: 86400    # Max time delta in seconds (24 hours)
-  
-  # Memory
-  max_nodes: 268435        # Maximum nodes in memory (from CADETS E3)
-  memory_updater: gru      # gru or lstm
+  # Decoder configuration - Edge prediction
+  decoder:
+    type: edge               # Edge-level anomaly detection
+    in_dim: 100              # Input from encoder
+    hidden_dim: 100
+    out_dim: 2               # Binary classification (normal/anomaly)
+    activation: relu
+    use_edge_features: true
   
 # Training
 training:

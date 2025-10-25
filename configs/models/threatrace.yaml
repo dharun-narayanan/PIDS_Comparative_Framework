@@ -7,24 +7,32 @@ model_type: gcn
 
 # Model Architecture
 architecture:
-  hidden_dim: 128          # Hidden layer dimension
-  num_layers: 2            # Number of GCN layers
-  dropout: 0.5             # Dropout rate
-  activation: relu         # Activation function
-  
-  # Graph convolution
-  gcn_type: gcnconv        # gcnconv or sage
-  normalization: both      # both, source, or none
-  add_self_loops: true
-  
-  # Classification head
-  classifier_hidden: 64
-  num_classes: 2
-  
-  # GraphChi integration
-  use_graphchi: false      # Use GraphChi for large-scale graphs
-  graphchi_niters: 10      # Number of GraphChi iterations
-  graphchi_nshards: 4      # Number of shards for disk-based processing
+  # Encoder configuration - GCN
+  encoder:
+    type: sage               # GraphSAGE encoder (gcn_type)
+    in_dim: 128              # Input feature dimension
+    hidden_dim: 128          # Hidden layer dimension
+    out_dim: 128             # Output embedding dimension
+    num_layers: 2            # Number of GCN layers
+    dropout: 0.5             # Dropout rate
+    activation: relu         # Activation function
+    normalization: both      # both, source, or none
+    add_self_loops: true
+    aggregator: mean         # mean, max, or lstm
+    
+  # Decoder configuration - Classification
+  decoder:
+    type: node               # Node-level classification
+    in_dim: 128              # Input from encoder
+    hidden_dim: 64           # Classifier hidden dimension
+    out_dim: 2               # Number of classes
+    activation: relu
+    dropout: 0.5
+    
+  # GraphChi integration (for large-scale graphs)
+  use_graphchi: false        # Use GraphChi for large-scale graphs
+  graphchi_niters: 10        # Number of GraphChi iterations
+  graphchi_nshards: 4        # Number of shards for disk-based processing
   
 # Training
 training:

@@ -230,6 +230,27 @@ class ModelBuilder:
         encoder_type = encoder_config.pop('type')
         name = encoder_config.pop('name', None)  # Remove name if present
         
+        # Normalize parameter names: map *_dim to *_channels
+        param_mapping = {
+            'in_dim': 'in_channels',
+            'hidden_dim': 'hidden_channels',
+            'out_dim': 'out_channels'
+        }
+        for old_key, new_key in param_mapping.items():
+            if old_key in encoder_config and new_key not in encoder_config:
+                encoder_config[new_key] = encoder_config.pop(old_key)
+        
+        # Remove model-specific parameters not supported by base encoders
+        unsupported_params = [
+            'use_edge_attr', 'time_encoding', 'time_encoder', 'time_dim',
+            'max_time_delta', 'memory_dim', 'max_nodes', 'memory_updater',
+            'msg_dim', 'aggregator', 'normalization', 'add_self_loops',
+            'temporal', 'n_snapshot', 'pooling', 'negative_slope', 'use_all_hidden',
+            'loss_fn', 'alpha_l', 'use_graphchi', 'graphchi_niters', 'graphchi_nshards'
+        ]
+        for param in unsupported_params:
+            encoder_config.pop(param, None)
+        
         encoder = get_encoder(encoder_type, encoder_config)
         
         # Restore config values
@@ -250,6 +271,14 @@ class ModelBuilder:
             Decoder module
         """
         decoder_type = decoder_config.pop('type')
+        
+        # Remove model-specific parameters not supported by base decoders
+        unsupported_params = [
+            'use_edge_features', 'mask_rate', 'loss_fn', 'alpha_l',
+            'norm', 'use_all_hidden', 'temperature', 'activation'
+        ]
+        for param in unsupported_params:
+            decoder_config.pop(param, None)
         
         decoder = get_decoder(decoder_type, decoder_config)
         

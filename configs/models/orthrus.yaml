@@ -7,30 +7,46 @@ model_type: multi_decoder
 
 # Model Architecture
 architecture:
-  # Node/Edge dimensions
-  num_nodes: 100000        # Expected number of nodes
-  in_dim: 100              # Input feature dimension
-  out_dim: 100             # Output embedding dimension
-  
-  # Encoder
-  encoder_type: gat        # gat, gcn, or sage
-  encoder_layers: 3
-  encoder_heads: 4         # For GAT
-  encoder_dropout: 0.1
-  
-  # Decoders
-  num_decoders: 3          # Number of decoder heads
-  decoder_type: mlp        # mlp or attention
-  decoder_hidden_dim: 128
-  
-  # Contrastive Learning
-  use_contrastive_learning: true
-  contrastive_loss_weight: 0.5
-  temperature: 0.07        # Temperature for contrastive loss
-  
-  # Edge type information
-  num_edge_types: 10       # Number of different edge types
-  use_edge_attr: true      # Use edge attributes
+  # Encoder configuration
+  encoder:
+    type: gat                # Graph Attention Network (encoder_type)
+    in_dim: 100              # Input feature dimension
+    hidden_dim: 128          # Hidden dimension
+    out_dim: 100             # Output embedding dimension
+    num_layers: 3            # Number of layers (encoder_layers)
+    num_heads: 4             # Number of attention heads (encoder_heads)
+    dropout: 0.1             # Dropout rate (encoder_dropout)
+    activation: relu
+    use_edge_attr: true      # Use edge attributes
+    
+  # Multi-decoder configuration
+  decoders:
+    # Primary decoder - edge anomaly detection
+    primary:
+      type: edge             # Edge-level predictions
+      in_dim: 100
+      hidden_dim: 128        # decoder_hidden_dim
+      out_dim: 2             # Binary classification
+      activation: relu
+      
+    # Contrastive decoder
+    contrastive:
+      type: contrastive      # Contrastive learning
+      in_dim: 100
+      hidden_dim: 128
+      out_dim: 100
+      temperature: 0.07      # Temperature for contrastive loss
+      
+    # Reconstruction decoder (auxiliary)
+    reconstruction:
+      type: reconstruction   # Graph reconstruction
+      in_dim: 100
+      hidden_dim: 128
+      out_dim: 100
+      
+  # Node/Edge metadata
+  num_nodes: 100000          # Expected number of nodes
+  num_edge_types: 10         # Number of different edge types
   
 # Training
 training:

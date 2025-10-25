@@ -7,15 +7,27 @@ model_type: autoencoder
 
 # Model Architecture
 architecture:
-  num_hidden: 256          # Hidden dimension size
-  num_layers: 4            # Number of GNN layers
-  mask_rate: 0.3           # Masking rate for autoencoder (30%)
-  n_dim: 128               # Node feature dimension
-  e_dim: 64                # Edge feature dimension
-  activation: prelu        # Activation function
-  norm: batchnorm          # Normalization layer
-  encoding_type: mlp       # Encoding type for features
-  decoder_type: mlp        # Decoder type for reconstruction
+  # Encoder configuration
+  encoder:
+    type: gat                # Graph Attention Network
+    in_dim: 128              # Node feature dimension (n_dim)
+    hidden_dim: 256          # Hidden dimension size (num_hidden)
+    out_dim: 256             # Output embedding dimension
+    num_layers: 4            # Number of GNN layers
+    num_heads: 4             # Number of attention heads
+    dropout: 0.1
+    activation: prelu        # Activation function
+    use_edge_attr: true
+    
+  # Decoder configuration (for autoencoder reconstruction)
+  decoder:
+    type: reconstruction     # Reconstruction decoder for autoencoder
+    in_dim: 256              # Input from encoder
+    hidden_dim: 256
+    out_dim: 128             # Reconstruct node features
+    mask_rate: 0.3           # Masking rate for autoencoder (30%)
+    activation: prelu
+    norm: batchnorm          # Normalization layer
 
 # Training
 training:

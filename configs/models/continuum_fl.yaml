@@ -7,33 +7,36 @@ model_type: federated_autoencoder
 
 # Model Architecture
 architecture:
-  # Input/Output dimensions
-  n_dim: 100               # Node feature dimension
-  e_dim: 64                # Edge feature dimension
-  hidden_dim: 256          # Hidden layer dimension
-  out_dim: 64              # Output embedding dimension
-  
-  # STGNN Architecture
-  n_layers: 4              # Number of GAT layers
-  n_heads: 4               # Number of attention heads
-  n_snapshot: 10           # Number of temporal snapshots
-  
-  # Activation and regularization
-  activation: prelu        # prelu, relu, or elu
-  feat_drop: 0.1           # Feature dropout rate
-  negative_slope: 0.2      # LeakyReLU negative slope
-  residual: true           # Use residual connections
-  norm: BatchNorm          # Normalization type
-  
-  # Pooling
-  pooling: mean            # mean, max, or sum
-  
-  # Loss function
-  loss_fn: sce             # sce (scaled cosine error), mse, or mae
-  alpha_l: 2               # Loss scaling factor
-  
-  # Architecture variant
-  use_all_hidden: true     # Use all hidden layers (true for StreamSpot)
+  # Encoder configuration - Spatiotemporal GAT
+  encoder:
+    type: gat                # Graph Attention Network
+    in_dim: 100              # Node feature dimension (n_dim)
+    hidden_dim: 256          # Hidden layer dimension
+    out_dim: 64              # Output embedding dimension
+    num_layers: 4            # Number of GAT layers (n_layers)
+    num_heads: 4             # Number of attention heads (n_heads)
+    dropout: 0.1             # Feature dropout rate (feat_drop)
+    activation: prelu        # prelu, relu, or elu
+    negative_slope: 0.2      # LeakyReLU negative slope
+    residual: true           # Use residual connections
+    use_edge_attr: true
+    
+    # Temporal configuration
+    temporal: true
+    n_snapshot: 10           # Number of temporal snapshots
+    pooling: mean            # mean, max, or sum (for temporal aggregation)
+    
+  # Decoder configuration - Autoencoder reconstruction
+  decoder:
+    type: reconstruction     # Reconstruction decoder for autoencoder
+    in_dim: 64               # Input from encoder (out_dim)
+    hidden_dim: 256          # Hidden dimension
+    out_dim: 100             # Reconstruct node features (n_dim)
+    activation: prelu
+    loss_fn: sce             # sce (scaled cosine error), mse, or mae
+    alpha_l: 2               # Loss scaling factor
+    norm: batchnorm          # Normalization type
+    use_all_hidden: true     # Use all hidden layers (true for StreamSpot)
 
 # Training
 training:
