@@ -112,6 +112,7 @@ class EdgeDecoder(nn.Module):
         self.out_dim = out_dim
         self.use_edge_features = use_edge_features
         self.prediction_type = prediction_type
+        self.edge_proj = None  # Edge feature projection layer
         
         # Input is concatenation of source and destination embeddings
         mlp_input_dim = in_dim * 2
@@ -151,7 +152,7 @@ class EdgeDecoder(nn.Module):
         Args:
             h_src: Source node embeddings [num_edges, in_dim]
             h_dst: Destination node embeddings [num_edges, in_dim]
-            edge_features: Edge features [num_edges, in_dim] (optional)
+            edge_features: Edge features [num_edges, edge_dim] (optional)
             edge_labels: Ground truth labels [num_edges]
             inference: Whether in inference mode
             
@@ -163,6 +164,15 @@ class EdgeDecoder(nn.Module):
         h = torch.cat([h_src, h_dst], dim=-1)
         
         if self.use_edge_features and edge_features is not None:
+            # Check if edge features need projection
+            edge_dim = edge_features.shape[-1]
+            if edge_dim != self.in_dim:
+                # Create projection layer if not exists
+                if self.edge_proj is None or self.edge_proj.in_features != edge_dim:
+                    self.edge_proj = nn.Linear(edge_dim, self.in_dim).to(edge_features.device)
+                # Project edge features to expected dimension
+                edge_features = self.edge_proj(edge_features)
+            
             h = torch.cat([h, edge_features], dim=-1)
         
         # Apply MLP

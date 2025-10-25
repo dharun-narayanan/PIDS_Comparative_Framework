@@ -644,14 +644,56 @@ class TaskRegistry:
                     output = output[primary_key]
                 
                 if isinstance(output, torch.Tensor):
-                    if output.dim() == 2 and output.shape[1] > 1:
+                    # Check if output is node-level and we need edge-level predictions
+                    num_edges = batch.edge_index.shape[1] if hasattr(batch, 'edge_index') else 0
+                    output_size = output.shape[0]
+                    
+                    # If output is node-level but we have edge labels, convert to edge-level
+                    if num_edges > 0 and output_size == batch.num_nodes and hasattr(batch, 'y') and batch.y.shape[0] == num_edges:
+                        # Node-level output, convert to edge-level
+                        # Use reconstruction error or embedding similarity for edges
+                        src_nodes = batch.edge_index[0]  # Source nodes
+                        dst_nodes = batch.edge_index[1]  # Destination nodes
+                        
+                        if output.dim() == 2:
+                            # output is [num_nodes, feature_dim]
+                            # Compute edge scores as similarity between src and dst node embeddings
+                            src_emb = output[src_nodes]  # [num_edges, feature_dim]
+                            dst_emb = output[dst_nodes]  # [num_edges, feature_dim]
+                            
+                            # Cosine similarity for anomaly scores (higher similarity = lower anomaly)
+                            scores = torch.nn.functional.cosine_similarity(src_emb, dst_emb, dim=1)
+                            # Invert: higher score = more anomalous
+                            scores = 1.0 - scores
+                            predictions = (scores > 0.5).long()
+                        else:
+                            # Fallback: use node predictions for edges (average src and dst)
+                            src_pred = output[src_nodes].squeeze()
+                            dst_pred = output[dst_nodes].squeeze()
+                            scores = (src_pred + dst_pred) / 2.0
+                            predictions = (scores > 0.5).long()
+                    elif output.dim() == 2 and output.shape[1] > 1 and output.shape[0] == num_edges:
                         # Multi-class classification (already softmax from decoder)
                         scores = output
                         predictions = torch.argmax(scores, dim=1)
-                    else:
+                    elif output.dim() == 1 or (output.dim() == 2 and output.shape[1] == 1):
                         # Binary classification (already sigmoid from decoder)
                         scores = output.squeeze()
                         predictions = (scores > 0.5).long()
+                    else:
+                        # Multi-class or other format
+                        if output.shape[0] == num_edges:
+                            # Assume edge-level output
+                            if output.dim() == 2 and output.shape[1] > 1:
+                                scores = output
+                                predictions = torch.argmax(scores, dim=1)
+                            else:
+                                scores = output.squeeze()
+                                predictions = (scores > 0.5).long()
+                        else:
+                            # Fallback: create zero predictions
+                            scores = torch.zeros(num_edges, device=device)
+                            predictions = torch.zeros(num_edges, dtype=torch.long, device=device)
                 else:
                     scores = torch.zeros(1, device=device)
                     predictions = torch.zeros(1, dtype=torch.long, device=device)

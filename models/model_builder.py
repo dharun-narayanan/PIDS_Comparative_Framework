@@ -296,13 +296,6 @@ class ModelBuilder:
         """
         decoder_type = decoder_config.pop('type')
         
-        # Remove model-specific parameters not supported by base decoders
-        unsupported_params = [
-            'use_edge_features', 'mask_rate', 'loss_fn', 'alpha_l',
-            'norm', 'use_all_hidden', 'temperature', 'activation',
-            'in_dim', 'hidden_dim', 'out_dim'  # Remove dimension params for contrastive decoder
-        ]
-        
         # Special handling for contrastive decoder
         if decoder_type.lower() in ['contrastive', 'contrastive_decoder']:
             # ContrastiveDecoder only accepts temperature and similarity
@@ -311,7 +304,12 @@ class ModelBuilder:
             decoder_config.clear()
             decoder_config.update(filtered_config)
         else:
-            # For other decoders, remove unsupported params
+            # For other decoders, remove ONLY the truly unsupported params
+            # Keep in_dim, hidden_dim, out_dim as they are required by most decoders
+            unsupported_params = [
+                'mask_rate', 'loss_fn', 'alpha_l',
+                'norm', 'use_all_hidden', 'activation'
+            ]
             for param in unsupported_params:
                 decoder_config.pop(param, None)
         
