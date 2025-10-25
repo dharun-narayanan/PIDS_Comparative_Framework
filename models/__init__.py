@@ -1,53 +1,52 @@
 """
 Model registry and initialization.
 
-This module imports all PIDS model wrappers and registers them
-with the ModelRegistry for easy access.
+This module provides the ModelBuilder for dynamic model construction
+from YAML configurations and exports all shared components.
 """
 
-from models.base_model import BasePIDSModel, ModelRegistry
-
-# Import all model wrappers
-# These imports trigger the @ModelRegistry.register decorators
-try:
-    from models.magic_wrapper import MAGICModel, MAGICStreamSpot, MAGICDARPA
-except ImportError as e:
-    print(f"Warning: Could not import MAGIC model: {e}")
-
-try:
-    from models.kairos_wrapper import KairosModel
-except ImportError as e:
-    print(f"Warning: Could not import Kairos model: {e}")
-
-try:
-    from models.orthrus_wrapper import OrthrusModel
-except ImportError as e:
-    print(f"Warning: Could not import Orthrus model: {e}")
-
-try:
-    from models.threatrace_wrapper import ThreaTraceModel
-except ImportError as e:
-    print(f"Warning: Could not import ThreaTrace model: {e}")
-
-try:
-    from models.continuum_fl_wrapper import ContinuumFLModel, ContinuumFLStreamSpot, ContinuumFLDARPA
-except ImportError as e:
-    print(f"Warning: Could not import Continuum_FL model: {e}")
+from models.model_builder import ModelBuilder, GenericModel
+from models.shared_encoders import (
+    GATEncoder,
+    SAGEEncoder,
+    GraphTransformerEncoder,
+    TimeEncoder,
+    MultiEncoder
+)
+from models.shared_decoders import (
+    EdgeDecoder,
+    NodeDecoder,
+    ContrastiveDecoder,
+    ReconstructionDecoder,
+    AnomalyDecoder,
+    InnerProductDecoder
+)
 
 __all__ = [
-    'BasePIDSModel',
-    'ModelRegistry',
-    'MAGICModel',
-    'KairosModel',
-    'OrthrusModel',
-    'ThreaTraceModel',
-    'ContinuumFLModel',
+    'ModelBuilder',
+    'GenericModel',
+    # Encoders
+    'GATEncoder',
+    'SAGEEncoder',
+    'GraphTransformerEncoder',
+    'TimeEncoder',
+    'MultiEncoder',
+    # Decoders
+    'EdgeDecoder',
+    'NodeDecoder',
+    'ContrastiveDecoder',
+    'ReconstructionDecoder',
+    'AnomalyDecoder',
+    'InnerProductDecoder',
 ]
 
-# Print registered models
+# Utility function for listing available models
 def list_available_models():
-    """List all registered models."""
-    return ModelRegistry.list_models()
+    """List all available models from configs/models/."""
+    from pathlib import Path
+    config_dir = Path(__file__).parent.parent / "configs" / "models"
+    model_configs = list(config_dir.glob("*.yaml"))
+    return [f.stem for f in model_configs if f.stem != "template"]
 
 # Model configuration templates
 MODEL_CONFIGS = {

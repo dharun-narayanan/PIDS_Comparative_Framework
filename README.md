@@ -1,217 +1,733 @@
-# PIDS Comparative Framework
+# PIDS Comparative Framework# PIDS Comparative Framework
 
-<div align="center">
 
-**A Unified Framework for Evaluating State-of-the-Art Provenance-based Intrusion Detection Systems**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8--3.10-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-1.12%2B-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+A unified framework for evaluating Provenance-based Intrusion Detection Systems (PIDS) across multiple models and datasets.<div align="center">
 
-[Quick Start](#-quick-start) | [Installation](#-installation) | [Models](#-supported-models) | [Usage](#-usage) | [Troubleshooting](#-troubleshooting)
 
-</div>
 
----
+## Overview**An Extensible Framework for Provenance-based Intrusion Detection Systems**
 
-## 🎯 Overview
 
-The **PIDS Comparative Framework** is a production-ready platform that enables Security Operations Centers (SOC) to evaluate and compare state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom data.
 
-### Primary Use Case
+This framework provides a modular and extensible platform for:[![Python 3.8+](https://img.shields.io/badge/python-3.8--3.10-blue.svg)](https://www.python.org/downloads/)
 
-**Evaluate pretrained PIDS models on your custom SOC data** to determine which model performs best for your environment.
+- Training and evaluating multiple PIDS models (MAGIC, Kairos, Orthrus, ThreaTrace, Continuum_FL)[![PyTorch](https://img.shields.io/badge/PyTorch-1.12%2B-red.svg)](https://pytorch.org/)
 
-✅ **Ready-to-Use**: Pretrained models included - no training required  
-✅ **Standalone**: All model implementations self-contained  
-✅ **Custom Data**: Works with your JSON-formatted system logs  
-✅ **Multi-Model**: Compare 5 state-of-the-art approaches simultaneously  
-✅ **CPU-First**: Runs on CPU by default, GPU optional  
-🔄 **Advanced**: Retrain models on custom data (optional)
+- Supporting custom datasets with standardized preprocessing[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-### What is Provenance-based Intrusion Detection?
+- Comparing model performance across different datasets
 
-Provenance graphs capture system-level information flows (process→file, process→network) to model normal behavior and detect anomalous activities indicative of cyber attacks. This framework integrates 5 state-of-the-art deep learning approaches for analyzing provenance data.
+- Reproducible experiments with consistent evaluation metrics[Quick Start](#-quick-start) | [Installation](#-installation) | [Models](#-supported-models) | [Adding Models](#-adding-new-models) | [Documentation](#-documentation)
 
----
 
-## 📊 Workflow
+
+## Key Features</div>
+
+
+
+### Configuration-Driven Model Building---
+
+- **ModelBuilder**: Dynamically constructs models from YAML configurations
+
+- **Shared Components**: Reusable encoders and decoders across all models## 🎯 Overview
+
+- **Zero Code Changes**: Add new models by creating YAML config files
+
+The **PIDS Comparative Framework** is a production-ready, extensible platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems on custom datasets.
+
+### Modular Pipeline System
+
+The framework implements a 9-task pipeline with automatic caching:### Key Features
+
+1. **load_data**: Load raw provenance data
+
+2. **preprocess**: Clean and normalize data✅ **Extensible Architecture** - Add new models by creating a YAML config file (no code needed)  
+
+3. **build_graphs**: Construct provenance graphs✅ **Shared Components** - Reusable encoder/decoder library eliminates code duplication  
+
+4. **extract_features**: Generate node/edge features✅ **Task-Based Pipeline** - Modular execution with automatic caching  
+
+5. **split_data**: Create train/val/test splits✅ **Custom Datasets** - Works with any preprocessed provenance data  
+
+6. **prepare_model_input**: Format data for model consumption✅ **Pretrained Weights** - Use existing checkpoints or train from scratch  
+
+7. **run_inference**: Execute model predictions✅ **Multi-Model Comparison** - Evaluate 5+ state-of-the-art models simultaneously  
+
+8. **process_predictions**: Post-process model outputs✅ **CPU-First** - Runs on CPU by default, GPU optional  
+
+9. **calculate_metrics**: Compute evaluation metrics
+
+### What's New (October 2025 Restructuring)
+
+### Supported Models
+
+1. **MAGIC**: Multi-level Anomaly Graph Intrusion Clustering🚀 **Complete architectural overhaul for extensibility:**
+
+2. **Kairos**: Temporal Graph Neural Network
+
+3. **Orthrus**: Dual-headed detection system- **Shared Encoders/Decoders** - 11 reusable components (5 encoders + 6 decoders)
+
+4. **ThreaTrace**: Thread-level provenance analysis- **Model Builder** - Dynamic model construction from YAML configs
+
+5. **Continuum_FL**: Federated learning approach- **Per-Model Configs** - Each model has its own `configs/models/{model}.yaml` file  
+
+- **No Wrappers Needed** - `GenericModel` works with any encoder-decoder combination
+
+### Supported Datasets- **Add Models in Minutes** - Just create a config file, no Python code required
+
+- **StreamSpot**: Streaming system call graphs- **Task-Based Pipeline** - 9 modular tasks with automatic caching and dependency management
+
+- **DARPA TC**: Transparent Computing dataset (Cadets, ClearScope, Theia, Trace)
+
+- **Unicorn**: Attack scenario dataset**Before**: Adding a new model required writing 300+ lines of Python (wrapper class, encoder, decoder)  
+
+- **Custom datasets**: Easy integration via YAML configuration**After**: Copy `configs/models/template.yaml`, edit configuration, done! No Python code needed.
+
+
+
+## Installation**Key Architecture Changes:**
+
+- Removed all model wrapper files (replaced by ModelBuilder)
+
+### Quick Start- Removed model-specific implementations (replaced by shared components)
+
+```bash- Unified evaluation through pipeline-based system
+
+# Clone the repository- YAML-driven configuration for maximum flexibility
+
+git clone <repository_url>
+
+cd PIDS_Comparative_Framework---
+
+
+
+# Install dependencies## 📊 Workflow
+
+pip install -r requirements.txt
 
 ```
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│ Your SOC Data   │ ───> │ Pretrained PIDS  │ ───> │ Performance     │
-│ (JSON Logs)     │      │ Models           │      │ Comparison      │
-└─────────────────┘      └──────────────────┘      └─────────────────┘
+
+# Or using conda┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+
+conda env create -f environment.yml│ Preprocessed    │ ───> │ Task Pipeline    │ ───> │ Model Builder   │
+
+conda activate pids_framework│ Provenance Data │      │ (9 modular tasks)│      │ (YAML → Model)  │
+
+```└─────────────────┘      └──────────────────┘      └─────────────────┘
+
                                                             │
-                                                            ▼
-                                                    ┌─────────────────┐
-                                                    │ Deploy Best     │
-                                                    │ Model to SOC    │
-                                                    └─────────────────┘
-```
 
----
+### Setup Models        ┌───────────────────────────────────────────────────┘
 
-## ✨ Key Features
+```bash        │
 
-### 🎯 Evaluation-First Design
-- **Pretrained Models**: Use existing weights immediately - no training required
-- **Quick Deployment**: Evaluate all models on your data in minutes
-- **Performance Comparison**: Automatic comparison with statistical significance testing
-- **One-Command Workflow**: `./scripts/run_evaluation.sh` handles everything
+# Download and setup all model implementations        ▼
 
-### 📊 Multi-Model Support
-- **5 State-of-the-Art Models**: MAGIC, Kairos, Orthrus, ThreaTrace, Continuum_FL
-- **Consistent Interface**: All models through unified `BasePIDSModel` API
-- **Automatic Registration**: Dynamic model discovery via decorator pattern
-- **Pretrained Weights**: Ready-to-use checkpoints for all models
+python scripts/setup_models.py --all┌──────────────────────────────────────────────────────────────┐
 
-### 🔬 Comprehensive Evaluation
-- **Multiple Metrics**: AUROC, AUPRC, F1-Score, Precision, Recall, Detection Rate
-- **Statistical Analysis**: Significance testing for model comparison
-- **Rich Visualizations**: ROC curves, precision-recall curves, confusion matrices
-- **Detailed Reports**: JSON and text formats with all metrics
+│  Shared Components (models/shared_encoders.py + decoders.py) │
 
-### 🔧 Production-Ready
-- **CPU-First Design**: Runs on CPU by default (no GPU required)
-- **GPU Support**: Automatic GPU detection and utilization when available
-- **Large-Scale Data**: Handles 2GB+ JSON files with chunked loading
-- **Checkpointing**: Save/resume training with early stopping (for retraining)
-- **Comprehensive Logging**: Debug, info, warning, and error levels
-- **Error Handling**: Graceful degradation and informative error messages
+# Or setup specific models│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
 
-### 📦 Easy to Use
-- **YAML Configurations**: All settings in human-readable configs
-- **One-Command Setup**: Automated environment and dependency installation
-- **Streamlined Workflow**: Evaluation script handles all steps automatically
-- **Comprehensive Documentation**: README, Setup.md, and EXTEND.md cover everything
+python scripts/setup_models.py --models magic kairos│  │   GAT    │  │   SAGE   │  │   Trans  │  │   Time   │    │
 
-### 🔬 Extensible Architecture (Advanced)
-- **Modular Design**: Separate data, models, training, evaluation components
-- **Plugin System**: Add new models with ~200 lines of code
-- **Configurable**: Override any setting via YAML or command-line
-- **Retraining Support**: Optional model training on custom datasets
+│  │ Encoder  │  │ Encoder  │  │ former   │  │ Encoder  │    │
 
----
+# Verify installation│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
 
-## 🏗️ System Architecture
+python scripts/verify_installation.py│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  PIDS Comparative Framework                  │
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │           Model Registry (Plugin System)                │ │
-│  │  Auto-discovery via @register decorator                 │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │  MAGIC   │  │ Kairos   │  │ Orthrus  │  │ThreaTrace│   │
-│  │ Wrapper  │  │ Wrapper  │  │ Wrapper  │  │ Wrapper  │...│
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-│       │             │              │              │          │
-│  ┌────▼─────────────▼──────────────▼──────────────▼─────┐  │
-│  │      Standalone Model Implementations                 │  │
-│  │  (No external dependencies)                           │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                               │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │              Data Pipeline                            │  │
-│  │  JSON logs → Graph → Batching → Evaluation           │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
+```│  │   Edge   │  │   Node   │  │Contrast  │  │ Anomaly  │    │
 
----
+│  │ Decoder  │  │ Decoder  │  │ Decoder  │  │ Decoder  │    │
 
-## 📂 Directory Structure
+## Usage│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+
+└──────────────────────────────────────────────────────────────┘
+
+### Running Evaluation Pipeline        │
+
+        ▼
+
+The primary way to use the framework is through the evaluation pipeline:┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+
+│ GenericModel    │ ───> │ Inference        │ ───> │ Metrics &       │
+
+```bash│ (unified API)   │      │ (cached tasks)   │      │ Comparison      │
+
+# Evaluate a specific model on a dataset└─────────────────┘      └──────────────────┘      └─────────────────┘
+
+python experiments/evaluate_pipeline.py \```
+
+    --model magic \
+
+    --dataset streamspot \**Pipeline Tasks:**
+
+    --split test1. `load_data` - Load preprocessed graphs
+
+2. `preprocess` - Extract time windows
+
+# Run with specific checkpoint3. `build_model` - Construct model from YAML
+
+python experiments/evaluate_pipeline.py \4. `load_checkpoint` - Load pretrained weights
+
+    --model kairos \5. `prepare_dataloaders` - Create batched data loaders
+
+    --dataset cadets \6. `run_inference` - Execute model inference
+
+    --checkpoint checkpoints/kairos_best.pt7. `compute_predictions` - Process model outputs
+
+8. `evaluate_metrics` - Calculate detection metrics
+
+# Force re-computation (skip cache)9. `calculate_metrics` - Final metric aggregation
+
+python experiments/evaluate_pipeline.py \
+
+    --model orthrus \---
+
+    --dataset theia \
+
+    --skip-cache## 🚀 Quick Start
 
 ```
-PIDS_Comparative_Framework/
-├── README.md                       # This file - Framework overview
-├── Setup.md                        # Complete installation & usage guide
-├── EXTEND.md                       # Guide to add new models
-├── requirements.txt                # Python dependencies
-├── environment.yml                 # Conda environment specification
-│
-├── models/                         # 🧠 Model implementations
-│   ├── base_model.py              # BasePIDSModel & ModelRegistry
-│   ├── __init__.py                # Auto-discovery of models
-│   │
-│   ├── implementations/           # 📦 Standalone implementations
-│   │   ├── magic/                # MAGIC (Graph Autoencoder)
-│   │   ├── kairos/               # Kairos (Temporal GNN)
-│   │   ├── orthrus/              # Orthrus (Contrastive Learning)
-│   │   ├── threatrace/           # ThreaTrace (Sketch-based)
-│   │   ├── continuum_fl/         # Continuum_FL (Federated Learning)
-│   │   └── utils/                # Shared utilities
-│   │
-│   ├── magic_wrapper.py          # MAGIC → BasePIDSModel adapter
-│   ├── kairos_wrapper.py         # Kairos adapter
-│   ├── orthrus_wrapper.py        # Orthrus adapter
-│   ├── threatrace_wrapper.py     # ThreaTrace adapter
-│   └── continuum_fl_wrapper.py   # Continuum_FL adapter
-│
-├── data/                          # 📊 Dataset handling
-│   └── dataset.py                # Base classes for datasets
-│
-├── experiments/                   # 🧪 Experiment scripts
-│   ├── evaluate.py               # ⭐ Main evaluation script
-│   ├── train.py                  # Training script (advanced)
-│   └── compare.py                # Multi-model comparison
-│
-├── utils/                         # 🛠️ Framework utilities
-│   ├── common.py                 # Common utilities
-│   └── metrics.py                # Evaluation metrics
-│
-├── scripts/                       # 📜 Setup & helper scripts
-│   ├── setup.sh                  # One-command environment setup
-│   ├── setup_models.py           # Download pretrained weights
-│   ├── preprocess_data.py        # Data preprocessing
-│   ├── run_evaluation.sh         # Complete evaluation workflow
-│   ├── verify_installation.py    # Installation verification
-│   └── verify_implementation.py  # Framework verification
-│
-├── configs/                       # ⚙️ Configuration files
-│   ├── datasets/                 # Dataset configs
-│   ├── models/                   # Model configs
-│   └── experiments/              # Experiment configs
-│
-├── checkpoints/                   # 💾 Pretrained model weights
-│   ├── magic/                    # MAGIC checkpoints
-│   ├── kairos/                   # Kairos checkpoints
-│   ├── orthrus/                  # Orthrus checkpoints
-│   ├── threatrace/               # ThreaTrace checkpoints
-│   └── continuum_fl/             # Continuum_FL checkpoints
-│
-├── data/                          # 📁 Data directory
-│   ├── custom_soc/               # ← Your custom SOC data
-│   ├── cadets_e3/                # DARPA datasets (optional)
-│   └── streamspot/               # StreamSpot dataset (optional)
-│
-└── results/                       # 📈 Evaluation results
-    └── evaluation_*/             # Timestamped result directories
-```
 
----
+### 1. Run Evaluation with Pretrained Weights
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Conda** (Anaconda or Miniconda) - [Install Conda](https://docs.conda.io/en/latest/miniconda.html)
-- **Python 3.8-3.10** (installed via Conda)
-- **10GB disk space** (for dependencies and pretrained weights)
-- **Git** (for downloading some model weights)
-
-### Installation (5 minutes)
+### Training Models
 
 ```bash
-# Clone the repository
+
+⚠️ **Important**: The `train.py` script is a **reference implementation** provided as an example of how to integrate models with the framework. Each PIDS model has its own specific training requirements, hyperparameters, and procedures that are optimized for that model.# Evaluate MAGIC model on custom dataset
+
+python experiments/evaluate_pipeline.py \
+
+**For actual training**, use the original training scripts included with each model's implementation (located in their respective directories like `MAGIC/`, `kairos/`, etc.).  --models magic \
+
+  --dataset custom_soc \
+
+The reference training script can be used as a starting point:  --data-path data/preprocessed/custom_soc \
+
+  --checkpoints-dir checkpoints
+
+```bash
+
+# Reference training example (modify based on model requirements)# Evaluate multiple models
+
+python experiments/train.py \python experiments/evaluate_pipeline.py \
+
+    --model magic \  --models magic,kairos,orthrus \
+
+    --dataset streamspot \  --dataset cadets \
+
+    --epochs 50 \  --data-path data/preprocessed/cadets \
+
+    --batch-size 32  --device cuda
+
+``````
+
+
+
+### Adding Custom Datasets### 2. Add a New Model (No Code Required!)
+
+
+
+1. **Create dataset configuration**:```bash
+
+```yaml# Copy template
+
+# configs/datasets/my_dataset.yamlcp configs/models/template.yaml configs/models/my_model.yaml
+
+name: my_dataset
+
+type: provenance_graph# Edit configuration (choose encoder, decoder, training params)
+
+data_dir: data/my_datasetvim configs/models/my_model.yaml
+
+
+
+preprocessing:# Run immediately!
+
+  node_types: [process, file, socket]python experiments/evaluate_pipeline.py \
+
+  edge_types: [read, write, execute]  --models my_model \
+
+    --dataset my_dataset \
+
+features:  --data-path data/my_dataset
+
+  node_features:```
+
+    - name
+
+    - timestamp### 3. Use Model Programmatically
+
+    - attributes
+
+``````python
+
+from models.model_builder import ModelBuilder
+
+2. **Run pipeline**:
+
+```bash# Initialize ModelBuilder
+
+python experiments/evaluate_pipeline.py \builder = ModelBuilder(config_dir="configs/models")
+
+    --model magic \
+
+    --dataset my_dataset \# Build model with pretrained weights
+
+    --config configs/datasets/my_dataset.yamlmodel = builder.build_model(
+
+```    model_name="magic",
+
+    dataset_name="cadets",
+
+## Project Structure    device="cuda"
+
+)
+
+```
+
+PIDS_Comparative_Framework/# Run inference
+
+├── configs/                    # Configuration fileswith torch.no_grad():
+
+│   ├── datasets/              # Dataset configurations    predictions = model.decode(model.encode(data))
+
+│   ├── experiments/           # Experiment configurations```
+
+│   └── models/                # Model architecture definitions (YAML)
+
+│       ├── magic.yaml         # MAGIC model configuration---
+
+│       ├── kairos.yaml        # Kairos model configuration
+
+│       ├── orthrus.yaml       # Orthrus model configuration## 🏗️ System Architecture
+
+│       ├── threatrace.yaml    # ThreaTrace model configuration
+
+│       ├── continuum_fl.yaml  # Continuum_FL model configuration### New Extensible Architecture (October 2025)
+
+│       └── template.yaml      # Template for new models
+
+│```
+
+├── models/                    # Core model system (4 files)┌─────────────────────────────────────────────────────────────────┐
+
+│   ├── __init__.py           # Module exports│                   PIDS Comparative Framework                     │
+
+│   ├── model_builder.py      # ModelBuilder + GenericModel class│                                                                   │
+
+│   ├── shared_encoders.py    # 5 reusable encoder types│  ┌────────────────────────────────────────────────────────────┐ │
+
+│   └── shared_decoders.py    # 6 reusable decoder types│  │  configs/models/  (Per-Model YAML Configurations)          │ │
+
+││  │  ├── magic.yaml         ├── orthrus.yaml                   │ │
+
+├── pipeline/                  # Pipeline system (4 files)│  │  ├── kairos.yaml        ├── threatrace.yaml                │ │
+
+│   ├── __init__.py           # Module exports│  │  ├── continuum_fl.yaml  └── template.yaml                  │ │
+
+│   ├── pipeline_builder.py   # Pipeline orchestration│  └────────────────────────────────────────────────────────────┘ │
+
+│   ├── task_manager.py       # Task execution and caching│                            ↓                                      │
+
+│   └── task_registry.py      # Task definitions (9 tasks)│  ┌────────────────────────────────────────────────────────────┐ │
+
+││  │  ModelBuilder (models/model_builder.py)                    │ │
+
+├── experiments/               # Evaluation scripts (2 files)│  │  - Load YAML config                                         │ │
+
+│   ├── evaluate_pipeline.py  # Main evaluation script│  │  - Construct model from shared components                   │ │
+
+│   └── train.py              # Reference training implementation│  │  - Load pretrained weights with fallbacks                   │ │
+
+││  └────────────────────────────────────────────────────────────┘ │
+
+├── data/                      # Data handling│                            ↓                                      │
+
+│   └── dataset.py            # Dataset loading utilities│  ┌────────────────────────────────────────────────────────────┐ │
+
+││  │  Shared Components                                          │ │
+
+├── utils/                     # Utility functions│  │  ┌──────────────────────────────────────────────────────┐  │ │
+
+│   ├── common.py             # Common utilities│  │  │  Encoders (shared_encoders.py)                       │  │ │
+
+│   ├── metrics.py            # Evaluation metrics│  │  │  - GATEncoder        - GraphTransformerEncoder       │  │ │
+
+│   └── visualization.py      # Result visualization│  │  │  - SAGEEncoder       - TimeEncoder                    │  │ │
+
+││  │  │  - MultiEncoder      - Factory functions              │  │ │
+
+├── scripts/                   # Setup and preprocessing (5 files)│  │  └──────────────────────────────────────────────────────┘  │ │
+
+│   ├── setup.sh              # Environment setup│  │  ┌──────────────────────────────────────────────────────┐  │ │
+
+│   ├── setup_models.py       # Model setup script│  │  │  Decoders (shared_decoders.py)                       │  │ │
+
+│   ├── preprocess_data.py    # Data preprocessing│  │  │  - EdgeDecoder       - ReconstructionDecoder         │  │ │
+
+│   ├── run_evaluation.sh     # Batch evaluation│  │  │  - NodeDecoder       - AnomalyDecoder                │  │ │
+
+│   └── verify_installation.py # Installation verification│  │  │  - ContrastiveDecoder- InnerProductDecoder           │  │ │
+
+││  │  └──────────────────────────────────────────────────────┘  │ │
+
+├── requirements/              # Model-specific dependencies│  └────────────────────────────────────────────────────────────┘ │
+
+│   ├── magic.txt│                            ↓                                      │
+
+│   ├── kairos.txt│  ┌────────────────────────────────────────────────────────────┐ │
+
+│   ├── orthrus.txt│  │  GenericModel (wraps any encoder-decoder combination)     │ │
+
+│   ├── threatrace.txt│  │  - Single/multi-encoder support                            │ │
+
+│   └── continuum_fl.txt│  │  - Single/multi-decoder support                            │ │
+
+││  │  - Unified forward pass and inference API                  │ │
+
+├── README.md                  # This file│  └────────────────────────────────────────────────────────────┘ │
+
+├── SETUP.md                   # Detailed setup guide│                            ↓                                      │
+
+├── requirements.txt           # Python dependencies│  ┌────────────────────────────────────────────────────────────┐ │
+
+└── environment.yml            # Conda environment│  │  Task-Based Pipeline (pipeline/)                           │ │
+
+```│  │  9 modular tasks with automatic caching:                   │ │
+
+│  │  1. load_data         2. preprocess        3. build_model    │ │
+
+## Architecture│  │  4. load_checkpoint   5. prepare_dataloaders               │ │
+
+│  │  6. run_inference     7. compute_predictions               │ │
+
+### ModelBuilder System│  │  8. evaluate_metrics  9. calculate_metrics                 │ │
+
+│  └────────────────────────────────────────────────────────────┘ │
+
+The framework uses a configuration-driven approach to construct models dynamically from YAML files:└─────────────────────────────────────────────────────────────────┘
+
+```
+
+```python
+
+from models import ModelBuilder### Key Benefits
+
+
+
+# Initialize builder with config directory✅ **No Wrappers** - `GenericModel` works with any configuration  
+
+builder = ModelBuilder(config_dir="configs/models")✅ **No Duplication** - Single implementation per encoder/decoder  
+
+✅ **Easy Extension** - Add models via YAML, no Python needed  
+
+# Build model from YAML configuration✅ **Automatic Construction** - ModelBuilder handles everything  
+
+model = builder.build_model("magic")✅ **Smart Checkpoints** - Tries multiple paths with graceful fallback  
+
+✅ **Cached Execution** - Pipeline tasks cache intermediate results
+
+# Model is constructed with shared components and ready for use✅ **Multi-Model Support** - Evaluate multiple models in one run
+
+outputs = model(input_data)
+
+```---
+
+
+
+### Model Configuration (YAML)## � Supported Models
+
+
+
+Models are defined declaratively in YAML files:The framework currently includes 5 state-of-the-art PIDS models, all configurable via YAML:
+
+
+
+```yaml| Model | Architecture | Best For | Config File |
+
+# configs/models/magic.yaml|-------|-------------|----------|-------------|
+
+name: magic| **MAGIC** | GAT + Edge/Reconstruction | General-purpose detection | `configs/models/magic.yaml` |
+
+type: graph_anomaly_detection| **Kairos** | Transformer + Time Encoder | Temporal attack patterns | `configs/models/kairos.yaml` |
+
+| **Orthrus** | Multi-encoder (Transformer + SAGE) | Multi-objective learning | `configs/models/orthrus.yaml` |
+
+encoder:| **ThreaTrace** | Multi-encoder (GAT + SAGE) | Graph clustering-based | `configs/models/threatrace.yaml` |
+
+  type: graphsage| **Continuum_FL** | GAT + Federated Learning | Distributed/privacy-preserving | `configs/models/continuum_fl.yaml` |
+
+  hidden_dims: [128, 256, 512]
+
+  num_layers: 3### Adding Your Own Model
+
+  dropout: 0.2
+
+1. Copy the template: `cp configs/models/template.yaml configs/models/your_model.yaml`
+
+decoder:2. Configure encoder (GAT, SAGE, Transformer, Time, or Multi-encoder)
+
+  type: anomaly_detection3. Configure decoder (Edge, Node, Contrastive, Reconstruction, Anomaly, InnerProduct)
+
+  hidden_dims: [512, 256, 128]4. Set training/data/inference parameters
+
+  output_dim: 15. Add checkpoint paths for your datasets
+
+6. Run: `python experiments/evaluate_pipeline.py --models your_model --dataset your_dataset`
+
+hyperparameters:
+
+  learning_rate: 0.001**No Python code needed!** The ModelBuilder dynamically constructs your model from the YAML configuration.
+
+  batch_size: 32
+
+```---
+
+
+
+### Shared Components## 📂 Directory Structure
+
+
+
+**Encoders** (`shared_encoders.py` - 532 lines):```
+
+- `MLPEncoder`: Multi-layer perceptronPIDS_Comparative_Framework/
+
+- `GraphSAGEEncoder`: GraphSAGE convolutions├── README.md                          # This file - Overview
+
+- `GATEncoder`: Graph Attention Networks├── EXTENSIBLE_ARCHITECTURE.md         # 🆕 Extensibility guide
+
+- `TransformerEncoder`: Transformer-based encoding├── RESTRUCTURING_COMPLETE.md          # 🆕 Restructuring summary
+
+- `RNNEncoder`: Recurrent neural network├── ARCHITECTURE_EXTRACTION_SUMMARY.md # Architecture details
+
+├── TASK_ARCHITECTURE.md               # Task pipeline design
+
+**Decoders** (`shared_decoders.py` - 651 lines):├── requirements.txt                   # Python dependencies
+
+- `MLPDecoder`: Multi-layer perceptron│
+
+- `AttentionDecoder`: Attention-based decoding├── models/                            # 🧠 Model components
+
+- `GraphDecoder`: Graph reconstruction│   ├── shared_encoders.py            # 🆕 Shared encoder library
+
+- `SequenceDecoder`: Sequential output│   ├── shared_decoders.py            # 🆕 Shared decoder library
+
+- `ClassificationHead`: Classification tasks│   ├── model_builder.py              # 🆕 Dynamic model construction
+
+- `AnomalyDetectionHead`: Anomaly scoring│   ├── base_model.py                 # Base classes
+
+│   │
+
+### Pipeline Tasks│   └── implementations/              # Legacy model-specific code
+
+│       ├── magic/
+
+Each task in the pipeline is self-contained and cacheable:│       ├── kairos/
+
+│       ├── orthrus/
+
+```python│       ├── threatrace/
+
+from pipeline import PipelineBuilder│       └── continuum_fl/
+
+│
+
+# Create pipeline for specific model and dataset├── configs/                           # ⚙️ Configuration files
+
+pipeline = PipelineBuilder.build(│   └── models/                       # 🆕 Per-model YAML configs
+
+    model_name="magic",│       ├── magic.yaml
+
+    dataset_name="streamspot",│       ├── kairos.yaml
+
+    config=config│       ├── orthrus.yaml
+
+)│       ├── threatrace.yaml
+
+│       ├── continuum_fl.yaml
+
+# Execute pipeline (uses cached results when available)│       └── template.yaml             # 🆕 Template for new models
+
+results = pipeline.run(tasks=['load_data', 'preprocess', 'build_graphs'])│
+
+```├── pipeline/                          # � Task-based pipeline
+
+│   ├── task_manager.py               # Task orchestration
+
+## Evaluation Metrics│   ├── task_registry.py              # 9 modular tasks
+
+│   ├── pipeline_builder.py           # Pipeline construction
+
+The framework computes standard PIDS metrics:│   ├── TASK_ARCHITECTURE.md
+
+- **Accuracy**: Overall detection accuracy│   └── QUICKSTART.md
+
+- **Precision**: True positive rate│
+
+- **Recall**: Coverage of actual attacks├── experiments/                       # 🧪 Experiment scripts
+
+- **F1-Score**: Harmonic mean of precision and recall│   ├── evaluate_pipeline.py          # Task-based evaluation (NEW)
+
+- **AUC-ROC**: Area under ROC curve│   └── train.py                      # Training script
+
+- **AP**: Average Precision│
+
+- **False Positive Rate**: FP / (FP + TN)├── data/                              # 📊 Dataset handling
+
+│   └── dataset.py
+
+## Adding New Models│
+
+├── utils/                             # 🛠️ Utilities
+
+To add a new PIDS model to the framework:│   ├── common.py
+
+│   └── metrics.py
+
+1. **Create model configuration file** in `configs/models/`:│
+
+```yaml├── checkpoints/                       # 💾 Pretrained weights
+
+# configs/models/my_model.yaml│   ├── magic/
+
+name: my_model│   ├── kairos/
+
+type: graph_anomaly_detection│   ├── orthrus/
+
+│   ├── threatrace/
+
+encoder:│   └── continuum_fl/
+
+  type: gat  # Choose from: mlp, graphsage, gat, transformer, rnn│
+
+  hidden_dims: [128, 256]└── artifacts/                         # 📦 Pipeline artifacts (cached)
+
+  num_layers: 2    ├── magic/
+
+  num_heads: 4  # For GAT/Transformer    ├── kairos/
+
+  dropout: 0.1    └── ... (task outputs)
+
+```
+
+decoder:
+
+  type: anomaly_detection  # Choose from: mlp, attention, graph, sequence, classification, anomaly_detection---
+
+  hidden_dims: [256, 128]
+
+  output_dim: 1## 📚 Documentation
+
+  
+
+hyperparameters:### Core Documentation
+
+  learning_rate: 0.001- **[README.md](README.md)** (this file) - Framework overview and quick start
+
+  batch_size: 32- **[EXTENSIBLE_ARCHITECTURE.md](EXTENSIBLE_ARCHITECTURE.md)** - Complete guide to extensibility, adding models, and configuration
+
+  weight_decay: 1e-5- **[RESTRUCTURING_COMPLETE.md](RESTRUCTURING_COMPLETE.md)** - Detailed implementation summary of October 2025 restructuring
+
+```
+
+### Pipeline Documentation
+
+2. **Test the model**:- **[TASK_ARCHITECTURE.md](pipeline/TASK_ARCHITECTURE.md)** - Task-based pipeline design and 9-task breakdown
+
+```bash- **[QUICKSTART.md](pipeline/QUICKSTART.md)** - Quick start guide for pipeline usage
+
+# Verify config is valid
+
+python scripts/verify_installation.py### Architecture Documentation
+
+- **[ARCHITECTURE_EXTRACTION_SUMMARY.md](ARCHITECTURE_EXTRACTION_SUMMARY.md)** - Details on shared component extraction
+
+# Run evaluation
+
+python experiments/evaluate_pipeline.py --model my_model --dataset streamspot### Configuration Templates
+
+```- **[configs/models/template.yaml](configs/models/template.yaml)** - Template for adding new models with all options documented
+
+
+
+That's it! No Python code needed. The ModelBuilder automatically constructs the model from your YAML configuration using shared components.---
+
+├── checkpoints/                   # 💾 Pretrained model weights
+
+## Citation│   ├── magic/                    # MAGIC checkpoints
+
+│   ├── kairos/                   # Kairos checkpoints
+
+If you use this framework in your research, please cite:│   ├── orthrus/                  # Orthrus checkpoints
+
+│   ├── threatrace/               # ThreaTrace checkpoints
+
+```bibtex│   └── continuum_fl/             # Continuum_FL checkpoints
+
+@article{pids_framework,│
+
+  title={PIDS Comparative Framework: A Unified Platform for Provenance-based Intrusion Detection},├── data/                          # 📁 Data directory
+
+  author={Your Name},│   ├── custom_soc/               # ← Your custom SOC data
+
+  journal={arXiv preprint},│   ├── cadets_e3/                # DARPA datasets (optional)
+
+  year={2024}│   └── streamspot/               # StreamSpot dataset (optional)
+
+}│
+
+```└── results/                       # 📈 Evaluation results
+
+    └── evaluation_*/             # Timestamped result directories
+
+## Contributing```
+
+
+
+We welcome contributions! Please:---
+
+- Add new models by creating YAML configuration files
+
+- Support new datasets via YAML configurations## 🚀 Quick Start
+
+- Implement new pipeline tasks in `task_registry.py`
+
+- Improve shared encoders/decoders### Prerequisites
+
+- Enhance documentation
+
+- **Conda** (Anaconda or Miniconda) - [Install Conda](https://docs.conda.io/en/latest/miniconda.html)
+
+## License- **Python 3.8-3.10** (installed via Conda)
+
+- **10GB disk space** (for dependencies and pretrained weights)
+
+This project is licensed under the MIT License - see the LICENSE file for details.- **Git** (for downloading some model weights)
+
+
+
+## Documentation### Installation (5 minutes)
+
+
+
+- **[README.md](README.md)** - This file (overview and usage)```bash
+
+- **[SETUP.md](SETUP.md)** - Detailed setup and installation guide# Clone the repository
+
 cd /path/to/PIDS_Files/PIDS_Comparative_Framework
 
+## Contact
+
 # Run automated setup (creates environment, installs dependencies, downloads weights)
-./scripts/setup.sh
+
+For questions or issues, please open an issue on GitHub or contact the maintainers../scripts/setup.sh
+
 
 # Activate environment
 conda activate pids_framework
@@ -368,9 +884,11 @@ evaluation:
 
 Override settings:
 ```bash
-python experiments/evaluate.py \
-    --model magic \
-    --config configs/models/magic_custom.yaml \
+python experiments/evaluate_pipeline.py \
+    --models magic \
+    --dataset streamspot \
+    --data-path data/preprocessed/streamspot \
+    --checkpoints-dir checkpoints \
     --batch-size 16
 ```
 
@@ -391,17 +909,15 @@ python experiments/evaluate.py \
 ### Advanced Evaluation
 
 ```bash
-# Direct evaluation with options
-python experiments/evaluate.py \
-    --model magic \
+# Pipeline evaluation with custom options
+python experiments/evaluate_pipeline.py \
+    --models magic kairos \
     --dataset custom_soc \
     --data-path data/custom_soc \
-    --pretrained \
+    --checkpoints-dir checkpoints \
     --batch-size 16 \
-    --detection-level entity \
-    --k-neighbors 5 \
     --device 0 \
-    --save-predictions \
+    --cache-dir .cache \
     --output-dir results/my_eval
 ```
 
@@ -431,10 +947,12 @@ python scripts/preprocess_data.py \
     --verbose
 ```
 
-### Training (Advanced)
+### Training (Reference Only)
+
+**Note:** The framework is primarily designed for evaluation with pretrained weights. Training functionality is provided for reference but requires additional setup.
 
 ```bash
-# Train MAGIC on custom data
+# Train MAGIC on custom data (reference only)
 python experiments/train.py \
     --model magic \
     --dataset custom_soc \
@@ -519,7 +1037,7 @@ python -c "import torch; print(torch.__version__)"
 RuntimeError: CUDA out of memory
 
 Solution: Reduce batch size or use CPU
-python experiments/evaluate.py --model magic --batch-size 4 --device -1
+python experiments/evaluate_pipeline.py --models magic --batch-size 4 --device -1
 ```
 
 #### 4. Preprocessed data not found
@@ -566,28 +1084,60 @@ python scripts/setup_models.py --all --force-download
 
 ### Adding a New Model
 
-The framework makes it easy to add new PIDS models:
+The framework uses a **YAML-based configuration system** with `ModelBuilder` for easy model addition:
 
-```python
-# models/your_model_wrapper.py
-from models.base_model import BasePIDSModel, ModelRegistry
+**Step 1: Create Model Configuration**
 
-@ModelRegistry.register('your_model')
-class YourModel(BasePIDSModel):
-    def __init__(self, config):
-        super().__init__(config)
-        # Your implementation
-    
-    def forward(self, batch):
-        # Forward pass
-        pass
-    
-    def evaluate(self, dataloader, **kwargs):
-        # Evaluation logic
-        pass
+```yaml
+# configs/models/your_model.yaml
+model_name: your_model
+
+architecture:
+  encoder:
+    type: gat  # or sage, graph_transformer, time_encoder
+    config:
+      input_dim: 128
+      hidden_dim: 256
+      num_layers: 3
+      
+  decoder:
+    type: edge  # or node, contrastive, reconstruction, anomaly
+    config:
+      hidden_dim: 256
+      output_dim: 2
+
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  num_epochs: 100
+
+data:
+  detection_level: entity  # or edge, both
+  k_neighbors: 5
 ```
 
-**See [EXTEND.md](EXTEND.md) for complete guide** (~200 lines of code to add a model)
+**Step 2: Add Checkpoint Configuration**
+
+```yaml
+checkpoints:
+  streamspot:
+    path: checkpoints/your_model/streamspot.pt
+  darpa_cadets:
+    path: checkpoints/your_model/cadets.pt
+```
+
+**Step 3: Use It!**
+
+```bash
+python experiments/evaluate_pipeline.py \
+    --models your_model \
+    --dataset streamspot \
+    --data-path data/preprocessed/streamspot
+```
+
+**That's it!** No Python wrapper code needed. ModelBuilder dynamically constructs your model from the YAML configuration.
+
+**For custom architectures**: Add new encoder/decoder classes to `models/shared_encoders.py` or `models/shared_decoders.py`, then reference them in your YAML config.
 
 ---
 
@@ -603,9 +1153,10 @@ We welcome contributions! To contribute:
 
 ### Contribution Areas
 
-- 🆕 Add new PIDS models
+- 🆕 Add new PIDS models (just add a YAML config!)
 - 📊 Add new datasets
 - 🧪 Add new evaluation metrics
+- 🏗️ Add new encoder/decoder architectures
 - 📝 Improve documentation
 - 🐛 Fix bugs
 - ⚡ Performance optimizations

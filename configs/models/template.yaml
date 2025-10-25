@@ -1,0 +1,201 @@
+# Template Configuration for New Models
+# Copy this file and customize for your model
+
+name: "your_model_name"
+description: "Brief description of your model"
+paper: "Paper citation or URL"
+
+# ============================================================================
+# Model Architecture
+# ============================================================================
+architecture:
+  # For single encoder models
+  encoder:
+    type: "gat"  # Options: gat, sage, transformer, time
+    in_dim: 128  # Must match feature dimension
+    hidden_dim: 256
+    out_dim: 128
+    num_layers: 3
+    # Add encoder-specific parameters here
+    # See shared_encoders.py for available options
+  
+  # OR for multi-encoder models, use this instead:
+  # encoders:
+  #   - type: "gat"
+  #     name: "gat_encoder"
+  #     in_dim: 128
+  #     hidden_dim: 256
+  #     out_dim: 64
+  #   - type: "sage"
+  #     name: "sage_encoder"
+  #     in_dim: 128
+  #     hidden_dim: 256
+  #     out_dim: 64
+  # 
+  # encoder_combination:
+  #   method: "concat"  # concat, mean, max, attention
+  #   output_dim: 128
+  
+  # Decoder configuration
+  decoder:
+    # For single decoder
+    type: "edge"  # Options: edge, node, contrastive, reconstruction, anomaly, inner_product
+    in_dim: 128  # Should match encoder out_dim
+    hidden_dim: 256
+    out_dim: 2  # Number of classes or output dimension
+    # Add decoder-specific parameters
+    # See shared_decoders.py for available options
+  
+  # OR for multi-decoder models (multiple objectives):
+  # decoders:
+  #   primary:
+  #     type: "edge"
+  #     in_dim: 128
+  #     hidden_dim: 256
+  #     out_dim: 2
+  #   auxiliary:
+  #     type: "reconstruction"
+  #     in_dim: 128
+  #     hidden_dim: 256
+  #     out_dim: 128
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+training:
+  batch_size: 32
+  num_epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  
+  # Learning rate scheduler
+  scheduler:
+    type: "cosine"  # Options: cosine, step, plateau, null
+    warmup_epochs: 5
+    min_lr: 0.00001
+    # For step scheduler:
+    # step_size: 10
+    # gamma: 0.5
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 10
+    monitor: "val_f1"  # Metric to monitor
+    mode: "max"  # max or min
+  
+  # Gradient clipping
+  grad_clip: 1.0
+  
+  # Mixed precision training
+  use_amp: true
+  
+  # Loss configuration
+  loss:
+    primary:
+      type: "cross_entropy"  # cross_entropy, focal, bce, mse
+      weight: 1.0
+      class_weights: null  # List of weights or null for auto
+    
+    # If using multiple decoders/objectives
+    auxiliary:
+      reconstruction:
+        enabled: false
+        weight: 0.1
+      contrastive:
+        enabled: false
+        weight: 0.05
+
+# ============================================================================
+# Data Configuration
+# ============================================================================
+data:
+  # Time window settings (set to null if not using windows)
+  window:
+    size: 3600  # seconds
+    stride: 1800  # seconds
+    min_edges: 10
+  
+  # Graph transformation
+  graph:
+    node_types: ["file", "process", "socket"]
+    edge_types: ["read", "write", "execute", "connect"]
+    directed: true
+    self_loops: false
+  
+  # Feature extraction
+  features:
+    node:
+      methods: ["degree", "pagerank", "clustering"]
+      use_embeddings: true
+      embedding_dim: 128
+    edge:
+      methods: ["count", "temporal"]
+      use_attributes: true
+
+# ============================================================================
+# Checkpoint Configuration
+# ============================================================================
+checkpoint:
+  # Pretrained weights
+  pretrained:
+    enabled: true  # Use pretrained weights if available
+    path: "checkpoints/{model_name}/{dataset}.pt"
+    strict: false  # Allow partial loading
+  
+  # Checkpoint saving during training
+  save:
+    enabled: true
+    directory: "checkpoints/{model_name}"
+    save_best: true
+    save_last: true
+    save_frequency: 10  # Save every N epochs
+    monitor: "val_f1"
+    mode: "max"
+
+# ============================================================================
+# Inference Configuration
+# ============================================================================
+inference:
+  batch_size: 64
+  
+  # Anomaly threshold configuration
+  threshold:
+    method: "auto"  # auto, percentile, fixed
+    percentile: 95  # For percentile method
+    fixed_value: 0.5  # For fixed method
+  
+  # Output options
+  output:
+    save_predictions: true
+    save_embeddings: false
+    save_attention_weights: false
+    format: "pickle"  # pickle, json, csv
+
+# ============================================================================
+# Evaluation Metrics
+# ============================================================================
+evaluation:
+  metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "roc_auc"
+    - "pr_auc"
+  
+  # Attack tracing configuration
+  tracing:
+    enabled: true
+    max_hops: 5
+    min_score: 0.5
+    backtrack_method: "greedy"  # greedy, beam, probabilistic
+
+# ============================================================================
+# Model-Specific Settings
+# ============================================================================
+model_specific:
+  # Add any custom parameters for your model here
+  # These will be passed to your model during initialization
+  custom_param_1: "value"
+  custom_param_2: 42

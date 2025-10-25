@@ -1,501 +1,1139 @@
-# PIDS Comparative Framework - Complete Setup Guide
+# PIDS Comparative Framework - Setup Guide# PIDS Comparative Framework - Complete Setup Guide
 
-**Last Updated:** October 14, 2025  
+
+
+This guide provides detailed instructions for installing and setting up the PIDS Comparative Framework.**Last Updated:** October 14, 2025  
+
 **Version:** 2.0 (Revised for accuracy)
+
+## Table of Contents
 
 ---
 
-## 🎯 Overview
+1. [System Requirements](#system-requirements)
 
-The **PIDS Comparative Framework** is a unified platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom Security Operations Center (SOC) data.
+2. [Installation Methods](#installation-methods)## 🎯 Overview
 
-### Supported Models
+3. [Model Setup](#model-setup)
+
+4. [Data Preparation](#data-preparation)The **PIDS Comparative Framework** is a unified platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom Security Operations Center (SOC) data.
+
+5. [Verification](#verification)
+
+6. [Configuration](#configuration)### Supported Models
+
+7. [Troubleshooting](#troubleshooting)
 
 - **MAGIC** - Masked Graph Autoencoder for APT Detection
-- **Kairos** - Temporal GNN with Whole-system Provenance
-- **Orthrus** - Multi-Decoder Contrastive Learning
-- **ThreaTrace** - Scalable Sketch-based Detection
-- **Continuum_FL** - Federated Learning for PIDS
 
-### Default Workflow
+## System Requirements- **Kairos** - Temporal GNN with Whole-system Provenance
+
+- **Orthrus** - Multi-Decoder Contrastive Learning
+
+### Hardware Requirements- **ThreaTrace** - Scalable Sketch-based Detection
+
+- **CPU**: Multi-core processor (4+ cores recommended)- **Continuum_FL** - Federated Learning for PIDS
+
+- **RAM**: 16GB minimum, 32GB recommended
+
+- **Storage**: 50GB free space (for models and datasets)### Default Workflow
+
+- **GPU** (optional): NVIDIA GPU with CUDA 11.6+ for faster training
 
 ✅ Setup environment → ✅ Download pretrained weights → ✅ Preprocess data → ✅ Evaluate models → ✅ Compare performance
 
----
+### Software Requirements
 
-## 📋 Table of Contents
+- **Python**: 3.8, 3.9, or 3.10---
 
-1. [Prerequisites](#prerequisites)
+- **Operating System**: Linux, macOS, or Windows (WSL2 recommended for Windows)
+
+- **Git**: For cloning repositories## 📋 Table of Contents
+
+
+
+## Installation Methods1. [Prerequisites](#prerequisites)
+
 2. [Quick Start (3 Commands)](#quick-start-3-commands)
-3. [Detailed Installation](#detailed-installation)
+
+### Method 1: Using pip (Recommended)3. [Detailed Installation](#detailed-installation)
+
 4. [Model-Specific Setup](#model-specific-setup)
-5. [Preparing Custom Data](#preparing-custom-data)
-6. [Running Evaluation](#running-evaluation)
-7. [Advanced Features](#advanced-features)
-8. [Command Reference](#command-reference)
-9. [Troubleshooting](#troubleshooting)
+
+1. **Clone the repository**:5. [Preparing Custom Data](#preparing-custom-data)
+
+```bash6. [Running Evaluation](#running-evaluation)
+
+git clone <repository_url>7. [Advanced Features](#advanced-features)
+
+cd PIDS_Comparative_Framework8. [Command Reference](#command-reference)
+
+```9. [Troubleshooting](#troubleshooting)
+
 10. [Configuration](#configuration)
 
----
+2. **Create a virtual environment** (recommended):
 
-## 📋 Prerequisites
+```bash---
+
+# Using venv
+
+python -m venv venv## 📋 Prerequisites
+
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 ### Required
 
-- ✅ **Conda** (Anaconda or Miniconda)
-  - Download: https://docs.conda.io/en/latest/miniconda.html
-  - Verify: `conda --version`
+# Or using conda
 
-- ✅ **Python 3.8-3.10** (installed via conda environment)
+conda create -n pids_framework python=3.10- ✅ **Conda** (Anaconda or Miniconda)
 
-- ✅ **16GB+ RAM** (8GB minimum, 32GB recommended for large datasets)
+conda activate pids_framework  - Download: https://docs.conda.io/en/latest/miniconda.html
 
-- ✅ **50GB+ free disk space**
-  - Framework: ~5GB
-  - Pretrained weights: ~10GB
-  - Datasets: 10-30GB (depending on your data)
+```  - Verify: `conda --version`
 
-### Optional (Enhanced Functionality)
 
-- ⚙️ **GPU with CUDA 11.6+** (optional - framework runs on CPU by default)
-  - Speeds up evaluation 5-10x
-  - Verify: `nvidia-smi`
 
-- 🔧 **Download Tools** (usually pre-installed):
-  - `curl` or `wget` - For downloading weights
-  - `git` - For repository operations
-  - `svn` (Subversion) - For ThreaTrace weights download
-    - macOS: `brew install subversion`
-    - Ubuntu: `sudo apt-get install subversion`
-
-- 📦 **Google Drive Downloads** (for Kairos only):
-  - `gdown` package (auto-installed, but may need manual intervention)
-
-### Check Your System
+3. **Install dependencies**:- ✅ **Python 3.8-3.10** (installed via conda environment)
 
 ```bash
-# Check Conda
-conda --version  # Should show: conda 23.x.x or higher
 
-# Check available disk space
-df -h .  # Should show 50GB+ available
+pip install -r requirements.txt- ✅ **16GB+ RAM** (8GB minimum, 32GB recommended for large datasets)
 
-# Check RAM
-free -h  # Linux
-vm_stat | grep free  # macOS
-
-# Optional: Check GPU
-nvidia-smi  # Should show GPU info if available
 ```
 
----
+- ✅ **50GB+ free disk space**
+
+### Method 2: Using conda  - Framework: ~5GB
+
+  - Pretrained weights: ~10GB
+
+1. **Clone the repository**:  - Datasets: 10-30GB (depending on your data)
+
+```bash
+
+git clone <repository_url>### Optional (Enhanced Functionality)
+
+cd PIDS_Comparative_Framework
+
+```- ⚙️ **GPU with CUDA 11.6+** (optional - framework runs on CPU by default)
+
+  - Speeds up evaluation 5-10x
+
+2. **Create and activate environment**:  - Verify: `nvidia-smi`
+
+```bash
+
+conda env create -f environment.yml- 🔧 **Download Tools** (usually pre-installed):
+
+conda activate pids_framework  - `curl` or `wget` - For downloading weights
+
+```  - `git` - For repository operations
+
+  - `svn` (Subversion) - For ThreaTrace weights download
+
+### Installing with GPU Support    - macOS: `brew install subversion`
+
+    - Ubuntu: `sudo apt-get install subversion`
+
+If you have an NVIDIA GPU and want to use it:
+
+- 📦 **Google Drive Downloads** (for Kairos only):
+
+```bash  - `gdown` package (auto-installed, but may need manual intervention)
+
+# Install PyTorch with CUDA 11.6 support
+
+pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 \### Check Your System
+
+    --extra-index-url https://download.pytorch.org/whl/cu116
+
+```bash
+
+# Install DGL with CUDA support# Check Conda
+
+pip install dgl-cu116==1.0.0 -f https://data.dgl.ai/wheels/cu116/repo.htmlconda --version  # Should show: conda 23.x.x or higher
+
+
+
+# Continue with regular installation# Check available disk space
+
+pip install -r requirements.txtdf -h .  # Should show 50GB+ available
+
+```
+
+# Check RAM
+
+## Model Setupfree -h  # Linux
+
+vm_stat | grep free  # macOS
+
+The framework requires the original implementations of each PIDS model. Use the setup script to download and configure them:
+
+# Optional: Check GPU
+
+### Setup All Modelsnvidia-smi  # Should show GPU info if available
+
+```
+
+```bash
+
+python scripts/setup_models.py --all---
+
+```
 
 ## 🚀 Quick Start (3 Commands)
 
-For most users, these three commands are all you need:
+This will:
 
-```bash
-# Step 1: Navigate to framework directory
+- Clone each model's repositoryFor most users, these three commands are all you need:
+
+- Install model-specific dependencies from `requirements/`
+
+- Verify model configurations```bash
+
+- Set up proper directory structure# Step 1: Navigate to framework directory
+
 cd PIDS_Comparative_Framework
+
+### Setup Specific Models
 
 # Step 2: Run complete setup (creates environment, installs dependencies)
-./scripts/setup.sh
 
-# Step 3: Activate environment
+```bash./scripts/setup.sh
+
+# Setup only MAGIC and Kairos
+
+python scripts/setup_models.py --models magic kairos# Step 3: Activate environment
+
 conda activate pids_framework
 
-# Step 4: Setup models and download pretrained weights
-python scripts/setup_models.py --all
+# Setup a single model
 
-# Step 5: Run evaluation on your data
+python scripts/setup_models.py --models orthrus# Step 4: Setup models and download pretrained weights
+
+```python scripts/setup_models.py --all
+
+
+
+### Model Locations# Step 5: Run evaluation on your data
+
 ./scripts/run_evaluation.sh --data-path ../custom_dataset
+
+After setup, model implementations will be located in:```
+
 ```
 
-**Total time:** 15-30 minutes (depending on download speeds)
+../MAGIC/           # MAGIC model implementation**Total time:** 15-30 minutes (depending on download speeds)
 
----
+../kairos/          # Kairos model implementation
 
-## 📦 Detailed Installation
+../orthrus/         # Orthrus model implementation---
 
-### Step 1: Clone or Navigate to Framework
+../threaTrace/      # ThreaTrace model implementation
 
-```bash
-# If you already have the framework:
-cd /path/to/PIDS_Comparative_Framework
+../Continuum_FL/    # Continuum_FL model implementation## 🏗️ Architecture Overview
 
-# If cloning from repository:
-git clone https://github.com/yourusername/PIDS_Comparative_Framework.git
-cd PIDS_Comparative_Framework
-
-# Verify you're in the correct directory
-ls -la
-# Expected: README.md, Setup.md, scripts/, models/, experiments/, etc.
 ```
 
-### Step 2: Run Automated Setup Script
+The framework uses a **modern pipeline architecture** with these key components:
 
-The `setup.sh` script performs **complete environment setup** in 7 automated steps:
+### Manual Model Setup (Alternative)
 
-```bash
+### Core Components
+
+If you prefer to set up models manually:
+
+1. **ModelBuilder** (`models/model_builder.py`)
+
+1. **Clone model repositories**:   - Dynamically constructs models from YAML configurations
+
+```bash   - No wrapper classes needed - models defined in YAML
+
+cd ..   - Uses shared encoders and decoders
+
+git clone https://github.com/author/MAGIC
+
+git clone https://github.com/author/kairos2. **Shared Encoders** (`models/shared_encoders.py`)
+
+git clone https://github.com/author/orthrus   - `GATEncoder` - Graph Attention Network encoder
+
+git clone https://github.com/author/threaTrace   - `SAGEEncoder` - GraphSAGE encoder
+
+git clone https://github.com/author/Continuum_FL   - `GraphTransformerEncoder` - Transformer-based encoder
+
+cd PIDS_Comparative_Framework   - `TimeEncoder` - Temporal encoding
+
+```   - `MultiEncoder` - Combines multiple encoders
+
+
+
+2. **Install model-specific dependencies**:3. **Shared Decoders** (`models/shared_decoders.py`)
+
+```bash   - `EdgeDecoder` - Edge-level anomaly detection
+
+# For each model   - `NodeDecoder` - Node-level classification
+
+pip install -r requirements/magic.txt   - `ContrastiveDecoder` - Contrastive learning
+
+pip install -r requirements/kairos.txt   - `ReconstructionDecoder` - Graph reconstruction
+
+pip install -r requirements/orthrus.txt   - `AnomalyDecoder` - Anomaly scoring
+
+pip install -r requirements/threatrace.txt   - `InnerProductDecoder` - Inner product scoring
+
+pip install -r requirements/continuum_fl.txt
+
+```4. **Pipeline System** (`pipeline/`)
+
+   - 9-task modular pipeline: load_data → preprocess → build_model → load_checkpoint → prepare_dataloaders → run_inference → compute_predictions → evaluate_metrics → calculate_metrics
+
+## Data Preparation   - Automatic caching of intermediate results
+
+   - Task-based execution with dependencies
+
+### Using Preprocessed Data
+
+5. **Per-Model Configs** (`configs/models/`)
+
+The framework works with preprocessed provenance graphs. Your data should be in one of these formats:   - YAML files define model architectures
+
+- DGL graphs (`.bin` files)   - Easy to add new models - just add a YAML file
+
+- PyTorch Geometric data (`.pt` files)   - Example: `configs/models/magic.yaml`, `kairos.yaml`, etc.
+
+- NetworkX graphs (`.gpickle` files)
+
+- JSON graph files### Adding a New Model
+
+
+
+Place your preprocessed data in `data/`:To add a new model, simply create a YAML configuration:
+
+```
+
+data/```yaml
+
+├── streamspot/# configs/models/your_model.yaml
+
+│   ├── train/model_name: your_model
+
+│   ├── val/
+
+│   └── test/architecture:
+
+├── cadets/  encoder:
+
+│   ├── train/    type: gat  # Use existing encoder
+
+│   ├── val/    config:
+
+│   └── test/      input_dim: 128
+
+└── my_custom_dataset/      hidden_dim: 256
+
+    ├── train/  decoder:
+
+    ├── val/    type: edge  # Use existing decoder
+
+    └── test/    config:
+
+```      hidden_dim: 256
+
+      output_dim: 2
+
+### Custom Dataset Configuration
+
+checkpoints:
+
+Create a configuration file for your dataset:  streamspot:
+
+    path: checkpoints/your_model/streamspot.pt
+
+```yaml```
+
+# configs/datasets/my_dataset.yaml
+
+name: my_datasetThen evaluate it:
+
+type: provenance_graph```bash
+
+data_dir: data/my_datasetpython experiments/evaluate_pipeline.py --models your_model --dataset streamspot
+
+```
+
+preprocessing:
+
+  node_types:**No Python wrapper code required!**
+
+    - process
+
+    - file---
+
+    - socket
+
+    - network## 📦 Detailed Installation
+
+  
+
+  edge_types:### Step 1: Clone or Navigate to Framework
+
+    - read
+
+    - write```bash
+
+    - execute# If you already have the framework:
+
+    - sendcd /path/to/PIDS_Comparative_Framework
+
+    - receive
+
+  # If cloning from repository:
+
+  time_window: 3600  # secondsgit clone https://github.com/yourusername/PIDS_Comparative_Framework.git
+
+  cd PIDS_Comparative_Framework
+
+features:
+
+  node_features:# Verify you're in the correct directory
+
+    - namels -la
+
+    - pid# Expected: README.md, Setup.md, scripts/, models/, experiments/, etc.
+
+    - timestamp```
+
+    - path
+
+  ### Step 2: Run Automated Setup Script
+
+  edge_features:
+
+    - timestampThe `setup.sh` script performs **complete environment setup** in 7 automated steps:
+
+    - operation
+
+    - size```bash
+
 # Make script executable (if needed)
-chmod +x scripts/setup.sh
 
-# Run setup
-./scripts/setup.sh
-```
+graph_construction:chmod +x scripts/setup.sh
 
-#### What `setup.sh` Does:
+  max_nodes: 10000
 
-```
-Step 1/7: Checking for Conda installation
-  ✓ Verifies conda is installed
+  max_edges: 50000# Run setup
+
+  directed: true./scripts/setup.sh
+
+  ```
+
+splitting:
+
+  train_ratio: 0.7#### What `setup.sh` Does:
+
+  val_ratio: 0.15
+
+  test_ratio: 0.15```
+
+  stratify: trueStep 1/7: Checking for Conda installation
+
+```  ✓ Verifies conda is installed
+
   ✓ Shows conda version
 
+## Verification
+
 Step 2/7: Creating conda environment
-  ✓ Creates 'pids_framework' environment from environment.yml
+
+After installation, verify everything is set up correctly:  ✓ Creates 'pids_framework' environment from environment.yml
+
   ✓ Installs Python 3.10
-  ✓ Installs PyTorch 1.12.1 with CUDA 11.6 support
-  ✓ Installs DGL 1.0.0 (Deep Graph Library)
-  ✓ Installs core dependencies (numpy, pandas, sklearn, etc.)
+
+```bash  ✓ Installs PyTorch 1.12.1 with CUDA 11.6 support
+
+# Verify installation  ✓ Installs DGL 1.0.0 (Deep Graph Library)
+
+python scripts/verify_installation.py  ✓ Installs core dependencies (numpy, pandas, sklearn, etc.)
+
+```
 
 Step 3/7: Initializing Conda for shell
-  ✓ Configures conda for bash/zsh shells
-  ✓ Enables conda activate command
 
-Step 4/7: Activating environment
-  ✓ Activates pids_framework environment
-  ✓ Verifies activation
+This script checks:  ✓ Configures conda for bash/zsh shells
+
+- ✓ Python version (3.8-3.10)  ✓ Enables conda activate command
+
+- ✓ All required packages installed
+
+- ✓ PyTorch and DGL workingStep 4/7: Activating environment
+
+- ✓ Model configurations valid  ✓ Activates pids_framework environment
+
+- ✓ Directory structure correct  ✓ Verifies activation
+
+- ✓ GPU availability (if applicable)
 
 Step 5/7: Applying PyTorch MKL threading fix (AUTOMATIC)
-  ✓ Sets MKL_THREADING_LAYER=GNU
-  ✓ Creates activation/deactivation scripts
-  ✓ Tests PyTorch import
-  ✓ Falls back to MKL reinstall if needed
 
-Step 6/7: Creating directory structure & Installing PyTorch Geometric
-  ✓ Creates data/, checkpoints/, results/, logs/, configs/ directories
+Expected output:  ✓ Sets MKL_THREADING_LAYER=GNU
+
+```  ✓ Creates activation/deactivation scripts
+
+✓ Python version: 3.10.8  ✓ Tests PyTorch import
+
+✓ PyTorch version: 1.12.1  ✓ Falls back to MKL reinstall if needed
+
+✓ DGL version: 1.0.0
+
+✓ PyTorch Geometric version: 2.1.0Step 6/7: Creating directory structure & Installing PyTorch Geometric
+
+✓ GPU available: NVIDIA GeForce RTX 3090  ✓ Creates data/, checkpoints/, results/, logs/, configs/ directories
+
   ✓ Installs torch-scatter 2.1.0
-  ✓ Installs torch-sparse 0.6.16
-  ✓ Installs torch-cluster 1.6.0
-  ✓ Installs torch-geometric 2.1.0
-  ✓ Auto-detects CUDA version for appropriate wheels
 
-Step 7/7: Verifying installation
+Checking model configurations...  ✓ Installs torch-sparse 0.6.16
+
+✓ models/magic.yaml - Valid  ✓ Installs torch-cluster 1.6.0
+
+✓ models/kairos.yaml - Valid  ✓ Installs torch-geometric 2.1.0
+
+✓ models/orthrus.yaml - Valid  ✓ Auto-detects CUDA version for appropriate wheels
+
+✓ models/threatrace.yaml - Valid
+
+✓ models/continuum_fl.yaml - ValidStep 7/7: Verifying installation
+
   ✓ Checks Python version
-  ✓ Verifies PyTorch import and CUDA availability
-  ✓ Checks DGL installation
+
+✓ All checks passed!  ✓ Verifies PyTorch import and CUDA availability
+
+```  ✓ Checks DGL installation
+
   ✓ Checks PyTorch Geometric components
-  ✓ Runs comprehensive dependency check
+
+## Configuration  ✓ Runs comprehensive dependency check
+
 ```
+
+### Model Configuration
 
 **Expected output:**
-```
+
+Each model is configured via a YAML file in `configs/models/`. Example structure:```
+
 ============================================
-✓ Setup completed successfully!
-============================================
 
-Next steps:
+```yaml✓ Setup completed successfully!
 
-1. Activate the environment (if not already active):
-   conda activate pids_framework
+# configs/models/my_model.yaml============================================
 
-2. Setup models and download pretrained weights:
-   python scripts/setup_models.py --all
+name: my_model
 
-3. Preprocess your custom SOC data:
+type: graph_anomaly_detectionNext steps:
+
+
+
+encoder:1. Activate the environment (if not already active):
+
+  type: gat  # Options: mlp, graphsage, gat, transformer, rnn   conda activate pids_framework
+
+  hidden_dims: [128, 256, 512]
+
+  num_layers: 32. Setup models and download pretrained weights:
+
+  num_heads: 4  # For GAT/Transformer   python scripts/setup_models.py --all
+
+  dropout: 0.2
+
+  activation: relu  # Options: relu, gelu, elu, leaky_relu3. Preprocess your custom SOC data:
+
    python scripts/preprocess_data.py --input-dir ../custom_dataset/
 
-4. Run evaluation on all models:
-   ./scripts/run_evaluation.sh
+decoder:
+
+  type: anomaly_detection  # Options: mlp, attention, graph, sequence, classification, anomaly_detection4. Run evaluation on all models:
+
+  hidden_dims: [512, 256, 128]   ./scripts/run_evaluation.sh
+
+  output_dim: 1```
+
+  dropout: 0.1
+
+  #### Important Notes:
+
+pooling:
+
+  type: attention  # Options: mean, max, sum, attention- ⚠️ **MKL Fix is Automatic** - You don't need to manually set environment variables
+
+  - ⚠️ **PyTorch Geometric Included** - No need for separate installation
+
+hyperparameters:- ⚠️ **Environment Activation** - Scripts auto-activate in subshells, but you should manually activate for interactive use
+
+  learning_rate: 0.001
+
+  batch_size: 32### Step 3: Activate Conda Environment
+
+  epochs: 100
+
+  weight_decay: 1e-5```bash
+
+  optimizer: adam  # Options: adam, sgd, adamw# Activate the environment
+
+  conda activate pids_framework
+
+training:
+
+  early_stopping: true# Verify activation
+
+  patience: 10echo $CONDA_DEFAULT_ENV
+
+  min_delta: 0.001# Should output: pids_framework
+
 ```
-
-#### Important Notes:
-
-- ⚠️ **MKL Fix is Automatic** - You don't need to manually set environment variables
-- ⚠️ **PyTorch Geometric Included** - No need for separate installation
-- ⚠️ **Environment Activation** - Scripts auto-activate in subshells, but you should manually activate for interactive use
-
-### Step 3: Activate Conda Environment
-
-```bash
-# Activate the environment
-conda activate pids_framework
-
-# Verify activation
-echo $CONDA_DEFAULT_ENV
-# Should output: pids_framework
 
 # Check Python version
-python --version
+
+### Experiment Configurationpython --version
+
 # Should output: Python 3.10.x
 
+Configure experiments in `configs/experiments/`:
+
 # Test PyTorch
-python -c "import torch; print(f'PyTorch {torch.__version__}')"
-# Should output: PyTorch 1.12.1+cu116 (or +cpu)
-```
+
+```yamlpython -c "import torch; print(f'PyTorch {torch.__version__}')"
+
+# configs/experiments/my_experiment.yaml# Should output: PyTorch 1.12.1+cu116 (or +cpu)
+
+name: my_experiment```
+
+description: "Evaluation of MAGIC on StreamSpot"
 
 **⚠️ Important:** You must activate this environment every time you use the framework!
 
-### Step 4: Setup Models and Download Pretrained Weights
+models:
+
+  - magic### Step 4: Setup Models and Download Pretrained Weights
+
+  - kairos
 
 The `setup_models.py` script handles:
-1. Installing model-specific dependencies
-2. Downloading pretrained weights from official GitHub repositories
-3. Falling back to local directories if downloads fail
 
-```bash
-# Setup ALL models (recommended)
-python scripts/setup_models.py --all
+datasets:1. Installing model-specific dependencies
 
-# OR setup specific models only
-python scripts/setup_models.py --models magic kairos orthrus
-```
+  - streamspot2. Downloading pretrained weights from official GitHub repositories
 
-#### Download Strategy:
+  - cadets3. Falling back to local directories if downloads fail
 
-**Primary Method: GitHub Download**
-- Downloads weights directly from official repositories
-- Uses curl/wget (automatically selected)
-- Handles special cases (Google Drive, git sparse-checkout)
 
-**Fallback Method: Local Copy**
-- Searches for weights in local directories:
-  - `../MAGIC/checkpoints/`
-  - `../Continuum_FL/checkpoints/`
-  - `../orthrus/weights/`
-  - `../kairos/DARPA/`
+
+evaluation:```bash
+
+  metrics:# Setup ALL models (recommended)
+
+    - accuracypython scripts/setup_models.py --all
+
+    - precision
+
+    - recall# OR setup specific models only
+
+    - f1python scripts/setup_models.py --models magic kairos orthrus
+
+    - auc_roc```
+
+    - average_precision
+
+  #### Download Strategy:
+
+  splits:
+
+    - test**Primary Method: GitHub Download**
+
+  - Downloads weights directly from official repositories
+
+  batch_size: 32- Uses curl/wget (automatically selected)
+
+  num_workers: 4- Handles special cases (Google Drive, git sparse-checkout)
+
+
+
+output:**Fallback Method: Local Copy**
+
+  save_predictions: true- Searches for weights in local directories:
+
+  save_metrics: true  - `../MAGIC/checkpoints/`
+
+  visualization: true  - `../Continuum_FL/checkpoints/`
+
+  output_dir: results/my_experiment  - `../orthrus/weights/`
+
+```  - `../kairos/DARPA/`
+
   - `../threaTrace/example_models/`
+
+## Running Your First Evaluation
 
 #### Expected Output:
 
+Once setup is complete, test the framework:
+
 ```
-================================================================================
-  PIDS Framework - Model Setup (GitHub Download)
-================================================================================
-Setting up models: magic, kairos, orthrus, threatrace, continuum_fl
-Strategy: Download from GitHub → Fallback to local if needed
+
+```bash================================================================================
+
+# Simple evaluation  PIDS Framework - Model Setup (GitHub Download)
+
+python experiments/evaluate_pipeline.py \================================================================================
+
+    --model magic \Setting up models: magic, kairos, orthrus, threatrace, continuum_fl
+
+    --dataset streamspot \Strategy: Download from GitHub → Fallback to local if needed
+
+    --split test
 
 ================================================================================
-  Setting up MAGIC
-================================================================================
-Description: Masked Graph Autoencoder for APT Detection
+
+# With configuration file  Setting up MAGIC
+
+python experiments/evaluate_pipeline.py \================================================================================
+
+    --config configs/experiments/my_experiment.yamlDescription: Masked Graph Autoencoder for APT Detection
+
 GitHub: https://github.com/FDUDSDE/MAGIC
 
-Installing dependencies for MAGIC...
-✓ MAGIC dependencies installed
+# Force re-computation (skip cache)
 
-Downloading weights for MAGIC...
-   Repository: https://github.com/FDUDSDE/MAGIC
+python experiments/evaluate_pipeline.py \Installing dependencies for MAGIC...
+
+    --model kairos \✓ MAGIC dependencies installed
+
+    --dataset cadets \
+
+    --skip-cacheDownloading weights for MAGIC...
+
+```   Repository: https://github.com/FDUDSDE/MAGIC
+
    📥 streamspot: MAGIC trained on StreamSpot dataset
-      Downloading with curl: checkpoint-streamspot.pt
-      ✓ Downloaded: checkpoint-streamspot.pt
-   📥 cadets: MAGIC trained on DARPA CADETS
-      ✓ Downloaded: checkpoint-cadets.pt
-   📥 theia: MAGIC trained on DARPA THEIA
-      ✓ Downloaded: checkpoint-theia.pt
-   📥 trace: MAGIC trained on DARPA TRACE
-      ✓ Downloaded: checkpoint-trace.pt
-   📥 wget: MAGIC trained on Wget dataset
-      ✓ Downloaded: checkpoint-wget.pt
-✓ Downloaded 5 checkpoint(s) from GitHub/official sources
 
-================================================================================
+## Using the ModelBuilder      Downloading with curl: checkpoint-streamspot.pt
+
+      ✓ Downloaded: checkpoint-streamspot.pt
+
+The framework's core feature is the ModelBuilder, which constructs models dynamically from YAML configurations:   📥 cadets: MAGIC trained on DARPA CADETS
+
+      ✓ Downloaded: checkpoint-cadets.pt
+
+```python   📥 theia: MAGIC trained on DARPA THEIA
+
+from models import ModelBuilder      ✓ Downloaded: checkpoint-theia.pt
+
+   📥 trace: MAGIC trained on DARPA TRACE
+
+# Initialize builder      ✓ Downloaded: checkpoint-trace.pt
+
+builder = ModelBuilder(config_dir="configs/models")   📥 wget: MAGIC trained on Wget dataset
+
+      ✓ Downloaded: checkpoint-wget.pt
+
+# List available models✓ Downloaded 5 checkpoint(s) from GitHub/official sources
+
+models = builder.list_available_models()
+
+print(f"Available models: {models}")================================================================================
+
   Setting up Kairos
-================================================================================
-Description: Practical Intrusion Detection with Whole-system Provenance
+
+# Build a model================================================================================
+
+model = builder.build_model("magic")Description: Practical Intrusion Detection with Whole-system Provenance
+
 GitHub: https://github.com/ubc-provenance/kairos
 
-Installing dependencies for Kairos...
-✓ Kairos dependencies installed
+# Use the model
 
-Downloading weights for Kairos...
+outputs = model(input_data)Installing dependencies for Kairos...
+
+```✓ Kairos dependencies installed
+
+
+
+### Creating Custom ModelsDownloading weights for Kairos...
+
    Repository: https://github.com/ubc-provenance/kairos
-   ⚠️  google_drive_folder: Kairos pretrained models from Google Drive
+
+No Python code needed! Just create a YAML file:   ⚠️  google_drive_folder: Kairos pretrained models from Google Drive
+
       Manual download required from: https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_hBvvEB6C
 
-   Checking local fallback: kairos/DARPA
-      ⏭️  Skipping (no checkpoints found)
+1. **Copy the template**:
+
+```bash   Checking local fallback: kairos/DARPA
+
+cp configs/models/template.yaml configs/models/my_new_model.yaml      ⏭️  Skipping (no checkpoints found)
+
+```
 
 [... similar output for Orthrus, ThreaTrace, Continuum_FL ...]
 
-================================================================================
-  Setup Summary
-================================================================================
+2. **Edit the configuration**:
+
+```yaml================================================================================
+
+name: my_new_model  Setup Summary
+
+type: graph_anomaly_detection================================================================================
+
 ✓ Dependencies installed for 5 model(s)
-✓ Downloaded 18 checkpoint(s) from GitHub/official sources
-✓ Copied 2 checkpoint(s) from local fallback
 
-Checkpoints saved to: checkpoints/
+encoder:✓ Downloaded 18 checkpoint(s) from GitHub/official sources
 
-Next steps:
+  type: transformer  # Use transformer encoder✓ Copied 2 checkpoint(s) from local fallback
+
+  hidden_dims: [256, 512, 1024]
+
+  num_layers: 4Checkpoints saved to: checkpoints/
+
+  num_heads: 8
+
+  dropout: 0.3Next steps:
+
   1. Verify weights: ls -lh checkpoints/*/
-  2. Preprocess data: python scripts/preprocess_data.py
-  3. Run evaluation: ./scripts/run_evaluation.sh
-```
 
-#### Verify Downloaded Weights:
+decoder:  2. Preprocess data: python scripts/preprocess_data.py
+
+  type: classification  # Use classification head  3. Run evaluation: ./scripts/run_evaluation.sh
+
+  hidden_dims: [1024, 512, 256]```
+
+  num_classes: 2  # Binary classification
+
+  dropout: 0.2#### Verify Downloaded Weights:
+
+```
 
 ```bash
-# Check checkpoint directory structure
-ls -lh checkpoints/*/
 
-# Expected structure:
-checkpoints/
-├── magic/
+3. **Use your model**:# Check checkpoint directory structure
+
+```bashls -lh checkpoints/*/
+
+python experiments/evaluate_pipeline.py \
+
+    --model my_new_model \# Expected structure:
+
+    --dataset streamspotcheckpoints/
+
+```├── magic/
+
 │   ├── checkpoint-streamspot.pt
-│   ├── checkpoint-cadets.pt
+
+## Pipeline System│   ├── checkpoint-cadets.pt
+
 │   ├── checkpoint-theia.pt
-│   ├── checkpoint-trace.pt
+
+The framework uses a 9-task pipeline with automatic caching:│   ├── checkpoint-trace.pt
+
 │   └── checkpoint-wget.pt
-├── kairos/
-│   └── [requires manual download]
+
+```python├── kairos/
+
+from pipeline import PipelineBuilder│   └── [requires manual download]
+
 ├── orthrus/
-│   ├── CADETS_E3.pkl
-│   ├── CLEARSCOPE_E3.pkl
-│   ├── CLEARSCOPE_E5.pkl
-│   ├── THEIA_E3.pkl
-│   └── THEIA_E5.pkl
-├── threatrace/
+
+# Build pipeline│   ├── CADETS_E3.pkl
+
+pipeline = PipelineBuilder.build(│   ├── CLEARSCOPE_E3.pkl
+
+    model_name="magic",│   ├── CLEARSCOPE_E5.pkl
+
+    dataset_name="streamspot",│   ├── THEIA_E3.pkl
+
+    config=config│   └── THEIA_E5.pkl
+
+)├── threatrace/
+
 │   ├── darpatc/
-│   ├── streamspot/
-│   └── unicornsc/
-└── continuum_fl/
-    ├── checkpoint-streamspot.pt
-    ├── checkpoint-cadets-e3.pt
-    ├── checkpoint-theia-e3.pt
-    ├── checkpoint-trace-e3.pt
+
+# Run specific tasks│   ├── streamspot/
+
+results = pipeline.run(tasks=[│   └── unicornsc/
+
+    'load_data',└── continuum_fl/
+
+    'preprocess',    ├── checkpoint-streamspot.pt
+
+    'build_graphs',    ├── checkpoint-cadets-e3.pt
+
+    'extract_features'    ├── checkpoint-theia-e3.pt
+
+])    ├── checkpoint-trace-e3.pt
+
     └── checkpoint-clearscope-e3.pt
-```
+
+# Or run all tasks```
+
+results = pipeline.run()
 
 ### Step 5: Verify Installation
 
-```bash
-# Run comprehensive verification
+# Skip cache for specific tasks
+
+results = pipeline.run(skip_cache=['run_inference'])```bash
+
+```# Run comprehensive verification
+
 python scripts/verify_installation.py
-```
 
-**Expected output:**
-```
-================================================================================
-  PIDS Comparative Framework - Verification
-================================================================================
+### Pipeline Tasks```
 
-================================================================================
-  Python Environment
-================================================================================
+
+
+1. **load_data**: Load raw provenance data from disk**Expected output:**
+
+2. **preprocess**: Clean and normalize data```
+
+3. **build_graphs**: Construct graph structures================================================================================
+
+4. **extract_features**: Generate node/edge features  PIDS Comparative Framework - Verification
+
+5. **split_data**: Create train/val/test splits================================================================================
+
+6. **prepare_model_input**: Format data for model
+
+7. **run_inference**: Execute model predictions================================================================================
+
+8. **process_predictions**: Post-process outputs  Python Environment
+
+9. **calculate_metrics**: Compute evaluation metrics================================================================================
+
 Python version: 3.10.x
-✅ Python version is compatible (3.8+)
 
-================================================================================
+## Training Models✅ Python version is compatible (3.8+)
+
+
+
+⚠️ **Important Note**: The `train.py` script provided is a **reference implementation** that shows how to integrate models with the framework. Each PIDS model has specific training requirements optimized for that model.================================================================================
+
   Core Dependencies
-================================================================================
-✅ torch          - version 1.12.1
-✅ numpy          - version 1.23.5
-✅ scipy          - version 1.10.1
-✅ pandas         - version 1.5.3
-✅ sklearn        - version 1.2.2
-✅ yaml           - version 6.0
-✅ matplotlib     - version 3.7.1
 
-================================================================================
+**For production training**, use the original training scripts included with each model's implementation:================================================================================
+
+✅ torch          - version 1.12.1
+
+```bash✅ numpy          - version 1.23.5
+
+# MAGIC training (use original implementation)✅ scipy          - version 1.10.1
+
+cd ../MAGIC✅ pandas         - version 1.5.3
+
+python train.py --config configs/streamspot.yaml✅ sklearn        - version 1.2.2
+
+✅ yaml           - version 6.0
+
+# Kairos training (use original implementation)✅ matplotlib     - version 3.7.1
+
+cd ../kairos
+
+python train.py --dataset streamspot --epochs 100================================================================================
+
   Deep Learning Frameworks
-================================================================================
-✅ PyTorch        - version 1.12.1
-✅ CUDA           - version 11.6 (or ⚠️ NOT AVAILABLE - CPU only)
-✅ DGL            - version 1.0.0
-✅ PyTorch Geom.  - version 2.1.0
-  ✅ torch-scatter - version 2.1.0
-  ✅ torch-sparse  - version 0.6.16
+
+# Framework reference training (for integration examples)================================================================================
+
+cd PIDS_Comparative_Framework✅ PyTorch        - version 1.12.1
+
+python experiments/train.py \✅ CUDA           - version 11.6 (or ⚠️ NOT AVAILABLE - CPU only)
+
+    --model magic \✅ DGL            - version 1.0.0
+
+    --dataset streamspot \✅ PyTorch Geom.  - version 2.1.0
+
+    --epochs 50  ✅ torch-scatter - version 2.1.0
+
+```  ✅ torch-sparse  - version 0.6.16
+
   ✅ torch-cluster - version 1.6.0
 
-================================================================================
-  Model Integrations
-================================================================================
-Found 9 registered models:
+The reference `train.py` is useful for:
+
+- Understanding how to integrate models with the framework================================================================================
+
+- Quick prototyping with shared components  Model Integrations
+
+- Testing new model configurations================================================================================
+
+- Educational purposesFound 9 registered models:
+
   ✅ magic
-  ✅ magic_streamspot
+
+## Troubleshooting  ✅ magic_streamspot
+
   ✅ magic_darpa
-  ✅ kairos
+
+### Common Issues  ✅ kairos
+
   ✅ orthrus
-  ✅ threatrace
+
+#### ImportError: No module named 'dgl'  ✅ threatrace
+
   ✅ continuum_fl
-  ✅ continuum_fl_streamspot
-  ✅ continuum_fl_darpa
-✅ All expected models are registered
 
-================================================================================
-  Directory Structure
-================================================================================
-✅ data                     - EXISTS
-✅ models                   - EXISTS
-✅ utils                    - EXISTS
-✅ experiments              - EXISTS
-✅ scripts                  - EXISTS
-✅ configs                  - EXISTS
-✅ checkpoints              - EXISTS
-✅ results                  - EXISTS
-✅ logs                     - EXISTS
+**Solution**: Install DGL separately  ✅ continuum_fl_streamspot
 
-================================================================================
-  Configuration Files
-================================================================================
-✅ configs/models/magic.yaml
-✅ configs/models/kairos.yaml
-✅ configs/models/orthrus.yaml
-✅ configs/models/threatrace.yaml
-✅ configs/models/continuum_fl.yaml
-✅ configs/datasets/custom_soc.yaml
-✅ configs/datasets/cadets_e3.yaml
-✅ configs/datasets/streamspot.yaml
-✅ configs/experiments/compare_all.yaml
-✅ configs/experiments/train_single.yaml
+```bash  ✅ continuum_fl_darpa
 
-================================================================================
-  Verification Summary
-================================================================================
+pip install dgl==1.0.0 -f https://data.dgl.ai/wheels/repo.html✅ All expected models are registered
 
-Total checks: 9
-Passed: 9
-Failed: 0
-
-================================================================================
-🎉 ALL CHECKS PASSED! Framework is ready to use.
-================================================================================
 ```
 
----
+================================================================================
 
-## 🔧 Model-Specific Setup
+#### CUDA out of memory  Directory Structure
 
-Each model has unique requirements and weight sources:
+================================================================================
 
-### MAGIC
+**Solutions**:✅ data                     - EXISTS
 
-**Description:** Masked Graph Autoencoder for APT Detection  
-**GitHub:** https://github.com/FDUDSDE/MAGIC  
-**Dependencies:** DGL 1.0.0, torch-geometric  
-**Weights:** ✅ Auto-downloaded from GitHub  
-**Special Requirements:** None
+1. Reduce batch size in config✅ models                   - EXISTS
 
-**Available Pretrained Weights:**
+2. Use gradient accumulation✅ utils                    - EXISTS
+
+3. Switch to CPU mode✅ experiments              - EXISTS
+
+```bash✅ scripts                  - EXISTS
+
+python experiments/evaluate_pipeline.py --model magic --dataset streamspot --device cpu✅ configs                  - EXISTS
+
+```✅ checkpoints              - EXISTS
+
+✅ results                  - EXISTS
+
+#### Model config not found✅ logs                     - EXISTS
+
+
+
+**Solution**: Verify model config exists================================================================================
+
+```bash  Configuration Files
+
+ls configs/models/================================================================================
+
+python scripts/verify_installation.py✅ configs/models/magic.yaml
+
+```✅ configs/models/kairos.yaml
+
+✅ configs/models/orthrus.yaml
+
+#### Module imports fail✅ configs/models/threatrace.yaml
+
+✅ configs/models/continuum_fl.yaml
+
+**Solution**: Ensure framework root is in PYTHONPATH✅ configs/datasets/custom_soc.yaml
+
+```bash✅ configs/datasets/cadets_e3.yaml
+
+export PYTHONPATH="${PYTHONPATH}:$(pwd)"✅ configs/datasets/streamspot.yaml
+
+```✅ configs/experiments/compare_all.yaml
+
+✅ configs/experiments/train_single.yaml
+
+#### Slow inference
+
+================================================================================
+
+**Solutions**:  Verification Summary
+
+1. Use GPU if available================================================================================
+
+2. Increase batch size
+
+3. Enable pipeline cachingTotal checks: 9
+
+4. Reduce model size in configPassed: 9
+
+Failed: 0
+
+### Getting Help
+
+================================================================================
+
+If you encounter issues:🎉 ALL CHECKS PASSED! Framework is ready to use.
+
+================================================================================
+
+1. **Check documentation**: [README.md](README.md)```
+
+2. **Verify installation**: `python scripts/verify_installation.py`
+
+3. **Check model configs**: Ensure YAML files are valid---
+
+4. **Review logs**: Check terminal output for error messages
+
+5. **Open an issue**: On GitHub with error details## 🔧 Model-Specific Setup
+
+
+
+## Next StepsEach model has unique requirements and weight sources:
+
+
+
+After successful setup:### MAGIC
+
+
+
+1. **Explore examples**: Check `experiments/` for example scripts**Description:** Masked Graph Autoencoder for APT Detection  
+
+2. **Run evaluations**: Use `evaluate_pipeline.py` on different datasets**GitHub:** https://github.com/FDUDSDE/MAGIC  
+
+3. **Create custom models**: Add new YAML configurations**Dependencies:** DGL 1.0.0, torch-geometric  
+
+4. **Compare results**: Evaluate multiple models simultaneously**Weights:** ✅ Auto-downloaded from GitHub  
+
+5. **Visualize outputs**: Use built-in visualization tools**Special Requirements:** None
+
+
+
+## Additional Resources**Available Pretrained Weights:**
+
 - `checkpoint-streamspot.pt` - StreamSpot dataset
-- `checkpoint-cadets.pt` - DARPA TC CADETS
-- `checkpoint-theia.pt` - DARPA TC THEIA
-- `checkpoint-trace.pt` - DARPA TC TRACE
-- `checkpoint-wget.pt` - Wget attack dataset
+
+- **README.md**: Framework overview and usage- `checkpoint-cadets.pt` - DARPA TC CADETS
+
+- **SETUP.md**: This file (setup guide)- `checkpoint-theia.pt` - DARPA TC THEIA
+
+- **Model Configs**: `configs/models/*.yaml`- `checkpoint-trace.pt` - DARPA TC TRACE
+
+- **Dataset Configs**: `configs/datasets/*.yaml`- `checkpoint-wget.pt` - Wget attack dataset
+
+- **Experiment Configs**: `configs/experiments/*.yaml`
 
 ### Kairos
 
+## Support
+
 **Description:** Practical Intrusion Detection with Whole-system Provenance  
-**GitHub:** https://github.com/ubc-provenance/kairos  
-**Dependencies:** psycopg2, sqlalchemy (for database access)  
-**Weights:** ⚠️ **Manual download required**  
-**Special Requirements:** Google Drive access
+
+For questions, issues, or contributions:**GitHub:** https://github.com/ubc-provenance/kairos  
+
+- Open an issue on GitHub**Dependencies:** psycopg2, sqlalchemy (for database access)  
+
+- Contact the maintainers**Weights:** ⚠️ **Manual download required**  
+
+- Check the documentation**Special Requirements:** Google Drive access
+
+- Review example configurations
 
 **Manual Download Instructions:**
-```bash
+
+## License```bash
+
 # Option 1: Using gdown (if installed)
-pip install gdown
+
+This project is licensed under the MIT License - see the LICENSE file for details.pip install gdown
+
 gdown --folder https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_hBvvEB6C -O checkpoints/kairos/
 
 # Option 2: Manual browser download
@@ -858,12 +1496,16 @@ Next steps:
 
 ## 🔬 Advanced Features
 
-### Training Models on Custom Data
+### Training Models on Custom Data (Reference Only)
 
-While the framework is designed for **evaluation of pretrained models**, you can also retrain models on your custom data:
+**⚠️ Important Note:** The framework is primarily designed for **evaluation with pretrained models**. Training functionality (`experiments/train.py`) is provided for reference but is not actively maintained and may require additional setup.
+
+**For most users:** Use the pretrained models provided by the original model authors.
+
+If you need to retrain models:
 
 ```bash
-# Train MAGIC on custom data
+# Train MAGIC on custom data (reference implementation)
 python experiments/train.py \
     --model magic \
     --dataset custom_soc \
@@ -887,21 +1529,24 @@ python experiments/train.py \
     --resume
 ```
 
+**Note:** Training script uses the old ModelRegistry system and may need updates to work with the new ModelBuilder architecture.
+
 ### Custom Configuration
 
-Models can be configured via YAML files:
+Models can be configured via YAML files in `configs/models/`:
 
 ```bash
 # Copy default configuration
 cp configs/models/magic.yaml configs/models/magic_custom.yaml
 
-# Edit configuration
+# Edit configuration (adjust architecture, training params, etc.)
 nano configs/models/magic_custom.yaml
 
-# Use custom configuration
-python experiments/train.py \
-    --model magic \
-    --config configs/models/magic_custom.yaml
+# Use custom configuration for evaluation
+python experiments/evaluate_pipeline.py \
+    --models magic \
+    --dataset custom_soc \
+    --data-path data/custom_soc
 ```
 
 ### Batch Processing Multiple Datasets
@@ -929,14 +1574,14 @@ If you run out of GPU memory:
 
 ```bash
 # Reduce batch size
-python experiments/evaluate.py \
-    --model magic \
+python experiments/evaluate_pipeline.py \
+    --models magic \
     --batch-size 4 \  # Reduce from default 32
     --device 0
 
 # Use CPU instead
-python experiments/evaluate.py \
-    --model magic \
+python experiments/evaluate_pipeline.py \
+    --models magic \
     --device -1  # -1 = CPU
 ```
 
@@ -1115,46 +1760,52 @@ python scripts/verify_installation.py
 
 ---
 
-### evaluate.py (Direct Evaluation)
+### evaluate_pipeline.py (Task-Based Evaluation)
 
-**Purpose:** Direct model evaluation (bypasses shell script)
+**Purpose:** Modern task-based evaluation using the pipeline architecture
 
 ```bash
-# Basic evaluation
-python experiments/evaluate.py \
-    --model magic \
+# Basic evaluation - single model
+python experiments/evaluate_pipeline.py \
+    --models magic \
     --dataset custom_soc \
     --data-path data/custom_soc \
-    --pretrained
+    --checkpoints-dir checkpoints
 
-# Advanced options
-python experiments/evaluate.py \
-    --model magic \
+# Evaluate multiple models
+python experiments/evaluate_pipeline.py \
+    --models magic kairos orthrus \
     --dataset custom_soc \
     --data-path data/custom_soc \
-    --pretrained \
+    --checkpoints-dir checkpoints \
     --batch-size 16 \               # Batch size
-    --detection-level both \        # entity, batch, or both
-    --k-neighbors 5 \               # k-NN neighbors for entity-level
     --device 0 \                    # GPU device ID (-1 for CPU)
-    --save-predictions \            # Save predictions to file
+    --cache-dir .cache \            # Cache intermediate results
     --output-dir results/eval
+
+# Evaluate all models
+python experiments/evaluate_pipeline.py \
+    --models all \
+    --dataset streamspot \
+    --data-path data/preprocessed/streamspot
 ```
 
 **Arguments:**
-- `--model MODEL` - Model to evaluate
+- `--models MODEL [MODEL ...]` - One or more models to evaluate (or "all")
 - `--dataset NAME` - Dataset name
 - `--data-path PATH` - Path to preprocessed data
-- `--pretrained` - Use pretrained weights
-- `--checkpoint PATH` - Path to specific checkpoint file
-- `--checkpoint-dir PATH` - Directory containing checkpoints (default: checkpoints/)
+- `--checkpoints-dir PATH` - Directory containing checkpoints (default: checkpoints/)
 - `--batch-size NUM` - Batch size (default: 32)
-- `--detection-level {entity,batch,both}` - Detection level (default: entity)
-- `--k-neighbors NUM` - k-NN neighbors (default: 5)
 - `--device NUM` - Device: -1 for CPU, 0+ for GPU (default: -1)
-- `--num-workers NUM` - Data loading workers (default: 4)
-- `--save-predictions` - Save predictions to file
+- `--cache-dir PATH` - Cache directory for pipeline (default: .cache/)
 - `--output-dir PATH` - Output directory (default: results/)
+
+**Features:**
+- ✅ Task-based pipeline with 9 stages (load_data → calculate_metrics)
+- ✅ Automatic caching of intermediate results
+- ✅ Multi-model evaluation in single run
+- ✅ Dynamic model construction via ModelBuilder
+- ✅ Per-model YAML configurations
 
 ---
 
@@ -1304,19 +1955,18 @@ RuntimeError: CUDA out of memory
 
 ```bash
 # For CPU OOM:
-python experiments/evaluate.py \
-    --model magic \
-    --batch-size 4 \    # Reduce from default 32
-    --num-workers 2     # Reduce from default 4
+python experiments/evaluate_pipeline.py \
+    --models magic \
+    --batch-size 4     # Reduce from default 32
 
 # For GPU OOM:
-python experiments/evaluate.py \
-    --model magic \
+python experiments/evaluate_pipeline.py \
+    --models magic \
     --device -1  # Use CPU instead of GPU
 
 # OR reduce batch size on GPU:
-python experiments/evaluate.py \
-    --model magic \
+python experiments/evaluate_pipeline.py \
+    --models magic \
     --batch-size 4 \
     --device 0
 ```
@@ -1446,7 +2096,7 @@ If you encounter issues not covered here:
 2. **Enable verbose output:**
    ```bash
    python scripts/preprocess_data.py --verbose
-   python experiments/evaluate.py --model magic --verbose
+   python experiments/evaluate_pipeline.py --models magic --dataset streamspot
    ```
 
 3. **Test individual components:**

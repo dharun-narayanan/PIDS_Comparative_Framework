@@ -1,9 +1,34 @@
 """
-Training script for PIDS models.
+Training script for PIDS models using ModelBuilder.
+
+This script uses the new ModelBuilder system to dynamically construct
+models from YAML configurations and train them on custom datasets.
+
+⚠️ NOTE: This training script is provided as a reference implementation.
+The framework is primarily designed for evaluation with pretrained weights.
+Training functionality has been updated to use ModelBuilder but may require
+additional customization for specific loss functions and training objectives.
+
+For most use cases, we recommend using the pretrained models provided by
+the original model authors and focusing on evaluation via evaluate_pipeline.py.
 
 Usage:
-    python experiments/train.py --model magic --dataset custom --data-path data/custom
-    python experiments/train.py --model kairos --dataset cadets-e3 --pretrained --fine-tune
+    # Basic training
+    python experiments/train.py \\
+        --model magic \\
+        --dataset custom \\
+        --data-path data/custom \\
+        --epochs 50 \\
+        --batch-size 32
+    
+    # Fine-tuning with pretrained weights
+    python experiments/train.py \\
+        --model kairos \\
+        --dataset cadets-e3 \\
+        --pretrained \\
+        --fine-tune \\
+        --epochs 20 \\
+        --lr 0.0001
 """
 
 import argparse
@@ -18,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import torch
 from torch.utils.data import DataLoader
 
-from models import ModelRegistry
+from models.model_builder import ModelBuilder
 from data.dataset import get_dataset
 from utils.common import (
     set_seed, setup_logging, load_config, save_config, 
@@ -131,20 +156,38 @@ def build_config(args):
 
 def train_epoch(model, dataloader, optimizer, device, logger):
     """Train for one epoch."""
-    model.set_train_mode()
+    model.train()  # Set to training mode
     
     total_loss = 0
     num_batches = 0
     
     for batch_idx, batch in enumerate(dataloader):
-        # Move batch to device (implementation depends on data format)
-        # batch = batch.to(device)
+        # Move batch to device
+        if hasattr(batch, 'to'):
+            batch = batch.to(device)
         
         optimizer.zero_grad()
         
-        # Forward pass - implementation depends on model
+        # Forward pass with GenericModel
         try:
-            loss = model(batch)
+            # Encode
+            embeddings = model.encode(batch)
+            
+            # Decode  
+            if model.multi_decoder:
+                # Multi-decoder models: use primary decoder for training loss
+                output = model.decode(embeddings, batch)[model.primary_decoder_key]
+            else:
+                output = model.decode(embeddings, batch)
+            
+            # Compute loss (this depends on the task/decoder)
+            # For now, assume output is already a loss tensor
+            # In practice, you'd compute loss based on task (reconstruction, classification, etc.)
+            if isinstance(output, torch.Tensor) and output.ndim == 0:
+                loss = output
+            else:
+                # Placeholder: compute a simple MSE loss
+                loss = torch.nn.functional.mse_loss(output, torch.zeros_like(output))
             
             # Backward pass
             loss.backward()
@@ -158,6 +201,8 @@ def train_epoch(model, dataloader, optimizer, device, logger):
         
         except Exception as e:
             logger.error(f'Error in batch {batch_idx}: {e}')
+            import traceback
+            traceback.print_exc()
             continue
     
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
@@ -214,29 +259,65 @@ def main():
         logger.error(f'Failed to load dataset: {e}')
         return
     
-    # Create model
-    logger.info('Creating model...')
+    # Create model using ModelBuilder
+    logger.info('Creating model with ModelBuilder...')
     try:
-        model = ModelRegistry.get_model(args.model, config)
-        model = model.to_device(device)
-        logger.info(f'Model created: {model.get_model_info()}')
+        model_builder = ModelBuilder(config_dir="configs/models")
+        
+        # Build model from YAML configuration  
+        model = model_builder.build_model(
+            model_name=args.model,
+            override_config=None
+        )
+        
+        # Move model to device
+        model = model.to(device)
+        
+        logger.info(f'Model created: {args.model}')
+        logger.info(f'Architecture: {model.config.get("architecture", {})}')
+        logger.info(f'Device: {device}')
     except Exception as e:
         logger.error(f'Failed to create model: {e}')
-        logger.error(f'Make sure model {args.model} is properly registered')
+        logger.error(f'Make sure {args.model}.yaml exists in configs/models/')
+        import traceback
+        traceback.print_exc()
         return
     
     # Load pretrained weights
     if args.pretrained or args.checkpoint:
-        checkpoint_path = args.checkpoint or (args.save_dir / args.model / f'checkpoint-{args.dataset}.pt')
-        if checkpoint_path.exists():
+        checkpoint_path = args.checkpoint
+        if checkpoint_path is None:
+            # Try to find checkpoint
+            checkpoint_path = args.save_dir / args.model / f'checkpoint-{args.dataset}.pt'
+            if not checkpoint_path.exists():
+                # Try alternative names
+                alt_paths = [
+                    args.save_dir / args.model / f'{args.dataset}.pt',
+                    args.save_dir / args.model / 'best.pt',
+                ]
+                for alt_path in alt_paths:
+                    if alt_path.exists():
+                        checkpoint_path = alt_path
+                        break
+        
+        if checkpoint_path and checkpoint_path.exists():
             logger.info(f'Loading pretrained weights from {checkpoint_path}')
             try:
-                model.load_checkpoint(checkpoint_path)
+                state_dict = torch.load(checkpoint_path, map_location=device)
+                # Handle different checkpoint formats
+                if 'model_state_dict' in state_dict:
+                    state_dict = state_dict['model_state_dict']
+                model.load_state_dict(state_dict, strict=False)
+                logger.info('Pretrained weights loaded successfully')
             except Exception as e:
                 logger.error(f'Failed to load checkpoint: {e}')
-                return
+                if not args.fine_tune:
+                    return
+                logger.warning('Continuing without pretrained weights...')
         else:
             logger.warning(f'Checkpoint not found: {checkpoint_path}')
+            if args.pretrained:
+                logger.warning('Continuing without pretrained weights...')
     
     # Create optimizer
     if args.optimizer == 'adam':

@@ -141,31 +141,35 @@ def check_deep_learning_frameworks():
     return all_good
 
 def check_model_integrations():
-    """Check model integrations."""
-    print_header("Model Integrations")
+    """Check model integrations using ModelBuilder."""
+    print_header("Model Integrations (ModelBuilder)")
     
     all_good = True
     
     try:
-        from models import ModelRegistry
+        from models.model_builder import ModelBuilder
+        from pathlib import Path
         
-        # List all registered models
-        models = ModelRegistry.list_models()
+        # Initialize ModelBuilder
+        model_builder = ModelBuilder(config_dir="configs/models")
         
-        print(f"Found {len(models)} registered models:")
-        for model in models:
-            print_success(f"  {model}")
+        # List available model configs
+        config_dir = Path("configs/models")
+        model_configs = list(config_dir.glob("*.yaml"))
+        model_names = [f.stem for f in model_configs if f.stem != "template"]
+        
+        print(f"Found {len(model_names)} model configurations:")
+        for model_name in sorted(model_names):
+            print_success(f"  {model_name}.yaml")
         
         # Expected models
         expected_models = [
-            'magic', 'magic_streamspot', 'magic_darpa',
-            'kairos', 'orthrus', 'threatrace',
-            'continuum_fl', 'continuum_fl_streamspot', 'continuum_fl_darpa'
+            'magic', 'kairos', 'orthrus', 'threatrace', 'continuum_fl'
         ]
         
-        missing_models = set(expected_models) - set(models)
+        missing_models = set(expected_models) - set(model_names)
         if missing_models:
-            print_warning(f"Missing models: {', '.join(missing_models)}")
+            print_warning(f"Missing model configs: {', '.join(missing_models)}")
             all_good = False
         else:
             print_success("All expected models are registered")
@@ -242,12 +246,9 @@ def check_scripts():
     
     required_scripts = [
         'scripts/setup.sh',
-        'scripts/install_model_deps.sh',
-        'scripts/download_weights.py',
         'scripts/preprocess_data.py',
         'experiments/train.py',
-        'experiments/evaluate.py',
-        'experiments/compare.py',
+        'experiments/evaluate_pipeline.py',
     ]
     
     all_good = True

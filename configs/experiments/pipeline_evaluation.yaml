@@ -1,0 +1,213 @@
+# Task-Based Pipeline Configuration for PIDS Models
+# This configuration defines the execution pipeline for each model
+
+# Global settings
+global:
+  artifact_dir: artifacts
+  checkpoints_dir: checkpoints
+  device: cpu
+  seed: 42
+  force_restart: false
+
+# Data configuration
+data:
+  path: data/custom_soc
+  dataset: custom_soc
+  format: pkl  # pkl, json, or postgres
+
+# Task definitions - these apply to all models unless overridden
+tasks:
+  load_preprocessed_data:
+    # No additional config needed
+  
+  construct_time_windows:
+    enabled: true
+    window_size: 3600  # seconds (1 hour)
+    overlap: 0.0  # fraction (0.0 = no overlap, 0.5 = 50% overlap)
+  
+  graph_transformation:
+    type: none  # none, undirected, deduplicate
+  
+  feature_extraction:
+    method: one_hot  # one_hot, random, pretrained
+    node_feat_dim: 128
+    edge_feat_dim: 64
+    embedding_path: null  # path to pretrained embeddings (if method=pretrained)
+  
+  featurization_inference:
+    enabled: true
+  
+  batch_construction:
+    batch_size: 1
+  
+  model_inference:
+    # checkpoint_path is set automatically based on model and dataset
+  
+  calculate_metrics:
+    # Metrics are calculated automatically
+  
+  attack_tracing:
+    enabled: false  # Set to true to enable attack path tracing
+
+# Model-specific configurations
+models:
+  magic:
+    description: "Masked Graph Autoencoder for APT Detection"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        construct_time_windows:
+          window_size: 3600
+          overlap: 0.0
+        
+        graph_transformation:
+          type: none
+        
+        feature_extraction:
+          method: one_hot
+          node_feat_dim: 128
+          edge_feat_dim: 64
+        
+        batch_construction:
+          batch_size: 1
+    
+    model_config:
+      num_hidden: 256
+      num_layers: 4
+      mask_rate: 0.3
+      n_dim: 128
+      e_dim: 64
+
+  kairos:
+    description: "Practical Intrusion Detection with Whole-system Provenance"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        construct_time_windows:
+          window_size: 600  # 10 minutes
+          overlap: 0.0
+        
+        feature_extraction:
+          method: one_hot
+          node_feat_dim: 100
+          edge_feat_dim: 100
+        
+        batch_construction:
+          batch_size: 1
+    
+    model_config:
+      in_channels: 100
+      out_channels: 100
+      msg_dim: 100
+      memory_dim: 100
+
+  orthrus:
+    description: "High Quality Attribution in Provenance-based IDS"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        feature_extraction:
+          method: one_hot
+          node_feat_dim: 100
+          edge_feat_dim: 100
+        
+        batch_construction:
+          batch_size: 1
+    
+    model_config:
+      num_nodes: 100000
+      in_dim: 100
+      out_dim: 100
+      use_contrastive_learning: true
+
+  threatrace:
+    description: "Scalable Graph-based Threat Detection"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - feature_extraction
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        feature_extraction:
+          method: random
+          node_feat_dim: 128
+          edge_feat_dim: 64
+        
+        batch_construction:
+          batch_size: 1
+    
+    model_config:
+      hidden_dim: 128
+      num_layers: 2
+      encoder_type: sage
+
+  continuum_fl:
+    description: "Federated Learning for PIDS"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        feature_extraction:
+          method: one_hot
+          node_feat_dim: 128
+          edge_feat_dim: 64
+        
+        batch_construction:
+          batch_size: 1
+    
+    model_config:
+      num_hidden: 256
+      num_layers: 4
+      n_dim: 128
+      e_dim: 64
+
+# Experiment tracking (optional)
+experiment:
+  name: pids_evaluation
+  track_metrics: true
+  save_predictions: true
+  save_embeddings: false
+
+# Output settings
+output:
+  save_results: true
+  save_plots: false
+  verbose: true

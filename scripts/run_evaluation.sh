@@ -200,15 +200,12 @@ if [[ "$MODEL" == "all" ]]; then
         echo ""
         echo -e "${YELLOW}Evaluating ${model_name}...${NC}"
         
-        python experiments/evaluate.py \
-            --model "$model_name" \
+        python experiments/evaluate_pipeline.py \
+            --models "$model_name" \
             --dataset "$DATASET" \
             --data-path "${PREPROCESSED_DATA_PATH}" \
-            --pretrained \
-            --checkpoint-dir checkpoints \
+            --checkpoints-dir checkpoints \
             --output-dir "$OUTPUT_DIR" \
-            --save-predictions \
-            --detection-level both \
             2>&1 | tee "$OUTPUT_DIR/${model_name}_evaluation.log"
         
         if [[ $? -eq 0 ]]; then
@@ -221,15 +218,12 @@ else
     # Evaluate single model
     echo -e "${BLUE}Evaluating ${MODEL}...${NC}"
     
-    python experiments/evaluate.py \
-        --model "$MODEL" \
+    python experiments/evaluate_pipeline.py \
+        --models "$MODEL" \
         --dataset "$DATASET" \
         --data-path "${PREPROCESSED_DATA_PATH}" \
-        --pretrained \
-        --checkpoint-dir checkpoints \
+        --checkpoints-dir checkpoints \
         --output-dir "$OUTPUT_DIR" \
-        --save-predictions \
-        --detection-level both \
         2>&1 | tee "$OUTPUT_DIR/${MODEL}_evaluation.log"
     
     if [[ $? -eq 0 ]]; then
@@ -248,19 +242,20 @@ echo -e "${CYAN}─────────────────────�
 if [[ "$MODEL" == "all" ]]; then
     echo -e "${BLUE}Generating comparative analysis...${NC}"
     
-    python experiments/compare.py \
-        --results-dir "$OUTPUT_DIR" \
+    python experiments/evaluate_pipeline.py \
+        --models all \
         --dataset "$DATASET" \
-        --output-file "$OUTPUT_DIR/comparison_report.json" \
-        --generate-plots
+        --data-path "${PREPROCESSED_DATA_PATH}" \
+        --checkpoints-dir checkpoints \
+        --output-dir "$OUTPUT_DIR"
     
     if [[ $? -eq 0 ]]; then
-        echo -e "${GREEN}✓ Comparison report generated${NC}"
+        echo -e "${GREEN}✓ Evaluation completed for all models${NC}"
     else
-        echo -e "${YELLOW}⚠ Warning: Could not generate comparison report${NC}"
+        echo -e "${YELLOW}⚠ Warning: Some models failed evaluation${NC}"
     fi
 else
-    echo -e "${YELLOW}Skipping comparison (single model evaluation)${NC}"
+    echo -e "${YELLOW}Single model evaluation completed${NC}"
 fi
 
 echo ""
