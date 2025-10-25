@@ -171,8 +171,10 @@ class TaskRegistry:
         Returns:
             Transformed graph data
         """
+        # Get time windows and original graph data
         if 'construct_time_windows' in dependencies:
             time_windows = dependencies['construct_time_windows']['time_windows']
+            graph_data = dependencies['construct_time_windows']['original_graph']
         else:
             # Fallback: work with original graph
             graph_data = dependencies['load_preprocessed_data']['graph_data']
@@ -233,7 +235,8 @@ class TaskRegistry:
         
         return {
             'transformed_windows': transformed_windows,
-            'transform_type': transform_type
+            'transform_type': transform_type,
+            'graph_data': graph_data  # Pass through graph metadata
         }
     
     @staticmethod
@@ -259,17 +262,18 @@ class TaskRegistry:
         Returns:
             Feature matrices for nodes and edges
         """
-        # Get graph data
+        # Get graph data and windows
         if 'graph_transformation' in dependencies:
             windows = dependencies['graph_transformation']['transformed_windows']
+            graph_data = dependencies['graph_transformation']['graph_data']
         elif 'construct_time_windows' in dependencies:
             windows = dependencies['construct_time_windows']['time_windows']
+            graph_data = dependencies['construct_time_windows']['original_graph']
         else:
             graph_data = dependencies['load_preprocessed_data']['graph_data']
             windows = [{'edges': graph_data.get('edges', [])}]
         
         # Get metadata for tuple-format edges
-        graph_data = dependencies['load_preprocessed_data']['graph_data']
         node_type_map = graph_data.get('node_type_map', {})
         edge_type_map = graph_data.get('edge_type_map', {})
         
@@ -369,7 +373,9 @@ class TaskRegistry:
             'node_to_id': node_to_id,
             'edge_type_to_id': edge_type_to_id,
             'num_nodes': num_nodes,
-            'num_edge_types': num_edge_types
+            'num_edge_types': num_edge_types,
+            'windows': windows,  # Pass through windows for downstream tasks
+            'graph_data': graph_data  # Pass through graph metadata for downstream tasks
         }
     
     @staticmethod
@@ -402,7 +408,9 @@ class TaskRegistry:
             'node_embeddings': features['node_features'],
             'edge_embeddings': features['edge_features'],
             'node_to_id': features['node_to_id'],
-            'edge_type_to_id': features['edge_type_to_id']
+            'edge_type_to_id': features['edge_type_to_id'],
+            'windows': features.get('windows', []),  # Pass through windows
+            'graph_data': features.get('graph_data', {})  # Pass through graph metadata
         }
     
     @staticmethod
@@ -431,20 +439,18 @@ class TaskRegistry:
         """
         from torch_geometric.data import Data, Batch
         
-        # Get graph windows
-        if 'graph_transformation' in dependencies:
-            windows = dependencies['graph_transformation']['transformed_windows']
-        elif 'construct_time_windows' in dependencies:
-            windows = dependencies['construct_time_windows']['time_windows']
-        else:
-            graph_data = dependencies['load_preprocessed_data']['graph_data']
-            windows = [{'edges': graph_data.get('edges', [])}]
-        
         # Get features
         if 'featurization_inference' in dependencies:
             feat_data = dependencies['featurization_inference']
         else:
             feat_data = dependencies['feature_extraction']
+        
+        # Get windows from feature data (passed through the pipeline)
+        windows = feat_data.get('windows', [])
+        if not windows:
+            # Fallback if windows not available
+            logger.warning("No windows found in feature data, creating single window")
+            windows = [{'edges': []}]
         
         node_features = torch.FloatTensor(feat_data['node_embeddings'])
         edge_features = torch.FloatTensor(feat_data['edge_embeddings'])
@@ -455,8 +461,8 @@ class TaskRegistry:
         
         logger.info(f"Constructing batches (batch_size={batch_size})")
         
-        # Get metadata for tuple-format edges
-        graph_data = dependencies['load_preprocessed_data']['graph_data']
+        # Get metadata for tuple-format edges from feature data (passed through the pipeline)
+        graph_data = feat_data.get('graph_data', {})
         edge_type_map = graph_data.get('edge_type_map', {})
         edge_id_to_type = {v: k for k, v in edge_type_map.items()} if edge_type_map else {}
         

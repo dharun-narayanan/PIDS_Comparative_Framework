@@ -132,19 +132,20 @@ class TaskManager:
         
         task = self.tasks[task_name]
         
-        # Check if already completed
-        if task.completed:
-            logger.debug(f"Task '{task_name}' already completed")
+        # Check if already completed (in this run, not from disk cache)
+        if task.completed and task.result is not None:
+            logger.debug(f"Task '{task_name}' already completed in this run")
             return task.result
         
-        # Execute dependencies first (always needed, even when task is cached)
+        # Execute dependencies first (always needed to populate dependency_results)
         dependency_results = {}
         for dep_name in task.dependencies:
             logger.debug(f"Task '{task_name}' requires '{dep_name}'")
             dependency_results[dep_name] = self.execute_task(dep_name)
         
-        # Check if can skip (after loading dependencies)
+        # Check if can skip (after executing dependencies)
         if not self.should_run_task(task):
+            # Task was loaded from cache, but we still have valid dependency_results
             return task.result
         
         # Execute task
