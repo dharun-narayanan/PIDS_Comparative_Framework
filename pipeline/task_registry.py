@@ -192,8 +192,14 @@ class TaskRegistry:
                 for edge in edges:
                     new_edges.append(edge)
                     # Add reverse edge
-                    reverse_edge = edge.copy()
-                    reverse_edge['src'], reverse_edge['dst'] = edge.get('dst'), edge.get('src')
+                    if isinstance(edge, tuple):
+                        # Tuple format: (src, dst, edge_type_id)
+                        src, dst, edge_type = edge
+                        reverse_edge = (dst, src, edge_type)
+                    else:
+                        # Dictionary format
+                        reverse_edge = edge.copy()
+                        reverse_edge['src'], reverse_edge['dst'] = edge.get('dst'), edge.get('src')
                     new_edges.append(reverse_edge)
                 edges = new_edges
             
@@ -202,10 +208,17 @@ class TaskRegistry:
                 seen = set()
                 unique_edges = []
                 for edge in edges:
-                    key = (edge.get('src'), edge.get('dst'), edge.get('type'))
-                    if key not in seen:
-                        seen.add(key)
-                        unique_edges.append(edge)
+                    if isinstance(edge, tuple):
+                        # Tuple format is already hashable
+                        if edge not in seen:
+                            seen.add(edge)
+                            unique_edges.append(edge)
+                    else:
+                        # Dictionary format
+                        key = (edge.get('src'), edge.get('dst'), edge.get('type'))
+                        if key not in seen:
+                            seen.add(key)
+                            unique_edges.append(edge)
                 edges = unique_edges
             
             elif transform_type == 'none':
@@ -255,6 +268,14 @@ class TaskRegistry:
             graph_data = dependencies['load_preprocessed_data']['graph_data']
             windows = [{'edges': graph_data.get('edges', [])}]
         
+        # Get metadata for tuple-format edges
+        graph_data = dependencies['load_preprocessed_data']['graph_data']
+        node_type_map = graph_data.get('node_type_map', {})
+        edge_type_map = graph_data.get('edge_type_map', {})
+        
+        # Create reverse mapping for edge types (id -> name)
+        edge_id_to_type = {v: k for k, v in edge_type_map.items()} if edge_type_map else {}
+        
         method = task_config.get('method', 'one_hot')
         node_feat_dim = task_config.get('node_feat_dim', 128)
         edge_feat_dim = task_config.get('edge_feat_dim', 64)
@@ -268,18 +289,32 @@ class TaskRegistry:
         
         for window in windows:
             for edge in window.get('edges', []):
-                src = edge.get('src')
-                dst = edge.get('dst')
-                if src:
+                # Handle both tuple and dict formats
+                if isinstance(edge, tuple):
+                    # Tuple format: (src_id, dst_id, edge_type_id)
+                    src, dst, edge_type_id = edge
                     all_nodes.add(src)
-                    if 'src_type' in edge:
-                        node_types[src] = edge['src_type']
-                if dst:
                     all_nodes.add(dst)
-                    if 'dst_type' in edge:
-                        node_types[dst] = edge['dst_type']
-                if 'type' in edge:
-                    all_edge_types.add(edge['type'])
+                    if src in node_type_map:
+                        node_types[src] = node_type_map[src]
+                    if dst in node_type_map:
+                        node_types[dst] = node_type_map[dst]
+                    if edge_type_id in edge_id_to_type:
+                        all_edge_types.add(edge_id_to_type[edge_type_id])
+                else:
+                    # Dictionary format
+                    src = edge.get('src')
+                    dst = edge.get('dst')
+                    if src:
+                        all_nodes.add(src)
+                        if 'src_type' in edge:
+                            node_types[src] = edge['src_type']
+                    if dst:
+                        all_nodes.add(dst)
+                        if 'dst_type' in edge:
+                            node_types[dst] = edge['dst_type']
+                    if 'type' in edge:
+                        all_edge_types.add(edge['type'])
         
         num_nodes = len(all_nodes)
         num_edge_types = len(all_edge_types)
@@ -420,6 +455,11 @@ class TaskRegistry:
         
         logger.info(f"Constructing batches (batch_size={batch_size})")
         
+        # Get metadata for tuple-format edges
+        graph_data = dependencies['load_preprocessed_data']['graph_data']
+        edge_type_map = graph_data.get('edge_type_map', {})
+        edge_id_to_type = {v: k for k, v in edge_type_map.items()} if edge_type_map else {}
+        
         # Create Data objects for each window
         data_list = []
         for i, window in enumerate(windows):
@@ -434,9 +474,18 @@ class TaskRegistry:
             edge_labels = []
             
             for edge in edges:
-                src = edge.get('src')
-                dst = edge.get('dst')
-                edge_type = edge.get('type', 'unknown')
+                # Handle both tuple and dict formats
+                if isinstance(edge, tuple):
+                    # Tuple format: (src_id, dst_id, edge_type_id)
+                    src, dst, edge_type_id = edge
+                    edge_type = edge_id_to_type.get(edge_type_id, 'unknown')
+                    label = 0  # Default label for tuple format
+                else:
+                    # Dictionary format
+                    src = edge.get('src')
+                    dst = edge.get('dst')
+                    edge_type = edge.get('type', 'unknown')
+                    label = edge.get('label', 0)
                 
                 if src in node_to_id and dst in node_to_id:
                     src_id = node_to_id[src]
@@ -450,8 +499,6 @@ class TaskRegistry:
                     else:
                         edge_attrs.append(torch.zeros(edge_features.shape[1]))
                     
-                    # Get label (0=benign, 1=malicious)
-                    label = edge.get('label', 0)
                     edge_labels.append(label)
             
             if edge_index:
