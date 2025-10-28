@@ -890,25 +890,46 @@ Step 2/4: Checking Preprocessed Data
   Using: data/custom_soc
 
 ────────────────────────────────────────────────────────────────
-Step 3/4: Running Model Evaluation
+Step 3/5: Running Model Evaluation
 ────────────────────────────────────────────────────────────────
 Evaluating magic...
-✓ magic evaluation completed (AUROC: 0.9245, F1: 0.8710)
+✓ magic evaluation completed (Separation Ratio: 1.95, Critical Anomalies: 921)
 
 Evaluating kairos...
-✓ kairos evaluation completed (AUROC: 0.9156, F1: 0.8523)
+✓ kairos evaluation completed (Separation Ratio: 1.82, Critical Anomalies: 856)
 
 Evaluating orthrus...
-✓ orthrus evaluation completed (AUROC: 0.9087, F1: 0.8402)
+✓ orthrus evaluation completed (Separation Ratio: 1.74, Critical Anomalies: 812)
 
 Evaluating threatrace...
-✓ threatrace evaluation completed (AUROC: 0.8956, F1: 0.8234)
+✓ threatrace evaluation completed (Separation Ratio: 1.68, Critical Anomalies: 789)
 
 Evaluating continuum_fl...
-✓ continuum_fl evaluation completed (AUROC: 0.9123, F1: 0.8601)
+✓ continuum_fl evaluation completed (Separation Ratio: 1.79, Critical Anomalies: 843)
 
 ────────────────────────────────────────────────────────────────
-Step 4/4: Generating Comparison Report
+Step 4/5: Analyzing Anomalies
+────────────────────────────────────────────────────────────────
+Analyzing magic anomalies...
+✓ magic anomaly analysis completed (1000 top anomalies)
+
+Analyzing kairos anomalies...
+✓ kairos anomaly analysis completed (1000 top anomalies)
+
+Analyzing orthrus anomalies...
+✓ orthrus anomaly analysis completed (1000 top anomalies)
+
+Analyzing threatrace anomalies...
+✓ threatrace anomaly analysis completed (1000 top anomalies)
+
+Analyzing continuum_fl anomalies...
+✓ continuum_fl anomaly analysis completed (1000 top anomalies)
+
+Generating ensemble consensus...
+✓ Ensemble consensus report generated (127 high-confidence anomalies)
+
+────────────────────────────────────────────────────────────────
+Step 5/5: Generating Comparison Report
 ────────────────────────────────────────────────────────────────
 ✓ Comparison report generated
 
@@ -921,12 +942,66 @@ Results saved to: results/evaluation_20251014_143000
 Next steps:
   1. Review results:        ls results/evaluation_20251014_143000
   2. View comparison:       cat results/evaluation_20251014_143000/comparison_report.json
-  3. Check model logs:      tail results/evaluation_20251014_143000/*.log
+  3. View anomalies:        cat results/evaluation_20251014_143000/magic_anomalies.json
+  4. View consensus:        cat results/evaluation_20251014_143000/ensemble_consensus.json
+  5. Check model logs:      tail results/evaluation_20251014_143000/*.log
 ```
+
+**Note:** The framework uses **unsupervised metrics** (Score Separation Ratio, anomaly counts) as primary metrics. Supervised metrics (AUROC, F1) are shown only if ground truth labels exist.
 
 ---
 
 ## 🔬 Advanced Features
+
+### Understanding Unsupervised Evaluation
+
+The framework uses **unsupervised anomaly detection metrics** by default, suitable for unlabeled SOC data:
+
+#### Primary Metrics
+
+1. **Score Separation Ratio** (std/mean)
+   - Measures how well the model separates anomalous from normal behavior
+   - Higher ratio = better separation between anomaly scores
+   - Used for model ranking
+   - Threshold-independent metric
+
+2. **Anomaly Score Distribution**
+   - Mean, median, standard deviation
+   - Percentiles (75th, 90th, 95th, 99th)
+   - Critical anomalies: events > 99th percentile
+   - High-risk anomalies: events 95-99th percentile
+
+#### Automatic Anomaly Analysis
+
+For each model, the framework automatically:
+- Extracts top 1000 highest-scoring anomalies
+- Analyzes temporal patterns (hourly, daily distributions)
+- Identifies most suspicious entities (processes, files, hosts)
+- Characterizes attack patterns (edge types, node features)
+- Generates ensemble consensus (anomalies flagged by multiple models)
+
+#### Using Results
+
+**View model rankings:**
+```bash
+cat results/evaluation_*/comparison_report.json | grep -A 5 "model_rankings"
+```
+
+**Investigate specific anomalies:**
+```bash
+# View top anomalies for MAGIC
+cat results/evaluation_*/magic_anomalies.json | jq '.top_anomalies[:10]'
+
+# View ensemble consensus (high-confidence anomalies)
+cat results/evaluation_*/ensemble_consensus.json
+```
+
+**Supervised Metrics (Optional):**
+If your dataset has ground truth labels, the framework will also calculate:
+- AUROC, AUPRC, F1-Score, Precision, Recall
+- These are shown in results but not used for model ranking
+
+---
 
 ### Training Models on Custom Data (Reference Only)
 

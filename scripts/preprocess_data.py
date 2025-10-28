@@ -114,20 +114,101 @@ class SOCDataPreprocessor:
     
     def _process_elastic_event(self, event: Dict) -> Dict:
         """Process Elastic/ELK format event."""
+        # Determine event category
+        dataset = event.get('data_stream', {}).get('dataset', '')
+        event_info = event.get('event', {})
+        event_action = event_info.get('action', 'unknown')
+        event_category = event_info.get('category', ['unknown'])
+        if isinstance(event_category, list):
+            event_category = event_category[0] if event_category else 'unknown'
+        
+        # Extract process information (source)
+        process = event.get('process', {})
+        source_entity = None
+        source_type = 'process'
+        
+        # Use entity_id as primary identifier for processes
+        if 'entity_id' in process:
+            source_entity = process['entity_id']
+        elif 'executable' in process:
+            source_entity = f"{process.get('executable', '')}:{process.get('pid', '')}"
+        elif 'name' in process:
+            source_entity = f"{process.get('name', '')}:{process.get('pid', '')}"
+        
+        # Extract target based on event category
+        target_entity = None
+        target_type = 'unknown'
+        
+        if event_category == 'file':
+            file_info = event.get('file', {})
+            target_entity = file_info.get('path', file_info.get('name', ''))
+            target_type = 'file'
+        elif event_category == 'network':
+            # For network events, create a connection identifier
+            destination = event.get('destination', {})
+            source_net = event.get('source', {})
+            dest_ip = destination.get('ip', '')
+            dest_port = destination.get('port', '')
+            src_ip = source_net.get('ip', '')
+            src_port = source_net.get('port', '')
+            
+            if dest_ip and dest_port:
+                target_entity = f"{dest_ip}:{dest_port}"
+            elif dest_ip:
+                target_entity = dest_ip
+            target_type = 'network'
+            
+            # Store connection details
+            if src_ip and src_port:
+                source_entity = f"{src_ip}:{src_port}"
+        elif event_category == 'process':
+            # Process events (fork, exec, exit)
+            parent = process.get('parent', {})
+            if parent and 'entity_id' in parent:
+                target_entity = parent['entity_id']
+                target_type = 'process'
+            else:
+                target_entity = process.get('entity_id', '')
+                target_type = 'process'
+        
         processed = {
             'timestamp': event.get('@timestamp', ''),
-            'source': event.get('source', {}),
-            'target': event.get('target', {}),
-            'event_type': event.get('event', {}).get('type', 'unknown'),
-            'attributes': {}
+            'source': source_entity or 'unknown',
+            'source_type': source_type,
+            'target': target_entity or 'unknown',
+            'target_type': target_type,
+            'event_type': event_action,
+            'event_category': event_category,
+            'attributes': {
+                'process_name': process.get('name', ''),
+                'process_executable': process.get('executable', ''),
+                'process_pid': process.get('pid', ''),
+                'user': event.get('user', {}).get('name', ''),
+                'host': event.get('host', {}).get('hostname', '')
+            }
         }
         
-        # Extract attributes
-        attr_fields = self.format_config.get('attributes_fields', [])
-        for field in attr_fields:
-            value = event.get(field)
-            if value:
-                processed['attributes'][field] = value
+        # Add category-specific attributes
+        if event_category == 'file':
+            file_info = event.get('file', {})
+            processed['attributes'].update({
+                'file_path': file_info.get('path', ''),
+                'file_name': file_info.get('name', ''),
+                'file_extension': file_info.get('extension', ''),
+                'original_path': file_info.get('Ext', {}).get('original', {}).get('path', '')
+            })
+        elif event_category == 'network':
+            destination = event.get('destination', {})
+            source_net = event.get('source', {})
+            network = event.get('network', {})
+            processed['attributes'].update({
+                'dest_ip': destination.get('ip', ''),
+                'dest_port': destination.get('port', ''),
+                'src_ip': source_net.get('ip', ''),
+                'src_port': source_net.get('port', ''),
+                'transport': network.get('transport', ''),
+                'network_type': network.get('type', '')
+            })
         
         return processed
     
@@ -173,6 +254,7 @@ class SOCDataPreprocessor:
             entity_data.get('path') or
             entity_data.get('ip') or
             entity_data.get('id') or
+            entity_data.get('entity_id') or
             str(entity_data)
         )
         
@@ -191,25 +273,52 @@ class SOCDataPreprocessor:
         edge_features = defaultdict(list)
         timestamps = []
         
+        skipped_events = 0
+        
         for event in tqdm(events, desc="Building graph", unit="event", 
                          bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
             # Extract source and target entities
-            source_data = event.get('source', {})
-            target_data = event.get('target', {})
+            source_entity = event.get('source')
+            target_entity = event.get('target')
+            source_type = event.get('source_type', 'process')
+            target_type = event.get('target_type', 'file')
             
-            source_entity, source_type = self.extract_entity(source_data, 'process')
-            target_entity, target_type = self.extract_entity(target_data, 'file')
+            # Skip events with missing source or target
+            if not source_entity or not target_entity or source_entity == 'unknown' or target_entity == 'unknown':
+                skipped_events += 1
+                continue
+            
+            # For string entities, extract identifier and type
+            if isinstance(source_entity, dict):
+                source_entity, source_type = self.extract_entity(source_entity, source_type)
+            if isinstance(target_entity, dict):
+                target_entity, target_type = self.extract_entity(target_entity, target_type)
             
             # Create node IDs
             source_id = self.get_or_create_node_id(source_entity, source_type)
             target_id = self.get_or_create_node_id(target_entity, target_type)
             
+            # Skip self-loops
+            if source_id == target_id:
+                skipped_events += 1
+                continue
+            
             # Edge type
-            edge_type = event.get('event_type', 'unknown')
+            event_category = event.get('event_category', 'unknown')
+            event_action = event.get('event_type', 'unknown')
+            
+            # Create a more descriptive edge type
+            edge_type = f"{event_category}_{event_action}"
             edge_type_id = self.get_or_create_edge_type_id(edge_type)
             
             # Add edge
             edges.append((source_id, target_id, edge_type_id))
+            
+            # Store node features (attributes from the event)
+            attributes = event.get('attributes', {})
+            if attributes:
+                node_features[source_id].append(attributes)
+                node_features[target_id].append(attributes)
             
             # Timestamp
             timestamp = self._parse_timestamp(event.get('timestamp'))
@@ -223,7 +332,9 @@ class SOCDataPreprocessor:
         self.stats['num_edges'] = len(edges)
         
         logger.info(f"\n✓ Created {self.next_node_id:,} nodes")
-        logger.info(f"✓ Created {len(edges):,} edges\n")
+        logger.info(f"✓ Created {len(edges):,} edges")
+        if skipped_events > 0:
+            logger.info(f"⚠ Skipped {skipped_events:,} events (missing entities or self-loops)\n")
         
         if timestamps:
             self.stats['time_range'] = (min(timestamps), max(timestamps))
@@ -234,6 +345,7 @@ class SOCDataPreprocessor:
             'node_id_map': self.node_id_map,
             'node_type_map': self.node_type_map,
             'edge_type_map': self.edge_type_map,
+            'node_features': dict(node_features),
             'timestamps': timestamps,
             'stats': self.stats
         }

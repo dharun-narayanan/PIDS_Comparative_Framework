@@ -319,14 +319,13 @@ class ContrastiveDecoder(nn.Module):
             
         Returns:
             If training: contrastive loss
-            If inference: similarity scores
+            If inference: similarity scores (node-level embeddings for downstream use)
         """
         if inference:
-            # Return similarity scores
-            if h_previous is not None:
-                return self.compute_similarity(h_current, h_previous)
-            else:
-                return torch.zeros(h_current.size(0), h_current.size(0), device=h_current.device)
+            # During inference, return node embeddings directly
+            # Avoid creating massive similarity matrices (N x N)
+            # Downstream tasks will compute similarities on-demand for edges only
+            return h_current
         
         if h_previous is None:
             return torch.tensor(0.0, device=h_current.device, requires_grad=True)

@@ -117,7 +117,23 @@ if [[ ! -d "$DATA_PATH" ]]; then
 fi
 
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 1/4: Setting up Models and Pretrained Weights${NC}"
+echo -e "${CYAN}Step 1/5: Archiving Previous Artifacts${NC}"
+echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
+
+# Archive old artifacts to avoid confusion with cached results
+if [[ -d "artifacts" ]] && [[ -n "$(ls -A artifacts 2>/dev/null)" ]]; then
+    ARCHIVE_DIR="artifacts_archive/archive_$(date +%Y%m%d_%H%M%S)"
+    echo -e "${BLUE}Archiving previous artifacts to: ${ARCHIVE_DIR}${NC}"
+    mkdir -p "$ARCHIVE_DIR"
+    mv artifacts/* "$ARCHIVE_DIR/" 2>/dev/null || true
+    echo -e "${GREEN}✓ Previous artifacts archived${NC}"
+else
+    echo -e "${GREEN}✓ No previous artifacts to archive${NC}"
+fi
+
+echo ""
+echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
+echo -e "${CYAN}Step 2/5: Setting up Models and Pretrained Weights${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
 if [[ "$SKIP_DOWNLOAD" == false ]]; then
@@ -141,7 +157,7 @@ fi
 
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 2/4: Checking Preprocessed Data${NC}"
+echo -e "${CYAN}Step 3/5: Checking Preprocessed Data${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
 # Check if data is already preprocessed (has .pkl or .pt files)
@@ -184,7 +200,7 @@ fi
 
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 3/4: Running Model Evaluation${NC}"
+echo -e "${CYAN}Step 4/5: Running Model Evaluation${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
 echo -e "${BLUE}Evaluating model(s) on your custom dataset...${NC}"
@@ -236,45 +252,117 @@ fi
 
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 4/4: Generating Comparison Report${NC}"
+echo -e "${CYAN}Step 5/5: Analyzing Anomaly Detection Results${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
+echo -e "${BLUE}Running anomaly analysis on detection results...${NC}"
+
+# Create anomaly analysis directory
+ANOMALY_DIR="${OUTPUT_DIR}/anomaly_analysis"
+mkdir -p "$ANOMALY_DIR"
+
 if [[ "$MODEL" == "all" ]]; then
-    echo -e "${BLUE}Generating comparative analysis...${NC}"
+    echo -e "${BLUE}Analyzing anomalies for all models...${NC}"
     
-    python experiments/evaluate_pipeline.py \
-        --models all \
-        --dataset "$DATASET" \
+    # Analyze each model
+    for model_name in magic kairos orthrus threatrace continuum_fl; do
+        if [[ -d "artifacts/${model_name}/model_inference" ]]; then
+            echo -e "${YELLOW}Analyzing ${model_name}...${NC}"
+            
+            python scripts/analyze_anomalies.py \
+                --model "$model_name" \
+                --top-k 100 \
+                --artifacts-dir artifacts \
+                --data-path "${PREPROCESSED_DATA_PATH}" \
+                --dataset "$DATASET" \
+                --output-dir "$ANOMALY_DIR" \
+                2>&1 | tee "$ANOMALY_DIR/${model_name}_analysis.log"
+            
+            if [[ $? -eq 0 ]]; then
+                echo -e "${GREEN}✓ ${model_name} analysis completed${NC}"
+            else
+                echo -e "${YELLOW}⚠ ${model_name} analysis failed${NC}"
+            fi
+        fi
+    done
+    
+    # Generate ensemble analysis
+    echo ""
+    echo -e "${YELLOW}Generating ensemble consensus analysis...${NC}"
+    python scripts/analyze_anomalies.py \
+        --ensemble \
+        --top-k 100 \
+        --artifacts-dir artifacts \
         --data-path "${PREPROCESSED_DATA_PATH}" \
-        --checkpoints-dir checkpoints \
-        --output-dir "$OUTPUT_DIR"
+        --dataset "$DATASET" \
+        --output-dir "$ANOMALY_DIR" \
+        2>&1 | tee "$ANOMALY_DIR/ensemble_analysis.log"
     
     if [[ $? -eq 0 ]]; then
-        echo -e "${GREEN}✓ Evaluation completed for all models${NC}"
-    else
-        echo -e "${YELLOW}⚠ Warning: Some models failed evaluation${NC}"
+        echo -e "${GREEN}✓ Ensemble analysis completed${NC}"
     fi
 else
-    echo -e "${YELLOW}Single model evaluation completed${NC}"
+    # Analyze single model
+    if [[ -d "artifacts/${MODEL}/model_inference" ]]; then
+        echo -e "${BLUE}Analyzing anomalies for ${MODEL}...${NC}"
+        
+        python scripts/analyze_anomalies.py \
+            --model "$MODEL" \
+            --top-k 100 \
+            --artifacts-dir artifacts \
+            --data-path "${PREPROCESSED_DATA_PATH}" \
+            --dataset "$DATASET" \
+            --output-dir "$ANOMALY_DIR" \
+            2>&1 | tee "$ANOMALY_DIR/${MODEL}_analysis.log"
+        
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}✓ Anomaly analysis completed${NC}"
+        else
+            echo -e "${YELLOW}⚠ Analysis failed${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ No inference results found for ${MODEL}${NC}"
+    fi
 fi
 
 echo ""
 echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}✓ EVALUATION COMPLETED SUCCESSFULLY!${NC}"
+echo -e "${GREEN}✓ EVALUATION AND ANALYSIS COMPLETED SUCCESSFULLY!${NC}"
 echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${BLUE}Results saved to:${NC} ${GREEN}${OUTPUT_DIR}${NC}"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
-echo -e "  1. Review results:        ls ${OUTPUT_DIR}"
-echo -e "  2. View comparison:       cat ${OUTPUT_DIR}/comparison_report.json"
-echo -e "  3. Check model logs:      tail ${OUTPUT_DIR}/*.log"
+echo -e "  1. View evaluation:       cat ${OUTPUT_DIR}/evaluation_results_${DATASET}.json"
+echo -e "  2. View anomalies:        cat ${ANOMALY_DIR}/magic_analysis.json"
+echo -e "  3. Check consensus:       cat ${ANOMALY_DIR}/ensemble_analysis.json"
+echo -e "  4. Review logs:           tail ${OUTPUT_DIR}/*.log"
 echo ""
 if [[ "$MODEL" == "all" ]]; then
     echo -e "${BLUE}Performance Summary:${NC}"
-    echo -e "  Check ${OUTPUT_DIR}/comparison_report.json for detailed metrics"
+    echo -e "  Evaluation metrics:  ${OUTPUT_DIR}/evaluation_results_${DATASET}.json"
+    echo -e "  Anomaly analyses:    ${ANOMALY_DIR}/*.json"
+    echo ""
+    echo -e "${BLUE}Top performing models (by score separation):${NC}"
+    python3 -c "
+import json, sys
+try:
+    with open('${OUTPUT_DIR}/evaluation_results_${DATASET}.json', 'r') as f:
+        results = json.load(f)
+    models = []
+    for r in results:
+        if r.get('success'):
+            m = r.get('metrics', {})
+            sep = m.get('score_separation_ratio', 0)
+            models.append((r['model'], sep))
+    models.sort(key=lambda x: x[1], reverse=True)
+    for i, (name, sep) in enumerate(models[:3], 1):
+        print(f'  {i}. {name:<20} Separation: {sep:.4f}')
+except Exception as e:
+    pass
+"
     echo ""
 fi
-echo -e "${YELLOW}Optional: To retrain models on your custom data, see:${NC}"
-echo -e "  python experiments/train.py --help"
+echo -e "${YELLOW}Optional: To investigate specific anomalies, see:${NC}"
+echo -e "  cat ${ANOMALY_DIR}/<model>_analysis.json | jq '.top_anomalies[:10]'"
 echo ""

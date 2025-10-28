@@ -212,11 +212,19 @@ def evaluate_model(
         
         logger.info(f"\n{model_name} Results:")
         if metrics:
-            logger.info(f"  AUROC: {metrics.get('auroc', 0):.4f}")
-            logger.info(f"  AUPRC: {metrics.get('auprc', 0):.4f}")
-            logger.info(f"  F1 Score: {metrics.get('f1_score', 0):.4f}")
-            logger.info(f"  Precision: {metrics.get('precision', 0):.4f}")
-            logger.info(f"  Recall: {metrics.get('recall', 0):.4f}")
+            # Display unsupervised anomaly detection metrics
+            if 'anomaly_score_stats' in metrics:
+                stats = metrics['anomaly_score_stats']
+                logger.info(f"  Anomaly Score Range: [{stats['min']:.6f}, {stats['max']:.6f}]")
+                logger.info(f"  Mean: {stats['mean']:.6f}, Std: {stats['std']:.6f}")
+                logger.info(f"  Separation Ratio: {metrics.get('score_separation_ratio', 0):.4f}")
+                logger.info(f"  Critical Anomalies (99.9%): {metrics['anomaly_counts']['critical_99.9']}")
+                logger.info(f"  High Anomalies (99%): {metrics['anomaly_counts']['high_99']}")
+            
+            # If supervised metrics available, show them too
+            if metrics.get('supervised_metrics'):
+                sup = metrics['supervised_metrics']
+                logger.info(f"  [Supervised] AUROC: {sup.get('auroc', 0):.4f}, F1: {sup.get('f1_score', 0):.4f}")
         else:
             logger.warning("No metrics available")
         
@@ -292,21 +300,36 @@ def main():
     
     # Print summary
     logger.info("\n" + "="*80)
-    logger.info("Evaluation Summary")
+    logger.info("Evaluation Summary - Unsupervised Anomaly Detection")
     logger.info("="*80)
     
     successful = sum(1 for r in all_results if r['success'])
     logger.info(f"Models evaluated: {successful}/{len(all_results)}")
     
+    # Sort by score separation ratio (best anomaly detector first)
+    results_with_scores = []
     for result in all_results:
         if result['success']:
             metrics = result.get('metrics', {})
-            auroc = metrics.get('auroc', 0)
-            f1 = metrics.get('f1_score', 0)
-            logger.info(f"  {result['model']}: AUROC={auroc:.4f}, F1={f1:.4f}")
-        else:
+            sep_ratio = metrics.get('score_separation_ratio', 0)
+            results_with_scores.append((result['model'], sep_ratio, metrics))
+    
+    results_with_scores.sort(key=lambda x: x[1], reverse=True)
+    
+    logger.info(f"\n{'Model':<20} {'Sep. Ratio':<12} {'Critical':<10} {'High':<10}")
+    logger.info("-" * 52)
+    for model_name, sep_ratio, metrics in results_with_scores:
+        critical = metrics.get('anomaly_counts', {}).get('critical_99.9', 0)
+        high = metrics.get('anomaly_counts', {}).get('high_99', 0)
+        logger.info(f"{model_name:<20} {sep_ratio:<12.4f} {critical:<10} {high:<10}")
+    
+    # Show failed models
+    for result in all_results:
+        if not result['success']:
             logger.info(f"  {result['model']}: FAILED - {result.get('error', 'Unknown error')}")
     
+    logger.info("="*80)
+    logger.info("Higher separation ratio = better anomaly detection capability")
     logger.info("="*80)
 
 

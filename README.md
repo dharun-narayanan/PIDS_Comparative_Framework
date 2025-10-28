@@ -26,6 +26,8 @@ The **PIDS Comparative Framework** is a production-ready, extensible platform fo
 ✅ **Custom Datasets** - Works with any preprocessed provenance data  
 ✅ **Pretrained Weights** - Use existing checkpoints or train from scratch  
 ✅ **Multi-Model Comparison** - Evaluate 5+ state-of-the-art models simultaneously  
+✅ **Unsupervised Evaluation** - Works without ground truth labels  
+✅ **Automatic Anomaly Analysis** - Top anomalies and ensemble consensus  
 ✅ **CPU-First** - Runs on CPU by default, GPU optional  
 
 ### What's New (October 2025 Restructuring)
@@ -63,14 +65,14 @@ The **PIDS Comparative Framework** is a production-ready, extensible platform fo
         ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  Shared Components (models/shared_encoders.py + decoders.py) │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │   GAT    │  │   SAGE   │  │   Trans  │  │   Time   │    │
-│  │ Encoder  │  │ Encoder  │  │ former   │  │ Encoder  │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │   Edge   │  │   Node   │  │Contrast  │  │ Anomaly  │    │
-│  │ Decoder  │  │ Decoder  │  │ Decoder  │  │ Decoder  │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │   GAT    │  │   SAGE   │  │   Trans  │  │   Time   │      │
+│  │ Encoder  │  │ Encoder  │  │ former   │  │ Encoder  │      │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │   Edge   │  │   Node   │  │Contrast  │  │ Anomaly  │      │
+│  │ Decoder  │  │ Decoder  │  │ Decoder  │  │ Decoder  │      │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘      │
 └──────────────────────────────────────────────────────────────┘
         │
         ▼
@@ -157,29 +159,29 @@ with torch.no_grad():
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   PIDS Comparative Framework                     │
-│                                                                   │
+│                   PIDS Comparative Framework                    │
+│                                                                 │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  configs/models/  (Per-Model YAML Configurations)          │ │
 │  │  ├── magic.yaml         ├── orthrus.yaml                   │ │
 │  │  ├── kairos.yaml        ├── threatrace.yaml                │ │
 │  │  ├── continuum_fl.yaml  └── template.yaml                  │ │
 │  └────────────────────────────────────────────────────────────┘ │
-│                            ↓                                      │
+│                            ↓                                    │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  ModelBuilder (models/model_builder.py)                    │ │
-│  │  - Load YAML config                                         │ │
-│  │  - Construct model from shared components                   │ │
-│  │  - Load pretrained weights with fallbacks                   │ │
+│  │  - Load YAML config                                        │ │
+│  │  - Construct model from shared components                  │ │
+│  │  - Load pretrained weights with fallbacks                  │ │
 │  └────────────────────────────────────────────────────────────┘ │
-│                            ↓                                      │
+│                            ↓                                    │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  Shared Components                                          │ │
+│  │  Shared Components                                         │ │
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
 │  │  │  Encoders (shared_encoders.py)                       │  │ │
 │  │  │  - GATEncoder        - GraphTransformerEncoder       │  │ │
-│  │  │  - SAGEEncoder       - TimeEncoder                    │  │ │
-│  │  │  - MultiEncoder      - Factory functions              │  │ │
+│  │  │  - SAGEEncoder       - TimeEncoder                   │  │ │
+│  │  │  - MultiEncoder      - Factory functions             │  │ │
 │  │  └──────────────────────────────────────────────────────┘  │ │
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
 │  │  │  Decoders (shared_decoders.py)                       │  │ │
@@ -188,18 +190,18 @@ with torch.no_grad():
 │  │  │  - ContrastiveDecoder- InnerProductDecoder           │  │ │
 │  │  └──────────────────────────────────────────────────────┘  │ │
 │  └────────────────────────────────────────────────────────────┘ │
-│                            ↓                                      │
+│                            ↓                                    │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  GenericModel (wraps any encoder-decoder combination)     │ │
+│  │  GenericModel (wraps any encoder-decoder combination)      │ │
 │  │  - Single/multi-encoder support                            │ │
 │  │  - Single/multi-decoder support                            │ │
 │  │  - Unified forward pass and inference API                  │ │
 │  └────────────────────────────────────────────────────────────┘ │
-│                            ↓                                      │
+│                            ↓                                    │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  Task-Based Pipeline (pipeline/)                           │ │
 │  │  9 modular tasks with automatic caching:                   │ │
-│  │  1. load_data         2. preprocess        3. build_model    │ │
+│  │  1. load_data         2. preprocess        3. build_model  │ │
 │  │  4. load_checkpoint   5. prepare_dataloaders               │ │
 │  │  6. run_inference     7. compute_predictions               │ │
 │  │  8. evaluate_metrics  9. calculate_metrics                 │ │
@@ -314,12 +316,10 @@ PIDS_Comparative_Framework/
 
 ### Core Documentation
 - **[README.md](README.md)** (this file) - Framework overview and quick start
-- **[SETUP.md](SETUP.md)** - Complete setup guide with detailed instructions
+- **[setup.md](setup.md)** - Complete setup guide with detailed instructions
 
 ### Configuration Templates
 - **[configs/models/template.yaml](configs/models/template.yaml)** - Template for adding new models with all options documented
-
----
 ├── checkpoints/                   # 💾 Pretrained model weights
 │   ├── magic/                    # MAGIC checkpoints
 │   ├── kairos/                   # Kairos checkpoints
@@ -393,7 +393,7 @@ python scripts/preprocess_data.py \
 ### Evaluate Models
 
 ```bash
-# Run evaluation on all models (automatic)
+# Run complete evaluation workflow (automatic anomaly analysis included)
 ./scripts/run_evaluation.sh
 
 # Or evaluate specific model
@@ -405,20 +405,38 @@ python scripts/preprocess_data.py \
     --skip-preprocess
 ```
 
+**The evaluation script automatically:**
+1. Runs all models with any available pretrained weights
+2. Calculates unsupervised metrics (Score Separation Ratio, anomaly counts)
+3. Ranks models by separation ratio
+4. Analyzes top anomalies for each model
+5. Generates ensemble consensus report
+
 ### View Results
 
 ```bash
 # Check results directory
 ls results/evaluation_*/
 
-# View comparison report
+# View unsupervised metrics comparison
 cat results/evaluation_*/comparison_report.json
 
-# View per-model results
+# View anomaly analysis
+cat results/evaluation_*/magic_anomalies.json
+cat results/evaluation_*/ensemble_consensus.json
+
+# View per-model evaluation logs
 cat results/evaluation_*/magic_evaluation.log
 ```
 
-**That's it!** You've evaluated 5 PIDS models on your custom data.
+**Output includes:**
+- Model rankings by separation ratio
+- Critical and high-risk anomaly counts
+- Top 1000 anomalies per model with scores, timestamps, entity info
+- Ensemble consensus: anomalies flagged by multiple models
+- Optional supervised metrics (if labels provided)
+
+**That's it!** You've evaluated 5 PIDS models on your custom data with automatic anomaly analysis.
 
 ---
 
@@ -617,24 +635,39 @@ done
 
 ## 📈 Evaluation Metrics
 
-### Detection Metrics
+### Unsupervised Anomaly Detection Metrics
+
+The framework uses **unsupervised metrics** suitable for unlabeled data. All models are unsupervised anomaly detectors that output anomaly scores:
+
+#### Primary Metrics
+- **Score Separation Ratio** (std/mean): Measures how well the model separates normal vs. anomalous behavior
+  - Higher ratio = better separation
+  - Used for model ranking
+  - Threshold-independent metric
+
+- **Anomaly Score Distribution**: Statistical analysis of anomaly scores
+  - Mean, median, standard deviation
+  - Percentiles (75th, 90th, 95th, 99th)
+  - Critical anomalies (>99th percentile)
+  - High-risk anomalies (95-99th percentile)
+
+#### Automatic Anomaly Analysis
+The framework automatically identifies and analyzes:
+- **Top 1000 Anomalies**: Highest scoring events
+- **Temporal Patterns**: Time-based analysis
+- **Entity Statistics**: Most suspicious processes/files/hosts
+- **Attack Patterns**: Edge types, node characteristics
+- **Ensemble Consensus**: Anomalies flagged by multiple models
+
+### Supervised Metrics (Optional)
+When ground truth labels are available:
 - **AUROC** (Area Under ROC Curve): Overall detection performance
 - **AUPRC** (Area Under Precision-Recall Curve): Performance with class imbalance
 - **F1-Score**: Harmonic mean of precision and recall
 - **Precision**: True positive rate among positive predictions
 - **Recall**: True positive rate among actual positives
-- **Detection Rate**: Percentage of attacks detected
 
-### Statistical Analysis
-- **Significance Testing**: Paired t-tests for model comparison
-- **Confidence Intervals**: 95% confidence intervals for metrics
-- **Cross-Validation**: K-fold validation support
-
-### Visualization
-- **ROC Curves**: True positive rate vs false positive rate
-- **Precision-Recall Curves**: Precision vs recall tradeoff
-- **Confusion Matrices**: Classification breakdown
-- **Feature Importance**: Top contributing features (model-dependent)
+**Note:** Supervised metrics are shown only if labels exist, but are not used for model ranking.
 
 ---
 
@@ -684,26 +717,24 @@ Solution: Re-download checkpoints
 python scripts/setup_models.py --all --force-download
 ```
 
-**For detailed troubleshooting, see [Setup.md](Setup.md#troubleshooting)**
+**For detailed troubleshooting, see [setup.md](setup.md#troubleshooting)**
 
 ---
 
 ## 📖 Documentation
 
-- **[Setup.md](Setup.md)** - Complete installation and usage guide
-- **[EXTEND.md](EXTEND.md)** - Guide to add new models
-- **[SCRIPT_ANALYSIS.md](SCRIPT_ANALYSIS.md)** - Script analysis and maintenance guide
+- **[setup.md](setup.md)** - Complete installation and usage guide
 
 ### Command Reference
 
 | Script | Purpose | Documentation |
 |--------|---------|---------------|
-| `setup.sh` | Environment setup | [Setup.md](Setup.md#installation) |
-| `setup_models.py` | Download weights | [Setup.md](Setup.md#model-specific-setup) |
-| `preprocess_data.py` | Data preprocessing | [Setup.md](Setup.md#preparing-custom-data) |
-| `run_evaluation.sh` | Evaluation workflow | [Setup.md](Setup.md#running-evaluation) |
-| `verify_installation.py` | Installation checks | [Setup.md](Setup.md#verification) |
-| `verify_implementation.py` | Framework verification | [Setup.md](Setup.md#verification) |
+| `setup.sh` | Environment setup | [setup.md](setup.md#installation) |
+| `setup_models.py` | Download weights | [setup.md](setup.md#model-specific-setup) |
+| `preprocess_data.py` | Data preprocessing | [setup.md](setup.md#preparing-custom-data) |
+| `run_evaluation.sh` | Evaluation workflow | [setup.md](setup.md#running-evaluation) |
+| `verify_installation.py` | Installation checks | [setup.md](setup.md#verification) |
+| `analyze_anomalies.py` | Anomaly analysis | Automatically called by `run_evaluation.sh` |
 
 ---
 
@@ -885,10 +916,10 @@ We thank the authors for making their models available and for advancing the fie
 
 ### Getting Help
 
-- **Documentation**: See [Setup.md](Setup.md) and [EXTEND.md](EXTEND.md)
-- **Troubleshooting**: Check [Setup.md Troubleshooting](Setup.md#troubleshooting) section
+- **Documentation**: See [setup.md](setup.md)
+- **Troubleshooting**: Check [setup.md Troubleshooting](setup.md#troubleshooting) section
 - **Issues**: Open an issue on GitHub with detailed description
-- **Examples**: See `configs/experiments/` for configuration templates
+- **Examples**: See `configs/` for configuration templates
 
 ### Contact
 

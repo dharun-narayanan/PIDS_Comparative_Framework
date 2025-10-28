@@ -1,5 +1,5 @@
 # Custom SOC Dataset Configuration
-# For custom Security Operations Center logs in JSON format
+# For custom Security Operations Center logs in JSON format (Elastic Endpoint Security)
 
 dataset_name: custom_soc
 dataset_type: custom
@@ -19,48 +19,88 @@ data:
   processed_dir: data/processed/custom_soc/
   graph_cache_dir: data/cache/custom_soc/
   
-# Data format
+# Data format (Elastic Endpoint Security)
 format:
   type: json               # json, csv, or parquet
   schema: elastic          # elastic (ELK stack) or custom
   
-  # JSON structure
+  # Elastic Endpoint Security field mapping
   event_field: "@timestamp"
-  source_field: "source"
-  target_field: "target"
-  type_field: "event_type"
+  
+  # Event categories (from event.category field)
+  event_categories:
+    - file
+    - network
+    - process
+  
+  # Key fields for entity extraction
+  process_entity_field: "process.entity_id"
+  process_executable_field: "process.executable"
+  process_name_field: "process.name"
+  process_pid_field: "process.pid"
+  
+  file_path_field: "file.path"
+  file_name_field: "file.name"
+  
+  network_dest_ip_field: "destination.ip"
+  network_dest_port_field: "destination.port"
+  network_src_ip_field: "source.ip"
+  network_src_port_field: "source.port"
+  
+  # Additional attributes to extract
   attributes_fields:
-    - "process_name"
-    - "file_path"
-    - "ip_address"
-    - "port"
+    - "user.name"
+    - "host.hostname"
+    - "event.action"
+    - "event.outcome"
+    - "network.transport"
     
 # Graph construction
 graph:
-  # Node types
+  # Node types (based on Elastic Endpoint Security)
   node_types:
     - file
     - process
     - network
     - registry
     
-  # Edge types (provenance relationships)
-  edge_types:
-    - read
-    - write
-    - execute
-    - connect
-    - modify
+  # Edge types (based on event.action from Elastic)
+  # File events
+  file_edge_types:
+    - file_creation
+    - file_deletion
+    - file_rename
+    - file_modification
+    - file_open
+    - file_close
+  
+  # Network events
+  network_edge_types:
+    - connection_attempted
+    - connection_accepted
+    - disconnect_received
+    - ipv4_connection_attempt_event
+    - ipv6_connection_attempt_event
+  
+  # Process events
+  process_edge_types:
+    - fork
+    - exec
+    - end
+    - start
     
   # Graph features
   node_features:
-    type: categorical       # categorical, numerical, or both
+    type: mixed             # categorical, numerical, or mixed
     embedding_dim: 100
-    use_text_features: false
+    use_text_features: true
+    use_process_names: true
+    use_file_paths: true
     
   edge_features:
     use_timestamps: true
     use_attributes: true
+    use_event_actions: true
     
   # Temporal settings
   temporal:
@@ -72,7 +112,8 @@ graph:
 preprocessing:
   # Data cleaning
   remove_duplicates: true
-  handle_missing: drop     # drop, fill, or ignore
+  handle_missing: skip     # skip, fill, or ignore
+  remove_self_loops: true
   
   # Feature engineering
   extract_time_features: true
@@ -86,9 +127,18 @@ preprocessing:
   entity_resolution:
     enabled: true
     match_fields:
-      - process_name
-      - file_path
+      - process.entity_id
+      - process.executable
+      - file.path
       
+  # Event filtering (optional)
+  filter_events:
+    enabled: false
+    # Include only specific event actions
+    include_actions: []
+    # Exclude specific event actions
+    exclude_actions: []
+    
 # Labels
 labels:
   # Label source
@@ -98,6 +148,19 @@ labels:
   # Label mapping
   benign: 0
   malicious: 1
+  
+  # Default label for unlabeled data
+  default_label: 0
+
+# Model compatibility
+# This configuration works with all models in the framework
+models:
+  compatible:
+    - continuum_fl
+    - kairos
+    - magic
+    - orthrus
+    - threatrace
   
   # Class balancing
   balance_classes: false

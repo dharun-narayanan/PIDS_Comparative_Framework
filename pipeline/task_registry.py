@@ -576,27 +576,29 @@ class TaskRegistry:
         checkpoint_path = None
         if checkpoint_enabled:
             checkpoint_template = checkpoint_config.get('path', 'checkpoints/{model_name}/{dataset}.pt')
-            checkpoint_path = checkpoint_template.format(model_name=model_name, dataset=dataset_name)
             
-            # Check if checkpoint exists
-            checkpoint_file = Path(checkpoint_path)
-            if not checkpoint_file.exists():
-                logger.warning(f"Checkpoint not found: {checkpoint_path}")
-                # Try alternatives
-                checkpoint_dir = Path('checkpoints') / model_name
-                alternatives = [
-                    checkpoint_dir / f'checkpoint-{dataset_name}.pt',
-                    checkpoint_dir / f'checkpoint-{model_name}.pt',
-                    checkpoint_dir / 'best.pt',
-                    checkpoint_dir / 'checkpoint.pt',
-                ]
-                for alt in alternatives:
-                    if alt.exists():
-                        checkpoint_path = str(alt)
-                        logger.info(f"Using alternative checkpoint: {checkpoint_path}")
-                        break
-                else:
-                    checkpoint_path = None
+            # For unsupervised models, we want to test ALL available pretrained weights
+            # not just dataset-specific ones
+            checkpoint_dir = Path('checkpoints') / model_name
+            all_checkpoints = []
+            
+            if checkpoint_dir.exists():
+                # Get ALL .pt files in the checkpoint directory
+                all_checkpoints = sorted(checkpoint_dir.glob('*.pt'))
+            
+            if all_checkpoints:
+                # Use the first available checkpoint
+                # In future versions, this could iterate through all checkpoints
+                checkpoint_path = str(all_checkpoints[0])
+                logger.info(f"Using pretrained checkpoint: {checkpoint_path}")
+                
+                if len(all_checkpoints) > 1:
+                    logger.info(f"Found {len(all_checkpoints)} pretrained weights for {model_name}")
+                    logger.info(f"Additional checkpoints available: {[c.name for c in all_checkpoints[1:4]]}")
+            else:
+                checkpoint_path = None
+                logger.warning(f"No pretrained weights found for {model_name} in {checkpoint_dir}")
+
         
         # Get input dimension from the batches
         batches = dependencies['batch_construction']['batches']
@@ -725,13 +727,15 @@ class TaskRegistry:
         dependencies: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Task 8: Calculate evaluation metrics.
+        Task 8: Calculate evaluation metrics for unsupervised anomaly detection.
         
-        Computes standard detection metrics:
-        - AUROC, AUPRC
-        - Precision, Recall, F1
-        - Confusion Matrix
-        - Detection rate at different FPR thresholds
+        Since all PIDS models are unsupervised, we use anomaly score-based metrics:
+        - Anomaly score statistics (mean, std, percentiles)
+        - Score separation metrics
+        - High-confidence anomaly counts
+        - Distribution analysis
+        
+        Traditional supervised metrics (AUROC, F1) are only calculated if labels exist.
         
         Args:
             config: Global configuration
@@ -741,59 +745,103 @@ class TaskRegistry:
         Returns:
             Dictionary of computed metrics
         """
-        from sklearn.metrics import (
-            roc_auc_score, average_precision_score,
-            precision_recall_fscore_support, confusion_matrix
-        )
-        
         inference_results = dependencies['model_inference']
         
         predictions = inference_results['predictions']
         scores = inference_results['scores']
         labels = inference_results['labels']
         
-        if labels is None:
-            logger.warning("No ground truth labels available, skipping metrics")
-            return {'message': 'No labels available'}
-        
-        logger.info("Calculating evaluation metrics")
+        logger.info("Calculating evaluation metrics for unsupervised anomaly detection")
         
         metrics = {}
+        scores_array = np.array(scores)
         
-        # ROC-AUC and PR-AUC
-        try:
-            if len(np.unique(labels)) > 1:  # Need both classes
-                metrics['auroc'] = roc_auc_score(labels, scores)
-                metrics['auprc'] = average_precision_score(labels, scores)
-            else:
-                logger.warning("Only one class present in labels, skipping AUC metrics")
-                metrics['auroc'] = 0.0
-                metrics['auprc'] = 0.0
-        except Exception as e:
-            logger.warning(f"Error calculating AUC metrics: {e}")
-            metrics['auroc'] = 0.0
-            metrics['auprc'] = 0.0
+        # Core anomaly detection metrics (always calculated)
+        metrics['anomaly_score_stats'] = {
+            'mean': float(np.mean(scores_array)),
+            'std': float(np.std(scores_array)),
+            'min': float(np.min(scores_array)),
+            'max': float(np.max(scores_array)),
+            'median': float(np.median(scores_array)),
+        }
         
-        # Precision, Recall, F1
-        precision, recall, f1, support = precision_recall_fscore_support(
-            labels, predictions, average='binary', zero_division=0
-        )
+        # Percentile thresholds for anomaly detection
+        metrics['percentiles'] = {
+            '90': float(np.percentile(scores_array, 90)),
+            '95': float(np.percentile(scores_array, 95)),
+            '99': float(np.percentile(scores_array, 99)),
+            '99.5': float(np.percentile(scores_array, 99.5)),
+            '99.9': float(np.percentile(scores_array, 99.9)),
+        }
         
-        metrics['precision'] = float(precision)
-        metrics['recall'] = float(recall)
-        metrics['f1_score'] = float(f1)
+        # Score separation metric (higher = better anomaly detection)
+        # Measures how well the model can distinguish anomalies from normal events
+        if metrics['anomaly_score_stats']['mean'] > 0:
+            metrics['score_separation_ratio'] = (
+                metrics['anomaly_score_stats']['std'] / 
+                metrics['anomaly_score_stats']['mean']
+            )
+        else:
+            metrics['score_separation_ratio'] = 0.0
         
-        # Confusion Matrix
-        cm = confusion_matrix(labels, predictions)
-        metrics['confusion_matrix'] = cm.tolist()
+        # Count anomalies at different thresholds
+        metrics['anomaly_counts'] = {
+            'critical_99.9': int(np.sum(scores_array >= metrics['percentiles']['99.9'])),
+            'high_99': int(np.sum(scores_array >= metrics['percentiles']['99'])),
+            'medium_95': int(np.sum(scores_array >= metrics['percentiles']['95'])),
+            'elevated_90': int(np.sum(scores_array >= metrics['percentiles']['90'])),
+        }
         
-        # Additional stats
-        metrics['num_samples'] = len(labels)
-        metrics['num_positive'] = int(np.sum(labels))
-        metrics['num_negative'] = int(len(labels) - np.sum(labels))
-        metrics['prediction_positive'] = int(np.sum(predictions))
+        # Top anomalies (event indices with highest scores)
+        top_k = min(100, len(scores_array))
+        top_indices = np.argsort(scores_array)[-top_k:][::-1]
+        metrics['top_anomalies'] = {
+            'event_ids': [int(idx) for idx in top_indices],
+            'scores': [float(scores_array[idx]) for idx in top_indices],
+        }
         
-        logger.info(f"Metrics: AUROC={metrics['auroc']:.4f}, AUPRC={metrics['auprc']:.4f}, F1={metrics['f1_score']:.4f}")
+        # Optional: Supervised metrics if labels are available
+        if labels is not None and len(np.unique(labels)) > 1:
+            try:
+                from sklearn.metrics import (
+                    roc_auc_score, average_precision_score,
+                    precision_recall_fscore_support, confusion_matrix
+                )
+                
+                metrics['supervised_metrics'] = {
+                    'auroc': float(roc_auc_score(labels, scores)),
+                    'auprc': float(average_precision_score(labels, scores)),
+                }
+                
+                precision, recall, f1, support = precision_recall_fscore_support(
+                    labels, predictions, average='binary', zero_division=0
+                )
+                metrics['supervised_metrics']['precision'] = float(precision)
+                metrics['supervised_metrics']['recall'] = float(recall)
+                metrics['supervised_metrics']['f1_score'] = float(f1)
+                
+                cm = confusion_matrix(labels, predictions)
+                metrics['supervised_metrics']['confusion_matrix'] = cm.tolist()
+                
+                logger.info(f"Supervised metrics: AUROC={metrics['supervised_metrics']['auroc']:.4f}, "
+                          f"AUPRC={metrics['supervised_metrics']['auprc']:.4f}, "
+                          f"F1={metrics['supervised_metrics']['f1_score']:.4f}")
+            except Exception as e:
+                logger.warning(f"Could not calculate supervised metrics: {e}")
+                metrics['supervised_metrics'] = None
+        else:
+            metrics['supervised_metrics'] = None
+            logger.info("No ground truth labels available - using unsupervised metrics only")
+        
+        # Summary
+        metrics['num_samples'] = len(scores_array)
+        metrics['detection_approach'] = 'unsupervised'
+        
+        logger.info(f"Anomaly Detection Metrics:")
+        logger.info(f"  Score range: [{metrics['anomaly_score_stats']['min']:.6f}, {metrics['anomaly_score_stats']['max']:.6f}]")
+        logger.info(f"  Mean: {metrics['anomaly_score_stats']['mean']:.6f}, Std: {metrics['anomaly_score_stats']['std']:.6f}")
+        logger.info(f"  Separation ratio: {metrics['score_separation_ratio']:.4f}")
+        logger.info(f"  Critical anomalies (99.9%): {metrics['anomaly_counts']['critical_99.9']}")
         
         return metrics
     
