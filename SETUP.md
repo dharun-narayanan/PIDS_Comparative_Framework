@@ -140,7 +140,7 @@ python scripts/download_checkpoints.py --all
 cd /path/to/PIDS_Comparative_Framework
 
 # If cloning from repository:
-git clone https://github.com/yourusername/PIDS_Comparative_Framework.git
+git clone https://github.com/dharun-narayanan/PIDS_Comparative_Framework.git
 cd PIDS_Comparative_Framework
 
 # Verify you're in the correct directory
