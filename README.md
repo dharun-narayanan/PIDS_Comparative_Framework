@@ -21,7 +21,7 @@ The **PIDS Comparative Framework** is a unified, production-ready platform for e
 ### Why PIDS Comparative Framework?
 
 **🎯 Unified Evaluation Platform**
-- Compare 5+ state-of-the-art PIDS models on your own SOC data
+- Compare state-of-the-art PIDS models on your own SOC data
 - Standardized preprocessing, inference, and evaluation pipeline
 - Reproducible results with consistent metrics across models
 
@@ -47,7 +47,7 @@ The **PIDS Comparative Framework** is a unified, production-ready platform for e
 
 ## 🏗️ Architecture Overview
 
-The framework follows a **modern, modular architecture** with three key systems working together:
+The framework follows a **modular architecture** with three key systems working together:
 
 ### 1. YAML-Driven Model System
 
@@ -76,10 +76,10 @@ architecture:
 - **Shared Decoders** (9 types) - Edge, Node, Contrastive, Reconstruction, Anomaly, InnerProduct, NodLink, EdgeLinear, CustomEdgeMLP
 
 **Benefits:**
-- ✅ Add new models in minutes (not hours)
-- ✅ No Python wrapper code required
-- ✅ Easy hyperparameter tuning
-- ✅ Consistent component interfaces
+- Add new models in minutes (not hours)
+- No Python wrapper code required
+- Easy hyperparameter tuning
+- Consistent component interfaces
 
 ### 2. Task-Based Pipeline System
 
@@ -102,11 +102,11 @@ Raw JSON Logs → Preprocessing → Graph Construction → Feature Extraction
 9. **attack_tracing** - Trace attack paths (optional)
 
 **Key Features:**
-- ✅ Intelligent artifact caching (skip completed tasks)
-- ✅ Automatic dependency resolution
-- ✅ Parallel execution where possible
-- ✅ Resumable from any task
-- ✅ Per-task logging and error handling
+- Intelligent artifact caching (skip completed tasks)
+- Automatic dependency resolution
+- Parallel execution where possible
+- Resumable from any task
+- Per-task logging and error handling
 
 ### 3. Data Processing Engine
 
@@ -124,12 +124,11 @@ JSON Events → Entity Extraction → Graph Construction → Feature Engineering
 ```
 
 **Features:**
-- ✅ Chunked loading for 2GB+ files
-- ✅ Automatic schema detection
-- ✅ Provenance graph construction
-- ✅ Temporal windowing support
-- ✅ Entity deduplication and normalization
-
+- Chunked loading for 2GB+ files
+- Automatic schema detection
+- Provenance graph construction
+- Temporal windowing support
+- Entity deduplication and normalization
 ---
 
 ## 🧠 Supported Models
@@ -148,7 +147,7 @@ All models are unsupervised anomaly detectors pretrained on standard PIDS benchm
 
 ---
 
-## � System Workflow
+## ⚙️ System Workflow
 
 The framework provides an end-to-end pipeline from raw SOC logs to actionable threat intelligence:
 
@@ -156,35 +155,35 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 ┌─────────────────────────────────────────────────────────────┐
 │  INPUT: Raw SOC Logs                                        │
 │  • Elastic/ELK Stack JSON                                   │
-│  • NDJSON (newline-delimited)                              │
+│  • NDJSON (newline-delimited)                               │
 │  • JSON arrays                                              │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  PREPROCESSING (scripts/preprocess_data.py)                 │
-│  • Load JSON files (chunked for 2GB+ files)                │
-│  • Extract entities (processes, files, sockets)            │
-│  • Build provenance graph (entities=nodes, events=edges)   │
-│  • Extract features (entity types, attributes)             │
-│  • Save as pickle + metadata JSON                          │
+│  • Load JSON files (chunked for 2GB+ files)                 │
+│  • Extract entities (processes, files, sockets)             │
+│  • Build provenance graph (entities=nodes, events=edges)    │
+│  • Extract features (entity types, attributes)              │
+│  • Save as pickle + metadata JSON                           │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  TASK PIPELINE (9 Modular, Cacheable Tasks)                │
+│  TASK PIPELINE (9 Modular, Cacheable Tasks)                 │
 │                                                             │
-│  1. load_preprocessed_data   → Load graph pickle           │
-│  2. construct_time_windows   → Temporal batching           │
-│  3. graph_transformation     → Format conversion           │
-│  4. feature_extraction       → Node/edge features          │
-│  5. featurization_inference  → Model-specific transforms   │
-│  6. batch_construction       → PyG Data objects            │
-│  7. model_inference          → Run pretrained models       │
-│  8. calculate_metrics        → Anomaly detection metrics   │
-│  9. attack_tracing           → Attack path analysis        │
+│  1. load_preprocessed_data   → Load graph pickle            │
+│  2. construct_time_windows   → Temporal batching            │
+│  3. graph_transformation     → Format conversion            │
+│  4. feature_extraction       → Node/edge features           │
+│  5. featurization_inference  → Model-specific transforms    │
+│  6. batch_construction       → PyG Data objects             │
+│  7. model_inference          → Run pretrained models        │
+│  8. calculate_metrics        → Anomaly detection metrics    │
+│  9. attack_tracing           → Attack path analysis         │
 │                                                             │
-│  Artifacts cached in: artifacts/{model}/{task}/            │
+│  Artifacts cached in: artifacts/{model}/{task}/             │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -193,11 +192,11 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 │                                                             │
 │  YAML Config ──→ ModelBuilder ──→ GenericModel              │
 │                       │                                     │
-│                       ├──→ Encoder(s) ──→ Embeddings       │
-│                       │    (GAT, SAGE, Transformer, etc.)  │
+│                       ├──→ Encoder(s) ──→ Embeddings        │
+│                       │    (GAT, SAGE, Transformer, etc.)   │
 │                       │                                     │
-│                       └──→ Decoder(s) ──→ Predictions      │
-│                            (Edge, Node, Contrastive, etc.) │
+│                       └──→ Decoder(s) ──→ Predictions       │
+│                            (Edge, Node, Contrastive, etc.)  │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -216,7 +215,7 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 **Ready to evaluate PIDS models on your SOC data?** See the [Complete Setup Guide](SETUP.md) for detailed instructions.
 
@@ -243,7 +242,7 @@ For comprehensive setup instructions, data preprocessing, troubleshooting, and a
 
 ---
 
-## 💻 Programmatic Usage
+## Programmatic Usage
 
 The framework provides flexible APIs for custom integration and automation.
 
@@ -384,59 +383,59 @@ python experiments/evaluate_pipeline.py \
 ```text
 PIDS_Comparative_Framework/
 │
-├── 🧠 models/                     # Core model components
-│   ├── model_builder.py          # ModelBuilder + GenericModel
-│   ├── shared_encoders.py        # 8 reusable encoder types
-│   ├── shared_decoders.py        # 9 reusable decoder types
+├── models/                                             # Core model components
+│   ├── model_builder.py                                # ModelBuilder + GenericModel
+│   ├── shared_encoders.py                              # 8 reusable encoder types
+│   ├── shared_decoders.py                              # 9 reusable decoder types
 │   └── __init__.py
 │
-├── ⚙️ configs/                    # YAML configuration files
-│   ├── models/                   # Per-model configurations
+├── configs/                                            # YAML configuration files
+│   ├── models/                                         # Per-model configurations
 │   │   ├── magic.yaml, kairos.yaml, orthrus.yaml
 │   │   ├── threatrace.yaml, continuum_fl.yaml
-│   │   └── template.yaml         # Template for new models
-│   ├── datasets/                 # Dataset configurations
-│   └── experiments/              # Experiment presets
+│   │   └── template.yaml                               # Template for new models
+│   ├── datasets/                                       # Dataset configurations
+│   └── experiments/                                    # Experiment presets
 │
-├── 🔄 pipeline/                   # Task-based pipeline system
-│   ├── pipeline_builder.py       # Pipeline orchestration
-│   ├── task_manager.py           # Task execution + caching
-│   ├── task_registry.py          # 9 task implementations
+├── pipeline/                                           # Task-based pipeline system
+│   ├── pipeline_builder.py                             # Pipeline orchestration
+│   ├── task_manager.py                                 # Task execution + caching
+│   ├── task_registry.py                                # 9 task implementations
 │   └── __init__.py
 │
-├── 🧪 experiments/                # Main evaluation scripts
-│   ├── evaluate_pipeline.py      # Primary evaluation script
-│   └── train.py                  # Reference training script
+├── experiments/                                        # Main evaluation scripts
+│   ├── evaluate_pipeline.py                            # Primary evaluation script
+│   └── train.py                                        # Reference training script
 │
-├── 📜 scripts/                    # Setup and utility scripts
-│   ├── setup.sh                  # One-command environment setup
-│   ├── download_checkpoints.py   # Download pretrained weights
-│   ├── preprocess_data.py        # SOC data preprocessing
-│   ├── analyze_anomalies.py      # Anomaly analysis tools
-│   ├── run_evaluation.sh         # End-to-end workflow
-│   └── verify_installation.py    # Installation check
+├── scripts/                                            # Setup and utility scripts
+│   ├── setup.sh                                        # One-command environment setup
+│   ├── download_checkpoints.py                         # Download pretrained weights
+│   ├── preprocess_data.py                              # SOC data preprocessing
+│   ├── analyze_anomalies.py                            # Anomaly analysis tools
+│   ├── run_evaluation.sh                               # End-to-end workflow
+│   └── verify_installation.py                          # Installation check
 │
-├── 📊 data/                       # Data management
-│   ├── dataset.py                # Dataset loading utilities
-│   └── {dataset_name}/           # Preprocessed datasets
-│       ├── graph.pkl             # Graph structure
-│       └── metadata.json         # Dataset statistics
+├── data/                                               # Data management
+│   ├── dataset.py                                      # Dataset loading utilities
+│   └── {dataset_name}/                                 # Preprocessed datasets
+│       ├── graph.pkl                                   # Graph structure
+│       └── metadata.json                               # Dataset statistics
 │
-├── 🛠️ utils/                      # Common utilities
-│   ├── common.py                 # Logging, config loading
-│   ├── metrics.py                # Detection metrics
-│   └── visualization.py          # Result visualization
+├── utils/                                              # Common utilities
+│   ├── common.py                                       # Logging, config loading
+│   ├── metrics.py                                      # Detection metrics
+│   └── visualization.py                                # Result visualization
 │
-├── 💾 checkpoints/                # Pretrained model weights
-│   └── {model}/                  # Per-model checkpoints
-│       └── {dataset}.pt          # Model weights
+├── checkpoints/                                        # Pretrained model weights
+│   └── {model}/                                        # Per-model checkpoints
+│       └── {dataset}.pt                                # Model weights
 │
-├── 📁 artifacts/                  # Cached pipeline results
-│   └── {model}/                  # Per-model artifacts
-│       ├── {task}/               # Per-task outputs
+├── artifacts/                                          # Cached pipeline results
+│   └── {model}/                                        # Per-model artifacts
+│       ├── {task}/                                     # Per-task outputs
 │       └── execution_metadata.json
 │
-└── 📈 results/                    # Evaluation outputs
+└── results/                                            # Evaluation outputs
     └── evaluation_{timestamp}/
         ├── {model}_metrics.json
         ├── {model}_anomalies.json
@@ -445,12 +444,7 @@ PIDS_Comparative_Framework/
 ```
 
 ---
-
-## 🔧 Detailed Architecture Components
-
----
-
-## 🔧 Architecture Details
+## Architecture Details
 
 ### 1. Model Construction System
 
@@ -520,32 +514,26 @@ PIDS_Comparative_Framework/
 9. **attack_tracing** (optional) - Trace attack paths
 
 **Pipeline Features:**
-- ✅ Automatic dependency resolution
-- ✅ Artifact caching (skip completed tasks)
-- ✅ Parallel execution where possible
-- ✅ Error recovery and logging
-- ✅ Progress tracking
-
+- Automatic dependency resolution
+- Artifact caching (skip completed tasks)
+- Parallel execution where possible
+- Error recovery and logging
+- Progress tracking
 ### Design Philosophy
 
-**🎯 Separation of Concerns**
+**Separation of Concerns**
 - Models defined declaratively in YAML
 - Core components (encoders/decoders) implemented once, reused everywhere
 - Pipeline tasks handle data flow, not model logic
 
-**🔌 Plug-and-Play Architecture**
+**Plug-and-Play Architecture**
 - Add encoders/decoders → Available to all models
 - Add tasks → Usable in any pipeline
 - Add models → Just create YAML config
 
-**📦 Production-Ready**
-- Comprehensive error handling
-- Detailed logging
-- Automatic checkpointing
-- Resource-efficient caching
 ---
 
-## 🔄 Pipeline Tasks
+## Pipeline Tasks
 
 The framework's task-based pipeline provides modularity, caching, and flexibility. Each task is self-contained and produces cached artifacts.
 
@@ -589,9 +577,9 @@ dataset_name: "custom_soc"
 
 **Configuration**:
 ```yaml
-window_size: 3600           # 1 hour windows
-overlap: 0.1                # 10% overlap
-min_events: 100             # Minimum events per window
+window_size: 3600             # 1 hour windows
+overlap: 0.1                  # 10% overlap
+min_events: 100               # Minimum events per window
 ```
 
 **Output**:
@@ -641,7 +629,7 @@ min_events: 100             # Minimum events per window
 ```yaml
 batch_size: 32
 num_workers: 4
-shuffle: false              # Usually false for evaluation
+shuffle: false                # Usually false for evaluation
 pin_memory: true
 ```
 
@@ -775,20 +763,7 @@ artifacts/{model_name}/
 - Selective task re-execution
 
 ---
-
-## � Supported Models
-
-The framework currently includes 5 state-of-the-art PIDS models, all configurable via YAML:
-
-| Model | Architecture | Best For | Config File |
-|-------|-------------|----------|-------------|
-| **MAGIC** | GAT + Edge/Reconstruction | General-purpose detection | `configs/models/magic.yaml` |
-| **Kairos** | Transformer + Time Encoder | Temporal attack patterns | `configs/models/kairos.yaml` |
-| **Orthrus** | Multi-encoder (Transformer + SAGE) | Multi-objective learning | `configs/models/orthrus.yaml` |
-| **ThreaTrace** | Multi-encoder (GAT + SAGE) | Graph clustering-based | `configs/models/threatrace.yaml` |
-| **Continuum_FL** | GAT + Federated Learning | Distributed/privacy-preserving | `configs/models/continuum_fl.yaml` |
-
-### Adding Your Own Model
+## Adding Your Own Model
 
 **Step 1: Create Configuration**
 ```bash
@@ -801,15 +776,15 @@ name: "your_model"
 
 architecture:
   encoder:
-    type: "gat"  # Options: gat, sage, transformer, time, gin, glstm, linear
+    type: "gat"              # Options: gat, sage, transformer, time, gin, glstm, linear
     in_dim: 128
     hidden_dim: 256
     out_dim: 128
     num_layers: 3
   
   decoder:
-    type: "edge"  # Options: edge, node, contrastive, reconstruction, 
-                  #          anomaly, inner_product, nodlink, edge_linear
+    type: "edge"             # Options: edge, node, contrastive, reconstruction, 
+                             # anomaly, inner_product, nodlink, edge_linear
     in_dim: 128
     hidden_dim: 256
     out_dim: 2
@@ -835,73 +810,12 @@ python experiments/evaluate_pipeline.py \
 **No Python wrapper needed!** The `ModelBuilder` dynamically constructs your model.
 
 ---
-
-## 📂 Directory Structure
-
-```
-PIDS_Comparative_Framework/
-├── README.md                          # This file - Overview
-├── SETUP.md                           # Complete setup guide
-├── requirements.txt                   # Python dependencies
-├── environment.yml                    # Conda environment
-│
-├── models/                            # 🧠 Model components (4 files)
-│   ├── __init__.py                   # Module exports
-│   ├── model_builder.py              # ModelBuilder + GenericModel (514 lines)
-│   ├── shared_encoders.py            # 5 encoder types (532 lines)
-│   └── shared_decoders.py            # 6 decoder types (651 lines)
-│
-├── configs/                           # ⚙️ Configuration files
-│   └── models/                       # 🆕 Per-model YAML configs
-│       ├── magic.yaml
-│       ├── kairos.yaml
-│       ├── orthrus.yaml
-│       ├── threatrace.yaml
-│       ├── continuum_fl.yaml
-│       └── template.yaml             # 🆕 Template for new models
-│
-├── pipeline/                          # 🔄 Task-based pipeline (4 files)
-│   ├── __init__.py                   # Module exports
-│   ├── pipeline_builder.py           # Pipeline construction
-│   ├── task_manager.py               # Task orchestration
-│   └── task_registry.py              # 9 task definitions (730 lines)
-│
-├── experiments/                       # 🧪 Experiment scripts (2 files)
-│   ├── evaluate_pipeline.py          # Main evaluation script (315 lines)
-│   └── train.py                      # Reference training (366 lines)
-│
-├── data/                              # 📊 Dataset handling
-│   └── dataset.py
-│
-├── data/                              # 📊 Dataset handling
-│   └── dataset.py                    # Dataset loading utilities
-│
-├── utils/                             # 🛠️ Utilities
-│   ├── common.py                     # Common utilities
-│   ├── metrics.py                    # Evaluation metrics
-│   └── visualization.py              # Result visualization
-│
-├── scripts/                           # 📜 Setup and preprocessing (5 files)
-│   ├── setup.sh                      # Environment setup
-│   ├── download_checkpoints.py       # Checkpoint download script (871 lines)
-│   ├── preprocess_data.py            # Data preprocessing
-│   ├── run_evaluation.sh             # Batch evaluation
-│   └── verify_installation.py        # Installation verification
-│
-├── checkpoints/                       # 💾 Pretrained model weights
-├── data/                              # � Preprocessed datasets
-└── results/                           # 📈 Evaluation results
-```
-
----
-
-## 📚 Resources & Documentation
+## 📚 Resources
 
 ### Documentation
 - **[Complete Setup Guide](SETUP.md)** - Installation, configuration, troubleshooting
 - **[Model Configurations](configs/models/)** - YAML configurations for all models
 - **[Dataset Configurations](configs/datasets/)** - Dataset preprocessing configs
-- **[API Documentation](docs/)** - Programmatic usage and API reference
 
 ### Key Scripts
 - `scripts/setup.sh` - Automated environment setup
@@ -921,7 +835,7 @@ PIDS_Comparative_Framework/
 
 ---
 
-## 🤝 Contributing
+## Next Steps & Contributions
 
 We welcome contributions! Areas of interest:
 
@@ -937,15 +851,13 @@ We welcome contributions! Areas of interest:
 - Performance optimizations
 - Additional metrics
 
-See our [Contribution Guide](CONTRIBUTING.md) for details.
-
 ---
 
-## 📝 License
+<!-- ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+--- -->
 
 ## 📧 Contact
 

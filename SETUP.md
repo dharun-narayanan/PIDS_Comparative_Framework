@@ -1,8 +1,4 @@
 # PIDS Comparative Framework - Complete Setup Guide
-
-**Last Updated:** October 30, 2025  
-**Version:** 2.0 (ModelBuilder Architecture)
-
 ---
 
 ## 🎯 Overview
@@ -10,12 +6,12 @@
 This guide provides **complete setup instructions** for the PIDS Comparative Framework. For architectural details and framework capabilities, see **[README.md](README.md)**.
 
 **What's in this guide:**
-- ✅ Step-by-step installation (automated + manual)
-- ✅ Model setup and pretrained weights download
-- ✅ Custom SOC data preprocessing
-- ✅ Running evaluations and analyzing results
-- ✅ Comprehensive troubleshooting
-- ✅ Advanced configuration options
+- Step-by-step installation (automated + manual)
+- Model setup and pretrained weights download
+- Custom SOC data preprocessing
+- Running evaluations and analyzing results
+- Comprehensive troubleshooting
+- Advanced configuration options
 
 ### Supported Models
 
@@ -101,7 +97,7 @@ nvidia-smi  # Should show GPU info if available
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 For most users, these commands will get you up and running:
 
@@ -126,7 +122,7 @@ python scripts/download_checkpoints.py --all
 
 ---
 
-## 📦 Detailed Installation
+## Detailed Installation
 
 ### Step 1: Clone or Navigate to Framework
 
@@ -575,7 +571,7 @@ svn export https://github.com/Provenance-IDS/threaTrace/trunk/example_models che
 
 ---
 
-## 📊 Preparing Custom Data
+## Preparing Custom Data
 
 ### Data Requirements
 
@@ -730,7 +726,7 @@ python scripts/preprocess_data.py \
 
 ---
 
-## 🎯 Running Evaluation
+## Running Evaluation
 
 ### Quick Evaluation (All Models)
 
@@ -743,12 +739,12 @@ conda activate pids_framework
 ```
 
 This automatically:
-1. ✅ Checks conda environment activation
-2. ✅ Sets up model weights (if needed)
-3. ✅ Detects if data is already preprocessed
-4. ✅ Runs preprocessing if needed
-5. ✅ Evaluates all 5 models
-6. ✅ Generates comparison report
+1. Checks conda environment activation
+2. Sets up model weights (if needed)
+3. Detects if data is already preprocessed
+4. Runs preprocessing if needed
+5. Evaluates all 5 models
+6. Generates comparison report
 
 ### Evaluation with Preprocessed Data
 
@@ -892,7 +888,7 @@ Next steps:
 
 ---
 
-## 🔬 Advanced Features
+## Advanced Features
 
 ### Understanding Unsupervised Evaluation
 
@@ -1035,7 +1031,7 @@ python experiments/evaluate_pipeline.py \
 
 ---
 
-## 📖 Command Reference
+## Command Reference
 
 ### setup.sh
 
@@ -1249,11 +1245,11 @@ python experiments/evaluate_pipeline.py \
 - `--output-dir PATH` - Output directory (default: results/)
 
 **Features:**
-- ✅ Task-based pipeline with 9 stages (load_data → calculate_metrics)
-- ✅ Automatic caching of intermediate results
-- ✅ Multi-model evaluation in single run
-- ✅ Dynamic model construction via ModelBuilder
-- ✅ Per-model YAML configurations
+- Task-based pipeline with 9 stages (load_data → calculate_metrics)
+- Automatic caching of intermediate results
+- Multi-model evaluation in single run
+- Dynamic model construction via ModelBuilder
+- Per-model YAML configurations
 
 ---
 
@@ -1565,7 +1561,7 @@ If you encounter issues not covered here:
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Model Configuration Files
 
@@ -1673,14 +1669,7 @@ python experiments/train.py \
 
 ---
 
-## 📚 Additional Resources
-
-### Documentation Files
-
-- `README.md` - Overview and quick start
-- `Setup.md` - This file (complete setup guide)
-- `SETUP_ANALYSIS.md` - Analysis of setup accuracy
-- `FRAMEWORK_GUIDE.md` - Advanced framework guide (if exists)
+## Additional Resources
 
 ### Model Documentation
 
@@ -1688,20 +1677,18 @@ Each model has its own documentation:
 - **MAGIC:** https://github.com/FDUDSDE/MAGIC
 - **Kairos:** https://github.com/ubc-provenance/kairos
 - **Orthrus:** https://github.com/ubc-provenance/orthrus
-- **ThreaTrace:** https://github.com/Provenance-IDS/threaTrace
+- **ThreaTrace:** https://github.com/threaTrace-detector/threaTrace
 - **Continuum_FL:** https://github.com/kamelferrahi/Continuum_FL
 
 ### Papers
 
-- **MAGIC:** "MAGIC: Detecting Advanced Persistent Threats via Masked Graph Representation Learning"
-- **Kairos:** "Kairos: Practical Intrusion Detection and Investigation using Whole-system Provenance"
-- **Orthrus:** "You Autocomplete Me: Poisoning Vulnerabilities in Neural Code Completion"
-- **ThreaTrace:** "Enabling Refinable Cross-Host Attack Investigation with Efficient Data Flow Tagging and Tracking"
-- **Continuum_FL:** "Federated Learning for Intrusion Detection Systems"
+- **[MAGIC — "MAGIC: Detecting Advanced Persistent Threats via Masked Graph Representation Learning"](https://arxiv.org/abs/2310.09831)**
+- **[Kairos — "Kairos: Practical Intrusion Detection and Investigation using Whole-system Provenance"](https://ieeexplore.ieee.org/document/10646673)**
+- **[Orthrus — "Achieving High Quality of Attribution in Provenance-based Intrusion Detection Systems"](https://www.usenix.org/conference/usenixsecurity25/presentation/jiang-baoxiang)**
+- **[ThreaTrace — "Enabling Refinable Cross-Host Attack Investigation with Efficient Data Flow Tagging and Tracking"](https://ieeexplore.ieee.org/document/9899459)**
+- **[Continuum_FL — "Federated Learning for Intrusion Detection Systems"](https://www.researchgate.net/publication/387767270_CONTINUUM_Detecting_APT_Attacks_through_Spatial-Temporal_Graph_Neural_Networks)**
 
 ---
-
-## 📝 Summary
 
 ### Installation Checklist
 
@@ -1732,7 +1719,7 @@ Each model has its own documentation:
 
 ---
 
-## 🎉 Conclusion
+## Conclusion
 
 You've successfully set up the PIDS Comparative Framework! The framework is now ready to evaluate state-of-the-art intrusion detection models on your custom SOC data.
 
@@ -1740,5 +1727,3 @@ For questions or issues:
 - Check the [Troubleshooting](#troubleshooting) section
 - Review model-specific documentation
 - Open an issue on GitHub
-
-Happy detecting! 🔍🛡️
