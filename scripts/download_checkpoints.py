@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-PIDS Framework - Model Checkpoint Setup Script
+PIDS Framework - Model Checkpoint Download Script
 
-This script handles:
-1. Checking for and copying local pretrained weights
-2. Downloading missing pretrained weights from official sources
-
-Note: Dependency installation is now handled by setup.sh (unified environment).
-      This script only manages model checkpoints.
+This script downloads pretrained model weights from official sources:
+1. Checks for local pretrained weights and copies them if available
+2. Downloads missing weights from GitHub and official repositories
+3. Supports all models: MAGIC, Kairos, Orthrus, ThreaTrace, Continuum_FL
 
 Usage:
-    python scripts/setup_models.py --all                    # Setup all models
-    python scripts/setup_models.py --models magic kairos    # Setup specific models
-    python scripts/setup_models.py --list                   # List available models
+    python scripts/download_checkpoints.py --all                    # Download all models
+    python scripts/download_checkpoints.py --models magic kairos    # Download specific models
+    python scripts/download_checkpoints.py --list                   # List available models
 """
 
 import os
@@ -662,14 +660,16 @@ def download_weight_from_url(url: str, output_path: Path, is_gdrive: bool = Fals
 
 
 def setup_model(model: str, install_deps: bool = False, download: bool = True, copy_local: bool = True) -> Dict[str, int]:
-    """Setup a single model (download and copy weights).
+    """Download and setup checkpoints for a model.
     
-    Note: Dependencies are now installed via setup.sh (unified environment).
-          The install_deps parameter is kept for backward compatibility but ignored.
+    Args:
+        model: Model name
+        install_deps: Ignored (kept for backward compatibility)
+        download: Whether to download from GitHub/official sources
+        copy_local: Whether to copy from local directories as fallback
     
-    Order of operations:
-    1. Download weights from GitHub/official sources (primary method)
-    2. Fallback to copying from local directories if download fails
+    Returns:
+        Dictionary with counts of installed, copied, and downloaded checkpoints
     """
     config = MODEL_CONFIGS.get(model)
     if not config:
@@ -679,9 +679,6 @@ def setup_model(model: str, install_deps: bool = False, download: bool = True, c
     print_header(f"Setting up {config['name']}")
     logger.info(f"Description: {config['description']}")
     logger.info(f"GitHub: {config['github_repo']}")
-    
-    if install_deps:
-        logger.info("Note: Dependencies are now pre-installed via unified environment (setup.sh)")
     
     results = {'installed': 0, 'copied': 0, 'downloaded': 0}
     
@@ -735,43 +732,43 @@ def list_models():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PIDS Framework - Model Checkpoint Setup (Downloads from GitHub)",
+        description="PIDS Framework - Download Model Checkpoints",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Setup all models (downloads weights from GitHub)
-  python scripts/setup_models.py --all
+  # Download all model checkpoints
+  python scripts/download_checkpoints.py --all
   
-  # Setup specific models
-  python scripts/setup_models.py --models magic kairos orthrus
+  # Download specific models
+  python scripts/download_checkpoints.py --models magic kairos orthrus
   
-  # Only download weights (skip local copy fallback)
-  python scripts/setup_models.py --all --no-copy
+  # Only download from GitHub (skip local copy fallback)
+  python scripts/download_checkpoints.py --all --no-copy
   
   # Force re-download all weights
-  python scripts/setup_models.py --all --force-download
+  python scripts/download_checkpoints.py --all --force-download
   
-  # List available models and their GitHub repos
-  python scripts/setup_models.py --list
+  # List available models
+  python scripts/download_checkpoints.py --list
 
 Note: 
-  - Dependencies are now installed via setup.sh (unified environment)
-  - This script only manages model checkpoints
-  - Downloads from official GitHub repositories (with local fallback)
+  - Downloads from official GitHub repositories
+  - Falls back to local directories if available
+  - All dependencies are installed via setup.sh
 """
     )
     
     parser.add_argument(
         '--all',
         action='store_true',
-        help='Setup all models'
+        help='Download checkpoints for all models'
     )
     
     parser.add_argument(
         '--models',
         nargs='+',
         choices=list(MODEL_CONFIGS.keys()),
-        help='Specific models to setup'
+        help='Specific models to download'
     )
     
     parser.add_argument(
@@ -783,31 +780,31 @@ Note:
     parser.add_argument(
         '--no-install',
         action='store_true',
-        help='(Deprecated) Dependencies now installed via setup.sh'
+        help='(Ignored - kept for backward compatibility)'
     )
     
     parser.add_argument(
         '--no-copy',
         action='store_true',
-        help='Skip copying local weights'
+        help='Skip copying from local directories'
     )
     
     parser.add_argument(
         '--no-download',
         action='store_true',
-        help='Skip downloading weights'
+        help='Skip downloading from GitHub'
     )
     
     parser.add_argument(
         '--download-only',
         action='store_true',
-        help='Only download weights (skip local copy fallback)'
+        help='Only download (skip local copy fallback)'
     )
     
     parser.add_argument(
         '--force-download',
         action='store_true',
-        help='Force re-download weights even if they exist'
+        help='Force re-download even if checkpoints exist'
     )
     
     args = parser.parse_args()
@@ -829,21 +826,17 @@ Note:
         return
     
     # Determine what to do
-    if args.no_install:
-        logger.warning("--no-install is deprecated (dependencies now installed via setup.sh)")
-    
-    install_deps = False  # Always false now, handled by setup.sh
+    install_deps = False  # No longer used
     copy_local = not (args.no_copy or args.download_only)
     download = not args.no_download
     force_download = args.force_download
     
-    print_header("PIDS Framework - Model Checkpoint Setup")
-    logger.info(f"Setting up models: {', '.join(models_to_setup)}")
-    logger.info(f"Note: Dependencies are pre-installed via unified environment (setup.sh)")
-    logger.info(f"Strategy: Download from GitHub → Fallback to local if needed")
-    logger.info(f"Actions: Download={download}, Copy local fallback={copy_local}")
+    print_header("PIDS Framework - Download Model Checkpoints")
+    logger.info(f"Models: {', '.join(models_to_setup)}")
+    logger.info(f"Download from GitHub: {download}")
+    logger.info(f"Copy from local fallback: {copy_local}")
     if force_download:
-        logger.info(f"Force download: Enabled (will re-download existing weights)")
+        logger.info(f"Force download: Enabled")
     
     # Setup each model
     total_results = {'installed': 0, 'copied': 0, 'downloaded': 0}
@@ -854,13 +847,13 @@ Note:
             total_results[key] += results[key]
     
     # Print summary
-    print_header("Setup Summary")
-    logger.info(f"✓ Downloaded {total_results['downloaded']} checkpoint(s) from GitHub/official sources")
+    print_header("Download Summary")
+    logger.info(f"✓ Downloaded {total_results['downloaded']} checkpoint(s) from GitHub")
     logger.info(f"✓ Copied {total_results['copied']} checkpoint(s) from local fallback")
     
     logger.info("\nCheckpoints saved to: checkpoints/")
     logger.info("\nNext steps:")
-    logger.info("  1. Verify weights: ls -lh checkpoints/*/")
+    logger.info("  1. Verify: ls -lh checkpoints/*/")
     logger.info("  2. Preprocess data: python scripts/preprocess_data.py")
     logger.info("  3. Run evaluation: ./scripts/run_evaluation.sh")
 

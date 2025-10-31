@@ -140,9 +140,9 @@ if [[ "$SKIP_DOWNLOAD" == false ]]; then
     echo -e "${BLUE}Setting up models and copying pretrained weights...${NC}"
     
     if [[ "$MODEL" == "all" ]]; then
-        python scripts/setup_models.py --all --no-install
+        python scripts/download_checkpoints.py --all
     else
-        python scripts/setup_models.py --models "$MODEL" --no-install
+        python scripts/download_checkpoints.py --models "$MODEL"
     fi
     
     if [[ $? -eq 0 ]]; then

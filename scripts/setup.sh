@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# PIDS Comparative Framework - Unified Setup Script
-# This script sets up the complete framework environment including:
-#   - Conda environment creation
-#   - All dependencies installation
-#   - PyTorch MKL fix (integrated)
-#   - Directory structure creation
-#   - Installation verification
+# PIDS Comparative Framework - Environment Setup Script
+#
+# This script sets up the complete framework environment:
+#   - Creates conda environment from environment.yml
+#   - Installs PyTorch, DGL, PyTorch Geometric and all dependencies
+#   - Applies PyTorch MKL threading fix
+#   - Creates directory structure
+#   - Verifies installation
 #
 # Prerequisites:
 #   - Conda (Anaconda or Miniconda) must be installed
@@ -178,9 +179,10 @@ print_step "Step 6/7: Creating directory structure and installing PyTorch Geomet
 # First create directories
 mkdir -p data/{darpa_tc,streamspot,custom,processed,cache}
 mkdir -p checkpoints/{magic,kairos,orthrus,threatrace,continuum_fl}
-mkdir -p results/{experiments,comparisons,evaluation,plots}
+mkdir -p results/{experiments,comparisons,evaluation,plots,attack_graph_visualization,anomaly_analysis}
 mkdir -p logs
 mkdir -p configs/{models,datasets,experiments}
+mkdir -p artifacts
 
 print_info "Directory structure created"
 
@@ -231,11 +233,12 @@ print_info "✓ PyTorch Geometric and extensions installed successfully"
 
 echo ""
 echo "Directory structure:"
-echo "  ├── data/           - Dataset storage"
-echo "  ├── checkpoints/    - Model checkpoints"
-echo "  ├── results/        - Experiment results"
-echo "  ├── logs/           - Training logs"
-echo "  └── configs/        - Configuration files"
+echo "  ├── data/              - Dataset storage"
+echo "  ├── checkpoints/       - Model checkpoints"
+echo "  ├── results/           - Experiment results"
+echo "  ├── logs/              - Training and evaluation logs"
+echo "  ├── configs/           - Configuration files"
+echo "  └── artifacts/         - Pipeline execution cache"
 echo ""
 
 # Step 7: Verify installation
@@ -289,8 +292,8 @@ if [ $? -eq 0 ]; then
     echo "1. Activate the environment (if not already active):"
     echo "   conda activate ${ENV_NAME}"
     echo ""
-    echo "2. Setup models and download pretrained weights:"
-    echo "   python scripts/setup_models.py --all"
+    echo "2. Download pretrained model weights:"
+    echo "   python scripts/download_checkpoints.py --all"
     echo ""
     echo "3. Preprocess your custom SOC data:"
     echo "   python scripts/preprocess_data.py --input-dir ../custom_dataset/"

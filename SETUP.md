@@ -1,40 +1,51 @@
 # PIDS Comparative Framework - Complete Setup Guide
 
-**Last Updated:** October 25, 2025  
+**Last Updated:** October 30, 2025  
 **Version:** 2.0 (ModelBuilder Architecture)
 
 ---
 
 ## 🎯 Overview
 
-The **PIDS Comparative Framework** is a unified platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom Security Operations Center (SOC) data.
+This guide provides **complete setup instructions** for the PIDS Comparative Framework. For architectural details and framework capabilities, see **[README.md](README.md)**.
+
+**What's in this guide:**
+- ✅ Step-by-step installation (automated + manual)
+- ✅ Model setup and pretrained weights download
+- ✅ Custom SOC data preprocessing
+- ✅ Running evaluations and analyzing results
+- ✅ Comprehensive troubleshooting
+- ✅ Advanced configuration options
 
 ### Supported Models
 
-- **MAGIC** - Masked Graph Autoencoder for APT Detection
-- **Kairos** - Temporal GNN with Whole-system Provenance
-- **Orthrus** - Multi-Decoder Contrastive Learning
-- **ThreaTrace** - Scalable Sketch-based Detection
-- **Continuum_FL** - Federated Learning for PIDS
+- **MAGIC** - Masked Graph Autoencoder (DGL-based, 5 checkpoints)
+- **Kairos** - Temporal GNN with sketching (8 checkpoints)
+- **Orthrus** - Multi-Decoder Contrastive Learning (5 checkpoints)
+- **ThreaTrace** - Locality-Sensitive Hashing (140+ models)
+- **Continuum_FL** - Federated Learning PIDS (5 checkpoints)
 
-### Default Workflow
+### Typical Workflow
 
-✅ Setup environment → ✅ Download pretrained weights → ✅ Preprocess data → ✅ Evaluate models → ✅ Compare performance
+```text
+Setup Environment → Download Weights → Preprocess Your Data → Evaluate Models → Analyze Results
+     (10 mins)          (5-15 mins)        (5-60 mins)          (10-30 mins)      (ongoing)
+```
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Quick Start (3 Commands)](#quick-start-3-commands)
+2. [Quick Start](#quick-start)
 3. [Detailed Installation](#detailed-installation)
-4. [Model-Specific Setup](#model-specific-setup)
-5. [Preparing Custom Data](#preparing-custom-data)
+4. [Model Setup & Checkpoints](#model-setup--checkpoints)
+5. [Data Preprocessing](#data-preprocessing)
 6. [Running Evaluation](#running-evaluation)
-7. [Advanced Features](#advanced-features)
-8. [Command Reference](#command-reference)
-9. [Troubleshooting](#troubleshooting)
-10. [Configuration](#configuration)
+7. [Analyzing Results](#analyzing-results)
+8. [Troubleshooting](#troubleshooting)
+9. [Advanced Configuration](#advanced-configuration)
+10. [Command Reference](#command-reference)
 
 ---
 
@@ -90,9 +101,9 @@ nvidia-smi  # Should show GPU info if available
 
 ---
 
-## 🚀 Quick Start (3 Commands)
+## 🚀 Quick Start
 
-For most users, these three commands are all you need:
+For most users, these commands will get you up and running:
 
 ```bash
 # Step 1: Navigate to framework directory
@@ -105,83 +116,13 @@ cd PIDS_Comparative_Framework
 conda activate pids_framework
 
 # Step 4: Setup models and download pretrained weights
-python scripts/setup_models.py --all
+python scripts/download_checkpoints.py --all
 
 # Step 5: Run evaluation on your data
 ./scripts/run_evaluation.sh --data-path ../custom_dataset
 ```
 
 **Total time:** 15-30 minutes (depending on download speeds)
-
----
-
-## 🏗️ Architecture Overview
-
-The framework uses a **modern pipeline architecture** with these key components:
-
-### Core Components
-
-1. **ModelBuilder** (`models/model_builder.py`)
-   - Dynamically constructs models from YAML configurations
-   - No wrapper classes needed - models defined in YAML
-   - Uses shared encoders and decoders
-
-2. **Shared Encoders** (`models/shared_encoders.py`)
-   - `GATEncoder` - Graph Attention Network encoder
-   - `SAGEEncoder` - GraphSAGE encoder
-   - `GraphTransformerEncoder` - Transformer-based encoder
-   - `TimeEncoder` - Temporal encoding
-   - `MultiEncoder` - Combines multiple encoders
-
-3. **Shared Decoders** (`models/shared_decoders.py`)
-   - `EdgeDecoder` - Edge-level anomaly detection
-   - `NodeDecoder` - Node-level classification
-   - `ContrastiveDecoder` - Contrastive learning
-   - `ReconstructionDecoder` - Graph reconstruction
-   - `AnomalyDecoder` - Anomaly scoring
-   - `InnerProductDecoder` - Inner product scoring
-
-4. **Pipeline System** (`pipeline/`)
-   - 9-task modular pipeline: load_data → preprocess → build_model → load_checkpoint → prepare_dataloaders → run_inference → compute_predictions → evaluate_metrics → calculate_metrics
-   - Automatic caching of intermediate results
-   - Task-based execution with dependencies
-
-5. **Per-Model Configs** (`configs/models/`)
-   - YAML files define model architectures
-   - Easy to add new models - just add a YAML file
-   - Example: `configs/models/magic.yaml`, `kairos.yaml`, etc.
-
-### Adding a New Model
-
-To add a new model, simply create a YAML configuration:
-
-```yaml
-# configs/models/your_model.yaml
-model_name: your_model
-
-architecture:
-  encoder:
-    type: gat  # Use existing encoder
-    config:
-      input_dim: 128
-      hidden_dim: 256
-  decoder:
-    type: edge  # Use existing decoder
-    config:
-      hidden_dim: 256
-      output_dim: 2
-
-checkpoints:
-  streamspot:
-    path: checkpoints/your_model/streamspot.pt
-```
-
-Then evaluate it:
-```bash
-python experiments/evaluate_pipeline.py --models your_model --dataset streamspot
-```
-
-**No Python wrapper code required!**
 
 ---
 
@@ -270,7 +211,7 @@ Next steps:
    conda activate pids_framework
 
 2. Setup models and download pretrained weights:
-   python scripts/setup_models.py --all
+   python scripts/download_checkpoints.py --all
 
 3. Preprocess your custom SOC data:
    python scripts/preprocess_data.py --input-dir ../custom_dataset/
@@ -308,17 +249,17 @@ python -c "import torch; print(f'PyTorch {torch.__version__}')"
 
 ### Step 4: Setup Models and Download Pretrained Weights
 
-The `setup_models.py` script handles:
+The `download_checkpoints.py` script handles:
 1. Installing model-specific dependencies
 2. Downloading pretrained weights from official GitHub repositories
 3. Falling back to local directories if downloads fail
 
 ```bash
 # Setup ALL models (recommended)
-python scripts/setup_models.py --all
+python scripts/download_checkpoints.py --all
 
 # OR setup specific models only
-python scripts/setup_models.py --models magic kairos orthrus
+python scripts/download_checkpoints.py --models magic kairos orthrus
 ```
 
 #### Download Strategy:
@@ -1119,31 +1060,31 @@ python experiments/evaluate_pipeline.py \
 
 ---
 
-### setup_models.py
+### download_checkpoints.py
 
 **Purpose:** Download pretrained weights and install model-specific dependencies
 
 ```bash
 # Setup all models (recommended)
-python scripts/setup_models.py --all
+python scripts/download_checkpoints.py --all
 
 # Setup specific models
-python scripts/setup_models.py --models magic kairos orthrus
+python scripts/download_checkpoints.py --models magic kairos orthrus
 
 # List available models and sources
-python scripts/setup_models.py --list
+python scripts/download_checkpoints.py --list
 
 # Force re-download existing weights
-python scripts/setup_models.py --all --force-download
+python scripts/download_checkpoints.py --all --force-download
 
 # Only install dependencies (skip weight download)
-python scripts/setup_models.py --all --no-download
+python scripts/download_checkpoints.py --all --no-download
 
 # Only download weights (skip dependencies)
-python scripts/setup_models.py --download-only --all
+python scripts/download_checkpoints.py --download-only --all
 
 # Skip local fallback (GitHub only)
-python scripts/setup_models.py --all --no-copy
+python scripts/download_checkpoints.py --all --no-copy
 ```
 
 **Arguments:**
@@ -1494,10 +1435,10 @@ Error: Checkpoint not found: checkpoints/magic/checkpoint-streamspot.pt
 ls -R checkpoints/
 
 # Re-download missing checkpoints:
-python scripts/setup_models.py --all --force-download
+python scripts/download_checkpoints.py --all --force-download
 
 # OR download specific model:
-python scripts/setup_models.py --models magic --force-download
+python scripts/download_checkpoints.py --models magic --force-download
 
 # Verify checkpoint structure:
 ls -lh checkpoints/magic/
@@ -1768,7 +1709,7 @@ Each model has its own documentation:
 - [ ] Framework directory accessible
 - [ ] `./scripts/setup.sh` executed successfully
 - [ ] Environment activated: `conda activate pids_framework`
-- [ ] `python scripts/setup_models.py --all` completed
+- [ ] `python scripts/download_checkpoints.py --all` completed
 - [ ] Pretrained weights downloaded (check `checkpoints/`)
 - [ ] `python scripts/verify_installation.py` passes all checks
 

@@ -1,3 +1,7 @@
+# PIDS Comparative Framework - Conda Environment
+# Complete environment specification for framework and all models
+# Creates environment with Python 3.10, PyTorch, and all required dependencies
+
 name: pids_framework
 channels:
   - pytorch
@@ -9,51 +13,68 @@ dependencies:
   - python=3.10
   - pip
   
+  # ============================================
   # PyTorch with CUDA support
+  # ============================================
   - pytorch=1.12.1
   - torchvision=0.13.1
   - torchaudio=0.12.1
   - cudatoolkit=11.6
   
+  # ============================================
   # Scientific Computing
+  # ============================================
   - numpy=1.23.5
   - scipy=1.10.1
   - pandas=1.5.3
   - scikit-learn=1.2.2
   
+  # ============================================
   # Graph Libraries
+  # ============================================
   - networkx=2.8.8
   
+  # ============================================
   # Utilities
+  # ============================================
   - tqdm
   - pyyaml
   - joblib
   - psutil
   
+  # ============================================
   # Visualization
+  # ============================================
   - matplotlib=3.7.1
   - seaborn=0.12.2
   
-  # Database (for Kairos and Orthrus)
+  # ============================================
+  # Database Support (for Kairos and Orthrus)
+  # ============================================
   - psycopg2=2.9.6
   - sqlalchemy=2.0.15
   
+  # ============================================
   # Federated Learning (for Continuum_FL)
+  # ============================================
   - mpi4py=3.1.3
   
-  
-  # Development
+  # ============================================
+  # Development Tools
+  # ============================================
   - pytest
   - black
   - flake8
   - isort
   
-  # Pip dependencies
+  # ============================================
+  # Pip Dependencies
+  # ============================================
   - pip:
     # Core graph deep learning
     - dgl==1.0.0
     
-    # Model-specific dependencies
+    # Model-specific utilities
     - xxhash==3.2.0
     - graphviz==0.20.1
     - python-louvain==0.16
@@ -68,18 +89,17 @@ dependencies:
     
     # Visualization
     - plotly==5.14.1
+    - kaleido
     
-    # Web frameworks (optional for deployment)
+    # Web frameworks (optional)
     - fastapi==0.95.2
     - uvicorn==0.22.0
     - flask==2.3.2
     
-    # Federated learning (Continuum_FL)
+    # Federated learning dependencies (Continuum_FL)
     - paho-mqtt==1.6.1
     - redis==4.5.4
 
     # Download utilities
     - gdown>=4.7.1
     - requests>=2.28.0
-    - plotly
-    - kaleido
