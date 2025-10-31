@@ -81,3 +81,5 @@ dependencies:
     # Download utilities
     - gdown>=4.7.1
     - requests>=2.28.0
+    - plotly
+    - kaleido

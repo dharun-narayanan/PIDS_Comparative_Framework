@@ -1,7 +1,44 @@
+# Cached artifacts from pipeline execution
 artifacts/
 artifacts_archive/
+
+# Model checkpoints (large binary files)
 checkpoints/
+
+# Evaluation results
 results/
+
+# Data files (keep only dataset.py)
 data/
 !data/dataset.py
+
+# Python cache
+__pycache__/
 */__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
