@@ -20,24 +20,24 @@ The **PIDS Comparative Framework** is a unified, production-ready platform for e
 
 ### Why PIDS Comparative Framework?
 
-** Unified Evaluation Platform**
+**Unified Evaluation Platform**
 - Compare state-of-the-art PIDS models on your own SOC data
 - Standardized preprocessing, inference, and evaluation pipeline
 - Reproducible results with consistent metrics across models
 
-** Production-Ready Design**  
+**Production-Ready Design**  
 - CPU-first architecture (GPU optional for acceleration)
 - Handles large datasets (2GB+ JSON files) with chunked processing
 - Automatic error recovery and graceful degradation
 - Comprehensive logging and debugging support
 
-** Plug-and-Play Extensibility**
+**Plug-and-Play Extensibility**
 - Add new models via YAML configuration files (zero Python code)
 - 17 reusable components: 8 encoders + 9 decoders
 - Mix-and-match architecture components to create custom models
 - Smart caching of intermediate results for fast iteration
 
-** Comprehensive Analysis**
+**Comprehensive Analysis**
 - Unsupervised anomaly detection metrics (score separation, percentiles)
 - Optional supervised metrics when ground truth available (AUROC, F1)
 - Ensemble consensus detection across multiple models
