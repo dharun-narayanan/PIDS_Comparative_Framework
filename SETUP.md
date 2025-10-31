@@ -39,9 +39,11 @@ Setup Environment → Download Weights → Preprocess Your Data → Evaluate Mod
 5. [Data Preprocessing](#data-preprocessing)
 6. [Running Evaluation](#running-evaluation)
 7. [Analyzing Results](#analyzing-results)
-8. [Troubleshooting](#troubleshooting)
-9. [Advanced Configuration](#advanced-configuration)
-10. [Command Reference](#command-reference)
+   - [Visualizing Attack Graphs](#visualizing-attack-graphs)
+8. [Advanced Features](#advanced-features)
+9. [Troubleshooting](#troubleshooting)
+10. [Configuration](#configuration)
+11. [Command Reference](#command-reference)
 
 ---
 
@@ -116,6 +118,9 @@ python scripts/download_checkpoints.py --all
 
 # Step 5: Run evaluation on your data
 ./scripts/run_evaluation.sh --data-path ../custom_dataset
+
+# Step 6: Visualize attack graphs
+./scripts/visualize_attacks.sh
 ```
 
 **Total time:** 15-30 minutes (depending on download speeds)
@@ -888,6 +893,268 @@ Next steps:
 
 ---
 
+## Analyzing Results
+
+### Visualizing Attack Graphs
+
+After running model evaluations, visualize and compare attack graphs across multiple models using the `visualize_attack_graphs.py` utility.
+
+#### Features
+
+- **Interactive Multi-Model Comparison** - Side-by-side comparison of attack graphs
+- **Attack Path Reconstruction** - Backward/forward provenance traversal from anomalies  
+- **Entity Clustering** - Group related entities and events by type, temporal proximity, or attack path
+- **Multiple Export Formats** - HTML (interactive), JSON (summary), GraphML (for Gephi/Cytoscape)
+- **Auto-Open Browser** - Automatically opens visualization in your default browser
+- **Attack Path Ranking** - Ranks attack paths by severity and anomaly scores
+
+#### Quick Usage
+
+**Option 1: Using the Convenience Script (Recommended)**
+
+```bash
+# Activate environment
+conda activate pids_framework
+
+# Visualize with default settings (99th percentile, top 100 anomalies)
+./scripts/visualize_attacks.sh
+
+# Customize thresholds
+./scripts/visualize_attacks.sh \
+  --threshold 99.9 \
+  --top-k 50 \
+  --top-paths 20
+
+# Custom output directory
+./scripts/visualize_attacks.sh \
+  --output-dir results/my_attack_viz \
+  --cluster-by temporal
+
+# Show help
+./scripts/visualize_attacks.sh --help
+```
+
+**Option 2: Using Python Script Directly (Advanced)**
+
+```bash
+# Activate environment
+conda activate pids_framework
+
+# Visualize all models
+python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --models magic kairos orthrus threatrace continuum_fl \
+  --output-dir results/attack_viz
+
+# Customize thresholds and paths  
+python utils/visualize_attack_graphs.py \
+  --threshold-percentile 99.0 \
+  --top-k 50 \
+  --top-paths 20 \
+  --cluster-by entity
+
+# Visualize specific models only
+python utils/visualize_attack_graphs.py \
+  --models magic kairos \
+  --output-dir results/magic_vs_kairos
+```
+
+#### Command-Line Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--artifacts-dir` | `artifacts` | Directory containing model artifacts with inference results |
+| `--models` | All 5 models | Space-separated list of models to visualize |
+| `--output-dir` | `results/attack_graph_visualization` | Output directory for visualizations |
+| `--threshold-percentile` | `95.0` | Percentile threshold for anomalies (e.g., 90, 95, 99, 99.9) |
+| `--top-k` | `100` | Number of top anomalies to include in graph |
+| `--top-paths` | `10` | Number of attack paths to extract and visualize |
+| `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
+
+#### Generated Output
+
+```
+results/attack_graph_visualization/
+├── attack_graph_viewer.html              # Interactive visualization (auto-opens)
+├── attack_summary.json                   # Attack statistics and paths
+├── magic_attack_graph.graphml            # GraphML for external tools
+├── kairos_attack_graph.graphml
+├── orthrus_attack_graph.graphml
+├── threatrace_attack_graph.graphml
+└── continuum_fl_attack_graph.graphml
+```
+
+#### Interactive Viewer Features
+
+The HTML viewer provides:
+- **Model Tabs** - Switch between different model visualizations
+- **Attack Path Highlighting** - View top attack paths with severity scores
+- **Entity Tooltips** - Hover over nodes to see detailed entity information (type, attributes, timestamps)
+- **Provenance Edges** - Colored edges showing different dependency relationships
+- **Attack Statistics** - Summary metrics for each model (anomaly counts, separation ratios)
+- **Zoom/Pan Controls** - Interactive graph navigation with mouse/keyboard
+- **Export Options** - Download subgraphs or specific attack paths
+
+#### Example Workflow
+
+```bash
+# Step 1: Run evaluation on your data
+./scripts/run_evaluation.sh --data-path data/custom_soc
+
+# Step 2: Visualize attack graphs with high threshold
+python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --output-dir results/attack_viz \
+  --threshold-percentile 99.0 \
+  --top-k 100 \
+  --top-paths 20
+
+# Output:
+# ✓ Loaded graph and scores for magic
+# ✓ Loaded graph and scores for kairos  
+# ✓ Loaded graph and scores for orthrus
+# ✓ Reconstructed attack graph for magic (95 nodes, 234 edges)
+# ✓ Extracted 20 attack paths
+# ✓ Interactive visualization: results/attack_viz/attack_graph_viewer.html
+# ✓ Opened visualization in default browser
+
+# Step 3: View interactive HTML (auto-opened in browser)
+# Navigate to: results/attack_viz/attack_graph_viewer.html
+
+# Step 4: Import GraphML into Gephi for advanced analysis
+# Open Gephi → Import → results/attack_viz/magic_attack_graph.graphml
+```
+
+#### Integration with External Tools
+
+Export GraphML files to:
+- **Gephi** - Advanced graph visualization, community detection, layout algorithms
+- **Cytoscape** - Network analysis, biological network tools adapted for provenance
+- **Neo4j** - Import into graph database for complex queries and pattern matching
+- **Python NetworkX** - Custom analysis scripts and graph algorithms
+
+#### Attack Summary JSON Structure
+
+```json
+{
+  "magic": {
+    "attack_graph": {
+      "num_nodes": 95,
+      "num_edges": 234,
+      "node_types": {"process": 45, "file": 35, "socket": 15},
+      "edge_types": {"read": 80, "write": 60, "execute": 40, "connect": 54}
+    },
+    "attack_paths": [
+      {
+        "path_id": 1,
+        "severity": 0.98,
+        "length": 5,
+        "nodes": ["proc_123", "file_456", "proc_789", "socket_012", "file_345"],
+        "description": "Process execution chain leading to network exfiltration"
+      }
+    ],
+    "statistics": {
+      "anomaly_count": 95,
+      "score_separation_ratio": 2.45,
+      "temporal_span": "2024-10-14 09:30:00 to 2024-10-14 11:45:00"
+    }
+  }
+}
+```
+
+#### Programmatic Usage
+
+```python
+from utils.visualize_attack_graphs import AttackGraphReconstructor, MultiModelVisualizer
+import pickle
+from pathlib import Path
+
+# Load preprocessed graph
+with open('data/custom_soc/graph.pkl', 'rb') as f:
+    graph_data = pickle.load(f)
+
+# Load model inference results
+with open('artifacts/magic/model_inference/output.pkl', 'rb') as f:
+    inference_result = pickle.load(f)
+
+# Reconstruct attack graph
+reconstructor = AttackGraphReconstructor(
+    graph_data=graph_data,
+    scores=inference_result['scores'],
+    threshold_percentile=99.0
+)
+
+attack_graph = reconstructor.reconstruct_attack_graph(
+    top_k=100,
+    cluster_by='entity'
+)
+
+# Extract attack paths
+attack_paths = reconstructor.extract_attack_paths(
+    attack_graph=attack_graph,
+    top_k=10
+)
+
+# Create visualization
+visualizer = MultiModelVisualizer(output_dir='results/my_viz')
+html_path = visualizer.create_interactive_comparison(
+    model_graphs={'magic': attack_graph},
+    model_paths={'magic': attack_paths},
+    model_scores={'magic': inference_result['scores']}
+)
+
+print(f"Visualization saved to: {html_path}")
+```
+
+#### Clustering Strategies
+
+**Entity Clustering** (default):
+- Groups nodes by entity type (process, file, socket)
+- Best for understanding attack patterns by resource type
+- Useful for identifying lateral movement, data exfiltration
+
+**Temporal Clustering**:
+- Groups events by time proximity
+- Best for understanding attack timeline and progression
+- Useful for identifying attack phases (reconnaissance, exploitation, persistence)
+
+**Path Clustering**:
+- Groups nodes by attack path membership
+- Best for understanding distinct attack chains
+- Useful for identifying parallel attack vectors
+
+#### Troubleshooting
+
+**Issue: No visualization generated**
+```bash
+# Check if plotly is installed
+pip install plotly kaleido
+
+# Verify artifacts exist
+ls -lh artifacts/*/model_inference/
+```
+
+**Issue: Empty attack graph**
+```bash
+# Lower the threshold to include more events
+python utils/visualize_attack_graphs.py --threshold-percentile 90.0
+
+# Increase top-k to include more anomalies
+python utils/visualize_attack_graphs.py --top-k 200
+```
+
+**Issue: Browser doesn't auto-open**
+```bash
+# Manually open the HTML file
+firefox results/attack_graph_visualization/attack_graph_viewer.html
+# or
+google-chrome results/attack_graph_visualization/attack_graph_viewer.html
+# or
+xdg-open results/attack_graph_visualization/attack_graph_viewer.html
+```
+
+---
+
 ## Advanced Features
 
 ### Understanding Unsupervised Evaluation
@@ -1250,6 +1517,110 @@ python experiments/evaluate_pipeline.py \
 - Multi-model evaluation in single run
 - Dynamic model construction via ModelBuilder
 - Per-model YAML configurations
+
+---
+
+### visualize_attack_graphs.py
+
+**Purpose:** Visualize and compare attack graphs from multiple models
+
+```bash
+# Visualize all models with default settings
+python utils/visualize_attack_graphs.py
+
+# Visualize specific models
+python utils/visualize_attack_graphs.py \
+    --models magic kairos orthrus
+
+# Customize thresholds and output
+python utils/visualize_attack_graphs.py \
+    --artifacts-dir artifacts \
+    --output-dir results/attack_viz \
+    --threshold-percentile 99.0 \
+    --top-k 100 \
+    --top-paths 20 \
+    --cluster-by entity
+
+# Focus on high-severity anomalies
+python utils/visualize_attack_graphs.py \
+    --threshold-percentile 99.9 \
+    --top-k 50 \
+    --top-paths 10
+```
+
+**Arguments:**
+- `--artifacts-dir PATH` - Artifacts directory with model outputs (default: artifacts/)
+- `--models MODEL [MODEL ...]` - Models to visualize (default: all 5 models)
+- `--output-dir PATH` - Output directory for visualizations (default: results/attack_graph_visualization/)
+- `--threshold-percentile FLOAT` - Percentile threshold for anomalies, 90-99.9 (default: 95.0)
+- `--top-k NUM` - Number of top anomalies to include (default: 100)
+- `--top-paths NUM` - Number of attack paths to extract (default: 10)
+- `--cluster-by STRATEGY` - Clustering strategy: entity, temporal, or path (default: entity)
+
+**Features:**
+- Attack path reconstruction with provenance traversal
+- Interactive HTML visualization (auto-opens in browser)
+- Multi-model comparison side-by-side
+- Entity clustering and attack path ranking
+- Multiple export formats: HTML, JSON, GraphML
+- Compatible with Gephi, Cytoscape, Neo4j
+
+**Output Files:**
+- `attack_graph_viewer.html` - Interactive visualization
+- `attack_summary.json` - Attack statistics and paths
+- `{model}_attack_graph.graphml` - GraphML exports for each model
+
+**Time:** 1-5 minutes depending on number of models and graph size
+
+---
+
+### visualize_attacks.sh
+
+**Purpose:** Convenience wrapper for attack graph visualization with simplified arguments
+
+```bash
+# Visualize with default settings
+./scripts/visualize_attacks.sh
+
+# Customize thresholds
+./scripts/visualize_attacks.sh \
+    --threshold 99.9 \
+    --top-k 50 \
+    --top-paths 20
+
+# Custom output and clustering
+./scripts/visualize_attacks.sh \
+    --output-dir results/my_attack_viz \
+    --cluster-by temporal \
+    --threshold 99
+
+# Show help
+./scripts/visualize_attacks.sh --help
+```
+
+**Arguments:**
+- `--threshold FLOAT` - Percentile threshold for anomalies, 90-99.9 (default: 99)
+- `--top-k NUM` - Number of top anomalies to include (default: 100)
+- `--top-paths NUM` - Number of attack paths to extract (default: 15)
+- `--cluster-by STRATEGY` - Clustering strategy: entity, temporal, or path (default: entity)
+- `--output-dir PATH` - Output directory for visualizations (default: results/attack_graph_visualization/)
+- `--help` - Show help message
+
+**Features:**
+- Simplified command-line interface
+- Automatic browser opening
+- Progress feedback
+- All models visualized by default
+- Same output as `visualize_attack_graphs.py`
+
+**Output Files:**
+- `attack_graph_viewer.html` - Interactive visualization (auto-opens in browser)
+- `attack_summary.json` - Attack statistics and paths
+- `{model}_attack_graph.graphml` - GraphML exports for each model
+
+**Time:** 1-5 minutes depending on number of models and graph size
+
+**Note:** This script internally calls `utils/visualize_attack_graphs.py` with appropriate parameters.
 
 ---
 
@@ -1709,6 +2080,8 @@ Each model has its own documentation:
 - [ ] `./scripts/run_evaluation.sh` executed
 - [ ] Results saved in `results/evaluation_*/`
 - [ ] Comparison report generated
+- [ ] Attack graphs visualized: `python utils/visualize_attack_graphs.py`
+- [ ] Interactive visualization opened in browser
 
 ### Next Steps
 

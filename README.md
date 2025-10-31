@@ -14,30 +14,30 @@
 
 ---
 
-## 🎯 Overview
+## Overview
 
 The **PIDS Comparative Framework** is a unified, production-ready platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom Security Operations Center (SOC) data. Built with extensibility and ease-of-use at its core, the framework enables rapid prototyping, comprehensive evaluation, and deployment of graph-based intrusion detection models.
 
 ### Why PIDS Comparative Framework?
 
-**🎯 Unified Evaluation Platform**
+** Unified Evaluation Platform**
 - Compare state-of-the-art PIDS models on your own SOC data
 - Standardized preprocessing, inference, and evaluation pipeline
 - Reproducible results with consistent metrics across models
 
-**⚡ Production-Ready Design**  
+** Production-Ready Design**  
 - CPU-first architecture (GPU optional for acceleration)
 - Handles large datasets (2GB+ JSON files) with chunked processing
 - Automatic error recovery and graceful degradation
 - Comprehensive logging and debugging support
 
-**🔌 Plug-and-Play Extensibility**
+** Plug-and-Play Extensibility**
 - Add new models via YAML configuration files (zero Python code)
 - 17 reusable components: 8 encoders + 9 decoders
 - Mix-and-match architecture components to create custom models
 - Smart caching of intermediate results for fast iteration
 
-**📊 Comprehensive Analysis**
+** Comprehensive Analysis**
 - Unsupervised anomaly detection metrics (score separation, percentiles)
 - Optional supervised metrics when ground truth available (AUROC, F1)
 - Ensemble consensus detection across multiple models
@@ -45,7 +45,7 @@ The **PIDS Comparative Framework** is a unified, production-ready platform for e
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 The framework follows a **modular architecture** with three key systems working together:
 
@@ -131,7 +131,7 @@ JSON Events → Entity Extraction → Graph Construction → Feature Engineering
 - Entity deduplication and normalization
 ---
 
-## 🧠 Supported Models
+## Supported Models
 
 All models are unsupervised anomaly detectors pretrained on standard PIDS benchmarks:
 
@@ -408,12 +408,13 @@ PIDS_Comparative_Framework/
 │   └── train.py                                        # Reference training script
 │
 ├── scripts/                                            # Setup and utility scripts
-│   ├── setup.sh                                        # One-command environment setup
+│   ├── analyze_anomalies.py                            # Anomaly analysis tools
 │   ├── download_checkpoints.py                         # Download pretrained weights
 │   ├── preprocess_data.py                              # SOC data preprocessing
-│   ├── analyze_anomalies.py                            # Anomaly analysis tools
 │   ├── run_evaluation.sh                               # End-to-end workflow
-│   └── verify_installation.py                          # Installation check
+│   ├── setup.sh                                        # One-command environment setup
+│   ├── verify_installation.py                          # Installation check
+│   └── visualize_attacks.sh                            # Attack visualization workflow
 │
 ├── data/                                               # Data management
 │   ├── dataset.py                                      # Dataset loading utilities
@@ -424,7 +425,7 @@ PIDS_Comparative_Framework/
 ├── utils/                                              # Common utilities
 │   ├── common.py                                       # Logging, config loading
 │   ├── metrics.py                                      # Detection metrics
-│   └── visualization.py                                # Result visualization
+│   └── visualize_attack_graphs.py                      # Attack graph visualization
 │
 ├── checkpoints/                                        # Pretrained model weights
 │   └── {model}/                                        # Per-model checkpoints
@@ -810,6 +811,146 @@ python experiments/evaluate_pipeline.py \
 **No Python wrapper needed!** The `ModelBuilder` dynamically constructs your model.
 
 ---
+
+## 📊 Attack Graph Visualization
+
+After running model evaluations, you can visualize and compare attack graphs across multiple models using the `visualize_attack_graphs.py` utility.
+
+### Features
+
+- **Interactive Multi-Model Comparison** - Compare attack graphs from all models side-by-side
+- **Attack Path Reconstruction** - Backward/forward provenance traversal from anomalies
+- **Entity Clustering** - Group related entities and events
+- **Export Formats** - HTML (interactive), JSON (summary), GraphML (for Gephi/Cytoscape)
+- **Auto-Open Browser** - Automatically opens visualization in your default browser
+
+### Quick Usage
+
+```bash
+# Visualize all models
+python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --models magic kairos orthrus threatrace continuum_fl
+
+# Customize thresholds and paths
+python utils/visualize_attack_graphs.py \
+  --threshold-percentile 99.0 \
+  --top-k 50 \
+  --top-paths 20
+
+# Specify output directory
+python utils/visualize_attack_graphs.py \
+  --output-dir results/my_attack_visualization
+```
+
+### Command-Line Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--artifacts-dir` | `artifacts` | Directory containing model artifacts |
+| `--models` | All 5 models | Space-separated list of models to visualize |
+| `--output-dir` | `results/attack_graph_visualization` | Output directory for visualizations |
+| `--threshold-percentile` | `95.0` | Percentile threshold for anomalies (90-99.9) |
+| `--top-k` | `100` | Number of top anomalies to include |
+| `--top-paths` | `10` | Number of attack paths to extract |
+| `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
+
+### Generated Output
+
+The visualization script creates:
+
+```
+results/attack_graph_visualization/
+├── attack_graph_viewer.html          # Interactive visualization (auto-opens)
+├── attack_summary.json               # Attack statistics and paths
+├── magic_attack_graph.graphml        # GraphML for external tools
+├── kairos_attack_graph.graphml
+├── orthrus_attack_graph.graphml
+├── threatrace_attack_graph.graphml
+└── continuum_fl_attack_graph.graphml
+```
+
+### Interactive Viewer Features
+
+The HTML viewer provides:
+- **Model Tabs** - Switch between different model visualizations
+- **Attack Path Highlighting** - View top attack paths with severity scores
+- **Entity Tooltips** - Hover over nodes to see detailed entity information
+- **Provenance Edges** - Colored edges showing dependency relationships
+- **Attack Statistics** - Summary metrics for each model
+- **Zoom/Pan Controls** - Interactive graph navigation
+
+### Integration with External Tools
+
+Export GraphML files to:
+- **Gephi** - Advanced graph visualization and analysis
+- **Cytoscape** - Network analysis and visualization
+- **Neo4j** - Graph database import for querying
+- **Python NetworkX** - Custom analysis scripts
+
+### Example Workflow
+
+```bash
+# Step 1: Run evaluation
+./scripts/run_evaluation.sh --data-path data/custom_soc
+
+# Step 2: Visualize results
+python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --output-dir results/attack_viz \
+  --threshold-percentile 99.0
+
+# Step 3: View interactive HTML (auto-opens in browser)
+# File: results/attack_viz/attack_graph_viewer.html
+
+# Step 4: Import GraphML into Gephi for advanced analysis
+# File: results/attack_viz/*_attack_graph.graphml
+```
+
+### Programmatic Usage
+
+```python
+from utils.visualize_attack_graphs import AttackGraphReconstructor, MultiModelVisualizer
+import pickle
+from pathlib import Path
+
+# Load preprocessed graph and model scores
+with open('data/custom_soc/graph.pkl', 'rb') as f:
+    graph_data = pickle.load(f)
+
+with open('artifacts/magic/model_inference/output.pkl', 'rb') as f:
+    inference_result = pickle.load(f)
+
+# Reconstruct attack graph
+reconstructor = AttackGraphReconstructor(
+    graph_data=graph_data,
+    scores=inference_result['scores'],
+    threshold_percentile=99.0
+)
+
+attack_graph = reconstructor.reconstruct_attack_graph(
+    top_k=100,
+    cluster_by='entity'
+)
+
+# Extract attack paths
+attack_paths = reconstructor.extract_attack_paths(
+    attack_graph=attack_graph,
+    top_k=10
+)
+
+# Create visualization
+visualizer = MultiModelVisualizer(output_dir='results/my_viz')
+html_path = visualizer.create_interactive_comparison(
+    model_graphs={'magic': attack_graph},
+    model_paths={'magic': attack_paths},
+    model_scores={'magic': inference_result['scores']}
+)
+
+print(f"Visualization saved to: {html_path}")
+```
+
+---
 ## 📚 Resources
 
 ### Documentation
@@ -821,8 +962,11 @@ python experiments/evaluate_pipeline.py \
 - `scripts/setup.sh` - Automated environment setup
 - `scripts/preprocess_data.py` - SOC data preprocessing
 - `scripts/download_checkpoints.py` - Download pretrained weights
+- `scripts/run_evaluation.sh` - End-to-end evaluation workflow
 - `experiments/evaluate_pipeline.py` - Model evaluation
 - `scripts/analyze_anomalies.py` - Anomaly analysis tools
+- `scripts/visualize_attacks.sh` - Attack visualization workflow
+- `utils/visualize_attack_graphs.py` - Interactive attack graph visualization
 
 ###Citation & References
 
