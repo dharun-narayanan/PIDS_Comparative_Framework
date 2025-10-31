@@ -923,6 +923,9 @@ conda activate pids_framework
 # Visualize with default settings (99th percentile, top 100 anomalies)
 ./scripts/visualize_attacks.sh
 
+# OR — start an HTTP server for remote access (useful with VS Code Remote / SSH)
+./scripts/visualize_attacks.sh --serve
+
 # Customize thresholds
 ./scripts/visualize_attacks.sh \
   --threshold 99.9 \

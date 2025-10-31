@@ -224,8 +224,6 @@ def check_configuration_files():
         'configs/datasets/custom_soc.yaml',
         'configs/datasets/cadets_e3.yaml',
         'configs/datasets/streamspot.yaml',
-        'configs/experiments/compare_all.yaml',
-        'configs/experiments/train_single.yaml',
     ]
     
     all_good = True
@@ -273,9 +271,7 @@ def check_documentation():
     
     required_docs = [
         'README.md',
-        'QUICKSTART.md',
-        'IMPLEMENTATION_COMPLETE.md',
-        'FRAMEWORK_GUIDE.md',
+        'SETUP.md',
     ]
     
     all_good = True
@@ -288,29 +284,6 @@ def check_documentation():
         else:
             print_failure(f"{doc_path:30s} - MISSING")
             all_good = False
-    
-    return all_good
-
-def check_external_models():
-    """Check external model directories."""
-    print_header("External Model Directories")
-    
-    external_models = {
-        'MAGIC': '../MAGIC',
-        'Kairos': '../kairos',
-        'Orthrus': '../orthrus',
-        'ThreaTrace': '../threaTrace',
-        'Continuum_FL': '../Continuum_FL',
-    }
-    
-    all_good = True
-    
-    for model_name, model_path in external_models.items():
-        full_path = project_root / model_path
-        if full_path.exists():
-            print_success(f"{model_name:15s} - {full_path}")
-        else:
-            print_warning(f"{model_name:15s} - NOT FOUND (optional)")
     
     return all_good
 
@@ -363,7 +336,6 @@ def main():
         'Configuration Files': check_configuration_files(),
         'Scripts': check_scripts(),
         'Documentation': check_documentation(),
-        'External Models': check_external_models(),
     }
     
     success = print_summary(results)
