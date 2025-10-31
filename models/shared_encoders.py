@@ -422,7 +422,7 @@ def get_encoder(encoder_type: str, config: dict) -> nn.Module:
     Factory function to create encoder based on type and configuration.
     
     Args:
-        encoder_type: Type of encoder ('gat', 'sage', 'transformer', 'time')
+        encoder_type: Type of encoder ('gat', 'sage', 'transformer', 'time', 'gin', 'glstm', 'linear', 'sum_aggregation')
         config: Configuration dictionary with encoder parameters
         
     Returns:
@@ -452,6 +452,18 @@ def get_encoder(encoder_type: str, config: dict) -> nn.Module:
     
     elif encoder_type == 'time':
         return TimeEncoder(config.get('time_dim', 100))
+    
+    elif encoder_type in ['gin', 'graph_isomorphism']:
+        return GINEncoder(**config)
+    
+    elif encoder_type in ['glstm', 'graph_lstm']:
+        return GLSTMEncoder(**config)
+    
+    elif encoder_type == 'linear':
+        return LinearEncoder(**config)
+    
+    elif encoder_type in ['sum_aggregation', 'sum_pool']:
+        return SumAggregationEncoder(**config)
     
     else:
         raise ValueError(f"Unknown encoder type: {encoder_type}")
@@ -509,3 +521,308 @@ class MultiEncoder(nn.Module):
             return torch.stack(outputs).mean(dim=0)
         else:
             return outputs[0]
+
+
+# ============================================================================
+# Graph Isomorphism Network (GIN) Encoder
+# Used by: Flash, Velox, other graph classification tasks
+# ============================================================================
+
+class GINEncoder(nn.Module):
+    """
+    Graph Isomorphism Network (GIN) encoder.
+    
+    Implements the powerful GIN architecture with edge features support (GINE).
+    GIN is theoretically proven to be as powerful as the WL test for graph
+    isomorphism, making it excellent for graph classification tasks.
+    
+    Args:
+        in_channels: Input feature dimension
+        hidden_channels: Hidden layer dimension
+        out_channels: Output embedding dimension
+        num_layers: Number of GIN layers
+        dropout: Dropout rate
+        activation: Activation function name
+        edge_dim: Edge feature dimension (None for GIN, int for GINE)
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        hidden_channels: int,
+        out_channels: int,
+        num_layers: int = 2,
+        dropout: float = 0.0,
+        activation: str = 'relu',
+        edge_dim: Optional[int] = None,
+    ):
+        super().__init__()
+        from torch_geometric.nn import GINConv, GINEConv
+        
+        self.num_layers = num_layers
+        self.dropout = nn.Dropout(dropout)
+        self.activation = create_activation(activation)
+        
+        self.convs = nn.ModuleList()
+        current_dim = in_channels
+        
+        for i in range(num_layers):
+            # MLP for each GIN layer
+            nn_seq = nn.Sequential(
+                nn.Linear(current_dim, hidden_channels),
+                nn.ReLU(),
+                nn.Linear(hidden_channels, hidden_channels)
+            )
+            
+            if edge_dim is None:
+                conv = GINConv(nn_seq)
+            else:
+                conv = GINEConv(nn_seq, edge_dim=edge_dim)
+            
+            self.convs.append(conv)
+            current_dim = hidden_channels
+        
+        self.fc1 = nn.Linear(hidden_channels, hidden_channels)
+        self.fc2 = nn.Linear(hidden_channels, out_channels)
+    
+    def forward(self, x, edge_index, edge_attr=None, **kwargs):
+        for conv in self.convs:
+            x = conv(x, edge_index, edge_attr)
+            x = self.activation(x)
+            x = self.dropout(x)
+        
+        x = self.activation(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+
+# ============================================================================
+# Graph LSTM (GLSTM) Encoder  
+# Used by: Hierarchical graph processing, temporal dependencies
+# ============================================================================
+
+class GLSTMEncoder(nn.Module):
+    """
+    Graph Long Short-Term Memory (GLSTM) encoder.
+    
+    Processes graphs with tree-like structures using LSTM-style gating.
+    Particularly effective for provenance graphs with hierarchical relationships.
+    
+    Args:
+        in_channels: Input feature dimension
+        out_channels: Output embedding dimension
+        cell_clip: Optional cell state clipping value
+        typed_hidden_rep: Include edge type embedding in hidden states
+        edge_dim: Edge feature dimension
+        num_edge_types: Number of edge types (default: 10)
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        cell_clip: Optional[float] = None,
+        typed_hidden_rep: bool = False,
+        edge_dim: Optional[int] = None,
+        num_edge_types: int = 10,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.cell_clip = cell_clip
+        self.typed_hidden_rep = typed_hidden_rep
+        self.edge_dim = edge_dim if edge_dim is not None else in_channels
+        self.num_edge_types = num_edge_types
+        
+        # Input, output, and update gates
+        self.W_iou = nn.Linear(in_channels, 3 * out_channels)
+        if typed_hidden_rep:
+            self.U_iou = nn.Parameter(
+                torch.randn(out_channels, 3 * out_channels, self.edge_dim)
+            )
+        else:
+            self.U_iou = nn.Linear(out_channels, 3 * out_channels)
+        
+        # Forget gate
+        self.W_f = nn.Linear(in_channels, out_channels)
+        if typed_hidden_rep:
+            self.U_f = nn.Parameter(
+                torch.randn(out_channels, out_channels, self.edge_dim)
+            )
+        else:
+            self.U_f = nn.Linear(out_channels, out_channels)
+    
+    def forward(self, x, edge_index, edge_attr=None, **kwargs):
+        batch_size = x.shape[0]
+        device = x.device
+        
+        # Initialize hidden and cell states
+        h = torch.zeros(batch_size, self.out_channels, device=device)
+        c = torch.zeros(batch_size, self.out_channels, device=device)
+        
+        # Compute node processing order (topological sort for trees)
+        adjacency_list = edge_index.t()
+        node_order = torch.zeros(batch_size, device=device)
+        for i in range(adjacency_list.shape[0]):
+            node_order[adjacency_list[i, 0]] += 1
+        
+        # Process nodes in topological order
+        max_order = int(node_order.max().item()) + 1
+        h_sum = torch.zeros(batch_size, self.out_channels, device=device)
+        
+        for iteration in range(max_order):
+            node_mask = node_order == iteration
+            
+            if iteration == 0:
+                iou = self.W_iou(x[node_mask])
+            else:
+                # Aggregate child hidden states
+                edge_mask = (node_order[adjacency_list[:, 0]] == iteration)
+                if edge_mask.any():
+                    parent_idx = adjacency_list[edge_mask, 0]
+                    child_idx = adjacency_list[edge_mask, 1]
+                    
+                    for pidx, cidx in zip(parent_idx, child_idx):
+                        h_sum[pidx] += h[cidx]
+                    
+                    iou = self.W_iou(x[node_mask]) + self.U_iou(h_sum[node_mask])
+                else:
+                    iou = self.W_iou(x[node_mask])
+            
+            # Apply LSTM gates
+            i, o, u = torch.split(iou, iou.size(1) // 3, dim=1)
+            i = torch.sigmoid(i)
+            o = torch.sigmoid(o)
+            u = torch.tanh(u)
+            
+            c[node_mask] = i * u
+            
+            if iteration > 0 and edge_mask.any():
+                # Compute forget gates
+                f = torch.sigmoid(self.W_f(x[parent_idx]) + self.U_f(h[child_idx]))
+                fc = f * c[child_idx]
+                
+                for cidx, pidx in enumerate(parent_idx):
+                    c[pidx] += fc[cidx]
+                    if self.cell_clip is not None:
+                        c[pidx] = torch.clamp(c[pidx], -self.cell_clip, self.cell_clip)
+            
+            h[node_mask] = o * torch.tanh(c[node_mask])
+        
+        return h
+
+
+# ============================================================================
+# Linear Encoder
+# Used by: Simple baseline, fast inference
+# ============================================================================
+
+class LinearEncoder(nn.Module):
+    """
+    Simple linear transformation encoder.
+    
+    Provides a lightweight baseline or fast embedding projection.
+    
+    Args:
+        in_channels: Input feature dimension
+        out_channels: Output embedding dimension
+        num_layers: Number of linear layers (default: 1)
+        dropout: Dropout rate
+        activation: Activation function name
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        num_layers: int = 1,
+        dropout: float = 0.0,
+        activation: str = 'relu',
+    ):
+        super().__init__()
+        self.num_layers = num_layers
+        
+        layers = []
+        current_dim = in_channels
+        
+        for i in range(num_layers - 1):
+            layers.append(nn.Linear(current_dim, out_channels))
+            layers.append(create_activation(activation))
+            layers.append(nn.Dropout(dropout))
+            current_dim = out_channels
+        
+        layers.append(nn.Linear(current_dim, out_channels))
+        self.encoder = nn.Sequential(*layers)
+    
+    def forward(self, x, edge_index=None, edge_attr=None, **kwargs):
+        return self.encoder(x)
+
+
+# ============================================================================
+# Sum Aggregation Encoder
+# Used by: Simple graph-level pooling
+# ============================================================================
+
+class SumAggregationEncoder(nn.Module):
+    """
+    Sum aggregation encoder for graph-level representations.
+    
+    Aggregates node embeddings via summation to create graph embeddings.
+    
+    Args:
+        in_channels: Input feature dimension
+        out_channels: Output embedding dimension
+        hidden_channels: Optional hidden layer dimension
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: Optional[int] = None,
+    ):
+        super().__init__()
+        if hidden_channels is not None:
+            self.transform = nn.Sequential(
+                nn.Linear(in_channels, hidden_channels),
+                nn.ReLU(),
+                nn.Linear(hidden_channels, out_channels)
+            )
+        else:
+            self.transform = nn.Linear(in_channels, out_channels)
+    
+    def forward(self, x, edge_index=None, batch=None, **kwargs):
+        x = self.transform(x)
+        
+        if batch is not None:
+            # Graph-level aggregation
+            from torch_geometric.nn import global_add_pool
+            return global_add_pool(x, batch)
+        else:
+            # Node-level features
+            return x
+
+
+# ============================================================================
+# Encoder Factory Functions
+# ============================================================================
+
+def create_gin_encoder(**kwargs):
+    """Factory function for GIN encoder."""
+    return GINEncoder(**kwargs)
+
+
+def create_glstm_encoder(**kwargs):
+    """Factory function for GLSTM encoder."""
+    return GLSTMEncoder(**kwargs)
+
+
+def create_linear_encoder(**kwargs):
+    """Factory function for Linear encoder."""
+    return LinearEncoder(**kwargs)
+
+
+def create_sum_aggregation_encoder(**kwargs):
+    """Factory function for Sum Aggregation encoder."""
+    return SumAggregationEncoder(**kwargs)
+

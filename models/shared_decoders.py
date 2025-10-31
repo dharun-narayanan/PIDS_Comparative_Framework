@@ -20,7 +20,7 @@ Decoders:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 
 # ============================================================================
@@ -634,5 +634,209 @@ def get_decoder(decoder_type: str, config: dict) -> nn.Module:
     elif decoder_type in ['inner_product', 'dot_product']:
         return InnerProductDecoder(**config)
     
+    elif decoder_type in ['nodlink', 'vae_decoder']:
+        return NodLinkDecoder(**config)
+    
+    elif decoder_type in ['edge_linear', 'linear_edge']:
+        return EdgeLinearDecoder(**config)
+    
+    elif decoder_type in ['edge_mlp', 'custom_edge_mlp']:
+        return CustomEdgeMLPDecoder(**config)
+    
     else:
         raise ValueError(f"Unknown decoder type: {decoder_type}")
+
+
+# ============================================================================
+# NodLink VAE Decoder (Variational Autoencoder)
+# Used by: NodLink model for uncertainty quantification
+# ============================================================================
+
+class NodLinkDecoder(nn.Module):
+    """
+    NodLink Variational Autoencoder (VAE) Decoder.
+    
+    Implements a VAE-based decoder for uncertainty quantification in
+    anomaly detection. Uses reparameterization trick for training.
+    
+    Args:
+        in_channels: Input embedding dimension
+        out_channels: Output dimension
+        device: Device for computation
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        device: str = 'cpu',
+    ):
+        super().__init__()
+        
+        hidden_dim = in_channels // 2
+        self.device = device
+        
+        # Encoder part of VAE
+        self.encoder_fc1 = nn.Linear(in_channels, hidden_dim)
+        self.encoder_fc2 = nn.Linear(hidden_dim, hidden_dim // 2)
+        self.encoder_mu = nn.Linear(hidden_dim // 2, hidden_dim // 4)
+        self.encoder_logvar = nn.Linear(hidden_dim // 2, hidden_dim // 4)
+        
+        # Decoder part of VAE
+        self.decoder_fc1 = nn.Linear(hidden_dim // 4, hidden_dim // 2)
+        self.decoder_fc2 = nn.Linear(hidden_dim // 2, hidden_dim)
+        self.decoder_fc3 = nn.Linear(hidden_dim, out_channels)
+        
+        # For KL divergence calculation
+        self.N = torch.distributions.Normal(0, 1)
+        self.N.loc = self.N.loc.to(device)
+        self.N.scale = self.N.scale.to(device)
+        self.kl_divergence = 0
+    
+    def encode_vae(self, x):
+        """Encode to latent space with reparameterization."""
+        h = F.relu(self.encoder_fc1(x))
+        h = F.relu(self.encoder_fc2(h))
+        mu = self.encoder_mu(h)
+        logvar = self.encoder_logvar(h)
+        
+        # Reparameterization trick
+        std = torch.exp(0.5 * logvar)
+        z = mu + std * self.N.sample(mu.shape)
+        
+        # Compute KL divergence
+        self.kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        
+        return z
+    
+    def decode_vae(self, z):
+        """Decode from latent space."""
+        h = F.relu(self.decoder_fc1(z))
+        h = F.relu(self.decoder_fc2(h))
+        return self.decoder_fc3(h)
+    
+    def forward(self, x, edge_index=None, **kwargs):
+        z = self.encode_vae(x)
+        return self.decode_vae(z)
+
+
+# ============================================================================
+# Edge Linear Decoder
+# Used by: Simple edge prediction tasks
+# ============================================================================
+
+class EdgeLinearDecoder(nn.Module):
+    """
+    Simple linear decoder for edge-level predictions.
+    
+    Concatenates source and destination node embeddings and applies
+    linear transformation for edge classification/regression.
+    
+    Args:
+        in_channels: Input embedding dimension (per node)
+        out_channels: Output dimension (edge prediction)
+        hidden_channels: Optional hidden layer dimension
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: Optional[int] = None,
+    ):
+        super().__init__()
+        
+        # Input is concatenation of src and dst embeddings
+        input_dim = in_channels * 2
+        
+        if hidden_channels is not None:
+            self.layers = nn.Sequential(
+                nn.Linear(input_dim, hidden_channels),
+                nn.ReLU(),
+                nn.Linear(hidden_channels, out_channels)
+            )
+        else:
+            self.layers = nn.Linear(input_dim, out_channels)
+    
+    def forward(self, x, edge_index, **kwargs):
+        # Get source and destination node embeddings
+        src, dst = edge_index
+        edge_emb = torch.cat([x[src], x[dst]], dim=-1)
+        
+        return self.layers(edge_emb)
+
+
+# ============================================================================
+# Custom Edge MLP Decoder
+# Used by: Complex edge prediction with multiple hidden layers
+# ============================================================================
+
+class CustomEdgeMLPDecoder(nn.Module):
+    """
+    Custom MLP decoder for edge-level predictions with flexible architecture.
+    
+    Supports multiple hidden layers, batch normalization, and dropout
+    for complex edge classification tasks.
+    
+    Args:
+        in_channels: Input embedding dimension (per node)
+        out_channels: Output dimension (edge prediction)
+        hidden_channels: List of hidden layer dimensions
+        dropout: Dropout rate
+        batch_norm: Whether to use batch normalization
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: List[int] = [256, 128],
+        dropout: float = 0.1,
+        batch_norm: bool = False,
+    ):
+        super().__init__()
+        
+        # Input is concatenation of src and dst embeddings
+        input_dim = in_channels * 2
+        
+        layers = []
+        current_dim = input_dim
+        
+        for hidden_dim in hidden_channels:
+            layers.append(nn.Linear(current_dim, hidden_dim))
+            if batch_norm:
+                layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.ReLU())
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+            current_dim = hidden_dim
+        
+        layers.append(nn.Linear(current_dim, out_channels))
+        self.mlp = nn.Sequential(*layers)
+    
+    def forward(self, x, edge_index, **kwargs):
+        # Get source and destination node embeddings
+        src, dst = edge_index
+        edge_emb = torch.cat([x[src], x[dst]], dim=-1)
+        
+        return self.mlp(edge_emb)
+
+
+# ============================================================================
+# Decoder Factory Functions
+# ============================================================================
+
+def create_nodlink_decoder(**kwargs):
+    """Factory function for NodLink VAE decoder."""
+    return NodLinkDecoder(**kwargs)
+
+
+def create_edge_linear_decoder(**kwargs):
+    """Factory function for Edge Linear decoder."""
+    return EdgeLinearDecoder(**kwargs)
+
+
+def create_custom_edge_mlp_decoder(**kwargs):
+    """Factory function for Custom Edge MLP decoder."""
+    return CustomEdgeMLPDecoder(**kwargs)
+
