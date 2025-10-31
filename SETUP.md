@@ -120,7 +120,11 @@ python scripts/download_checkpoints.py --all
 ./scripts/run_evaluation.sh --data-path ../custom_dataset
 
 # Step 6: Visualize attack graphs
+# Local visualization (opens HTML locally)
 ./scripts/visualize_attacks.sh
+
+# OR — start an HTTP server for remote access (useful with VS Code Remote / SSH)
+./scripts/visualize_attacks.sh --serve
 ```
 
 **Total time:** 15-30 minutes (depending on download speeds)
@@ -934,6 +938,34 @@ conda activate pids_framework
 ./scripts/visualize_attacks.sh --help
 ```
 
+**Remote Server / VS Code Remote Usage**
+
+When running the framework on a remote server (e.g., via VS Code Remote SSH), use the `--serve` flag to start an HTTP server with port forwarding:
+
+```bash
+# Start visualization with HTTP server for remote access
+./scripts/visualize_attacks.sh --serve
+
+# The script will:
+# 1. Generate the visualization
+# 2. Start HTTP server on port 8000
+# 3. Keep running until you press Ctrl+C
+
+# To access the visualization:
+# 1. In VS Code, open the PORTS panel (bottom, next to TERMINAL)
+# 2. VS Code should auto-detect port 8000
+# 3. Click the globe icon 🌐 next to port 8000
+# 4. The visualization opens directly in your local browser!
+
+# If port not auto-detected:
+#   - Click "Forward a Port" in PORTS panel
+#   - Enter: 8000
+#   - Then click the globe icon 🌐
+
+# Stop the server when done viewing:
+#   - Press Ctrl+C in the terminal
+```
+
 **Option 2: Using Python Script Directly (Advanced)**
 
 ```bash
@@ -970,6 +1002,8 @@ python utils/visualize_attack_graphs.py \
 | `--top-k` | `100` | Number of top anomalies to include in graph |
 | `--top-paths` | `10` | Number of attack paths to extract and visualize |
 | `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
+| `--serve` | Off | Start HTTP server for remote access (recommended for VS Code Remote) |
+| `--no-browser` | Off | Skip auto-opening browser (useful for headless servers) |
 
 #### Generated Output
 

@@ -9,6 +9,8 @@ TOP_K=100
 TOP_PATHS=15
 CLUSTER_BY="entity"
 OUTPUT_DIR="results/attack_graph_visualization"
+NO_BROWSER=""
+SERVE=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -33,6 +35,14 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_DIR="$2"
             shift 2
             ;;
+        --no-browser)
+            NO_BROWSER="--no-browser"
+            shift
+            ;;
+        --serve)
+            SERVE="--serve"
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -42,6 +52,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --top-paths NUMBER        Number of top attack paths to extract (default: 15)"
             echo "  --cluster-by METHOD       Clustering strategy: entity, temporal, path (default: entity)"
             echo "  --output-dir PATH         Output directory (default: results/attack_graph_visualization)"
+            echo "  --no-browser              Skip auto-opening browser (useful for remote servers)"
+            echo "  --serve                   Start HTTP server for remote access (recommended for VS Code Remote)"
             echo "  --help                    Show this help message"
             exit 0
             ;;
@@ -70,19 +82,22 @@ python utils/visualize_attack_graphs.py \
     --top-k ${TOP_K} \
     --top-paths ${TOP_PATHS} \
     --cluster-by ${CLUSTER_BY} \
-    --output-dir ${OUTPUT_DIR}
+    --output-dir ${OUTPUT_DIR} \
+    ${NO_BROWSER} \
+    ${SERVE}
 
 echo ""
 echo "============================================"
 echo "Visualization Complete!"
 echo "============================================"
-echo "The interactive visualization has been opened in your default browser."
 echo ""
 echo "Generated files:"
 echo "  • Interactive HTML: ${OUTPUT_DIR}/attack_graph_viewer.html"
 echo "  • Attack Summary: ${OUTPUT_DIR}/attack_summary.json"
 echo "  • GraphML files: ${OUTPUT_DIR}/*_attack_graph.graphml"
 echo ""
-echo "If the browser did not open automatically, run:"
-echo "  xdg-open ${OUTPUT_DIR}/attack_graph_viewer.html"
+echo "To view the visualization:"
+echo "  1. In VS Code: Right-click the HTML file and select 'Open with Live Server' or 'Open in Simple Browser'"
+echo "  2. Command line: xdg-open ${OUTPUT_DIR}/attack_graph_viewer.html"
+echo "  3. Manual: Copy the file to your local machine and open in browser"
 echo ""

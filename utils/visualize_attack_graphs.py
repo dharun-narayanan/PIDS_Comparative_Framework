@@ -30,6 +30,10 @@ from scipy.sparse import csr_matrix
 import webbrowser
 import platform
 import subprocess
+import socket
+import threading
+import http.server
+import socketserver
 
 # Visualization imports
 try:
@@ -98,6 +102,73 @@ def open_in_browser(filepath: Path) -> bool:
     except Exception as e:
         logger.warning(f"Could not auto-open browser: {e}")
         return False
+
+
+def is_port_available(port: int) -> bool:
+    """Check if a port is available for binding."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', port))
+            return True
+    except OSError:
+        return False
+
+
+def start_http_server(directory: Path, port: int = 8000) -> Optional[int]:
+    """
+    Start a simple HTTP server in a background thread.
+    
+    Args:
+        directory: Directory to serve files from
+        port: Port to start the server on (will try next ports if occupied)
+        
+    Returns:
+        Port number if successful, None otherwise
+    """
+    # Find an available port
+    max_attempts = 10
+    current_port = port
+    
+    for _ in range(max_attempts):
+        if is_port_available(current_port):
+            break
+        current_port += 1
+    else:
+        logger.error(f"Could not find available port in range {port}-{current_port}")
+        return None
+    
+    try:
+        # Create a custom handler that serves from the specified directory
+        # and redirects root to the HTML file
+        class CustomHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=str(directory), **kwargs)
+            
+            def do_GET(self):
+                # Redirect root path to the HTML file
+                if self.path == '/' or self.path == '':
+                    self.send_response(302)
+                    self.send_header('Location', '/attack_graph_viewer.html')
+                    self.end_headers()
+                    return
+                # Serve other files normally
+                super().do_GET()
+        
+        CustomHandler.extensions_map['.html'] = 'text/html'
+        CustomHandler.extensions_map['.json'] = 'application/json'
+        
+        httpd = socketserver.TCPServer(("", current_port), CustomHandler)
+        
+        # Start server in background thread
+        server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        server_thread.start()
+        
+        logger.info(f"✓ HTTP server started on port {current_port}")
+        return current_port
+        
+    except Exception as e:
+        logger.error(f"Failed to start HTTP server: {e}")
+        return None
 
 
 class AttackGraphReconstructor:
@@ -1323,12 +1394,27 @@ def main():
         help='Clustering strategy (default: entity)'
     )
     
+    parser.add_argument(
+        '--no-browser',
+        action='store_true',
+        help='Skip auto-opening browser (useful for remote servers)'
+    )
+    
+    parser.add_argument(
+        '--serve',
+        action='store_true',
+        help='Start HTTP server for remote access (recommended for VS Code Remote)'
+    )
+    
     args = parser.parse_args()
     
     # Setup
     artifacts_dir = Path(args.artifacts_dir)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Track if HTTP server is started
+    server_port_to_keep = None
     
     logger.info("=" * 80)
     logger.info("Attack Graph Visualization and Comparison")
@@ -1439,12 +1525,56 @@ def main():
         if html_path:
             logger.info(f"✓ Interactive visualization: {html_path}")
             
-            # Auto-open in browser
-            logger.info("Opening visualization in browser...")
-            if open_in_browser(Path(html_path)):
-                logger.info("✓ Opened visualization in default browser")
-            else:
-                logger.warning("Could not auto-open browser, open manually")
+            browser_opened = False
+            
+            # Check if we should force HTTP server mode
+            if args.serve:
+                logger.info("HTTP server mode requested (--serve flag)")
+                browser_opened = False
+            # Auto-open in browser (unless disabled)
+            elif not args.no_browser:
+                logger.info("Opening visualization in browser...")
+                browser_opened = open_in_browser(Path(html_path))
+                
+                if browser_opened:
+                    logger.info("✓ Opened visualization in default browser")
+                else:
+                    logger.warning("Could not auto-open browser (likely running on remote server)")
+            
+            # If browser didn't open or serve mode requested, start HTTP server
+            if not browser_opened or args.serve:
+                logger.info("\n" + "-" * 80)
+                logger.info("Starting HTTP server for remote access...")
+                logger.info("-" * 80)
+                
+                server_port = start_http_server(output_dir, port=8000)
+                
+                if server_port:
+                    logger.info("\n" + "=" * 80)
+                    logger.info("🌐 HTTP SERVER STARTED")
+                    logger.info("=" * 80)
+                    logger.info(f"\nVisualization ready at: http://localhost:{server_port}")
+                    logger.info(f"\n📋 To access the visualization:")
+                    logger.info(f"\n  1. In VS Code, check the PORTS panel (bottom, next to TERMINAL)")
+                    logger.info(f"     → VS Code should auto-detect port {server_port}")
+                    logger.info(f"\n  2. Click the globe icon 🌐 next to port {server_port}")
+                    logger.info(f"     → This opens the visualization directly in your browser!")
+                    logger.info(f"\n  3. If port not auto-detected:")
+                    logger.info(f"     → Click 'Forward a Port' and enter: {server_port}")
+                    logger.info(f"     → Then click the globe icon 🌐")
+                    logger.info(f"\n  💡 The page will open directly to the visualization")
+                    logger.info(f"  ⏳ Server keeps running until you press Ctrl+C")
+                    logger.info("\n" + "=" * 80 + "\n")
+                    
+                    # Store server port to keep server running
+                    server_port_to_keep = server_port
+                else:
+                    logger.error("Failed to start HTTP server")
+                    logger.info(f"\nManual access options:")
+                    logger.info(f"  1. Download the HTML file to your local machine")
+                    logger.info(f"  2. Use VS Code 'Open Preview' on the HTML file")
+                    logger.info(f"  3. Path: {html_path}")
+
     
     # Export summary JSON
     visualizer.export_summary_json(
@@ -1461,13 +1591,35 @@ def main():
     logger.info("=" * 80)
     logger.info(f"\nResults saved to: {output_dir}")
     logger.info("\nGenerated files:")
-    logger.info(f"  • Interactive viewer: {output_dir}/attack_graph_viewer.html (opened in browser)")
+    logger.info(f"  • Interactive viewer: {output_dir}/attack_graph_viewer.html")
     logger.info(f"  • Attack summary: {output_dir}/attack_summary.json")
     logger.info(f"  • GraphML exports: {output_dir}/*.graphml")
-    logger.info("\nNext steps:")
-    logger.info(f"  1. Explore interactive visualization in your browser")
-    logger.info(f"  2. Use navigation tabs to switch between models")
-    logger.info(f"  3. Import GraphML files into Gephi/Cytoscape for advanced analysis")
+    
+    # If HTTP server is running, keep the script alive
+    if server_port_to_keep:
+        logger.info("\n" + "=" * 80)
+        logger.info("⏳ SERVER RUNNING - Waiting for you to view the visualization...")
+        logger.info("=" * 80)
+        logger.info(f"\n🌐 Access at: http://localhost:{server_port_to_keep}")
+        logger.info(f"   (Opens directly to the visualization)")
+        logger.info("\n💡 Press Ctrl+C when done to stop the server and exit\n")
+        
+        try:
+            # Keep the main thread alive so the daemon server thread continues
+            import time
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("\n\n" + "=" * 80)
+            logger.info("🛑 Server stopped by user")
+            logger.info("=" * 80)
+            logger.info("Visualization session ended.\n")
+            return 0
+    else:
+        logger.info("\nNext steps:")
+        logger.info(f"  1. Explore interactive visualization in your browser")
+        logger.info(f"  2. Use navigation tabs to switch between models")
+        logger.info(f"  3. Import GraphML files into Gephi/Cytoscape for advanced analysis")
     
     return 0
 
