@@ -121,10 +121,11 @@ Handles diverse provenance data formats with robust preprocessing:
 - Custom JSON schemas
 
 **Universal Semantic Parser:**
-- **Automatic format detection** - Identifies DARPA CDM, Elastic, or custom formats
-- **Entity extraction** - Processes, files, network connections, memory objects
-- **Event parsing** - 20+ event types (exec, fork, read, write, connect, etc.)
-- **Unified representation** - Converts all formats to common internal model
+- **Automatic format detection** - Three specialized parsers: DARPACDMParser, ElasticParser, CustomJSONParser
+- **Entity extraction** - Processes, files, network connections, memory objects, sockets, registry keys
+- **Event parsing** - 20+ event types (exec, fork, read, write, connect, open, close, etc.)
+- **Unified representation** - Converts all formats to common Event and Entity model
+- **Binary AVRO support** - Native support for DARPA TC binary files (requires avro-python3 or fastavro)
 
 **Processing Pipeline:**
 ```
@@ -276,11 +277,10 @@ python scripts/preprocess_data.py \
 **Option C: Quick Test with Binary AVRO Files**
 ```bash
 # Process binary DARPA files and run quick evaluation
-# Note: For DARPA datasets, use --data-format bin for binary AVRO files
+# The framework automatically detects and handles binary AVRO format
 ./scripts/run_evaluation.sh \
   --data-path ../DARPA/ta1-theia-e3-official-1r.bin \
   --dataset theia_e3 \
-  --data-format bin \
   --max-events 100000 \
   --model magic
 
@@ -291,12 +291,7 @@ python scripts/preprocess_data.py \
   --model magic
 ```
 
-**Note:** DARPA datasets often come in directories with files like `*.bin`, `*.bin.1`, `*.bin.2`, etc. The framework automatically finds all files in the directory.
-
-**Estimated time:** 
-- Custom SOC: 15-30 minutes
-- DARPA datasets (full): 45-90 minutes
-- DARPA datasets (sampled): 10-20 minutes
+**Note:** DARPA datasets often come in directories with files like `*.bin`, `*.bin.1`, `*.bin.2`, etc. The framework automatically finds and processes all files in the directory.
 
 ### Universal Preprocessing
 
@@ -921,27 +916,39 @@ After running model evaluations, you can visualize and compare attack graphs acr
 ### Quick Usage
 
 ```bash
-# Visualize using artifacts directory (most common)
+**Quick Usage
+
+```bash
+# Visualize using most recent evaluation (auto-detected)
 ./scripts/visualize_attacks.sh
 
-# Reference a specific evaluation for logging purposes
+# Visualize specific evaluation results
 ./scripts/visualize_attacks.sh \
-  --evaluation-dir results/evaluation_20251104_234042
+  --evaluation-dir results/evaluation_20251105_003744
 
-# Visualize all models with custom settings
-python utils/visualize_attack_graphs.py \
-  --artifacts-dir artifacts \
-  --models magic kairos orthrus threatrace continuum_fl
-
-# Customize thresholds and paths
+# Visualize with custom settings
 ./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --threshold 99.0 \
   --top-k 50 \
   --top-paths 20
 
+# Visualize specific models (using Python script directly)
+python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --evaluation-dir results/evaluation_20251105_003744 \
+  --models magic kairos orthrus
+
 # Specify output directory
 ./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --output-dir results/my_attack_visualization
+
+# Remote server mode - start HTTP server for VS Code Remote / SSH access
+./scripts/visualize_attacks.sh --serve
+```
+
+**Note:** The `--evaluation-dir` flag specifies which evaluation results to use. If not provided, the script automatically uses the most recent evaluation found in `results/`. The `--serve` flag starts an HTTP server on port 8000, which VS Code can automatically forward for remote access.
 ```
 
 **Note:** The `--evaluation-dir` flag is for reference/logging only. Attack graphs are always built from the artifacts in the `--artifacts-dir` directory, which contains the model inference outputs and graph transformations.
@@ -950,16 +957,16 @@ python utils/visualize_attack_graphs.py \
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `--evaluation-dir` | Most recent | Path to evaluation results directory (auto-detects most recent if not specified) |
 | `--artifacts-dir` | `artifacts` | Directory containing model artifacts (graphs, inference outputs) |
-| `--evaluation-dir` | None | Reference to evaluation results directory (for logging only) |
 | `--models` | All 5 models | Space-separated list of models to visualize |
 | `--output-dir` | `results/attack_graph_visualization` | Output directory for visualizations |
 | `--threshold-percentile` | `99.0` | Percentile threshold for anomalies (90-99.9) |
 | `--top-k` | `100` | Number of top anomalies to include |
 | `--top-paths` | `15` | Number of attack paths to extract |
 | `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
-| `--no-browser` | false | Skip auto-opening browser (useful for remote servers) |
-| `--serve` | false | Start HTTP server for remote access |
+| `--no-browser` | false | Skip auto-opening browser (useful for headless servers) |
+| `--serve` | false | Start HTTP server on port 8000 for remote access (e.g., VS Code Remote) |
 
 ### Generated Output
 
@@ -1074,7 +1081,7 @@ print(f"Visualization saved to: {html_path}")
 - `scripts/visualize_attacks.sh` - Attack visualization workflow
 - `utils/visualize_attack_graphs.py` - Interactive attack graph visualization
 
-###Citation & References
+### Citation & References
 
 **Models Integrated:**
 - **MAGIC**: Han et al. "MAGIC: Detecting Advanced Persistent Threats via Masked Graph Representation Learning" (2023)

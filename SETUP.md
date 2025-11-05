@@ -25,27 +25,32 @@ This guide provides **complete setup instructions** for the PIDS Comparative Fra
 
 ```text
 Setup Environment → Download Weights → Preprocess Your Data → Evaluate Models → Analyze Results
-     (10 mins)          (5-15 mins)        (5-60 mins)          (10-30 mins)      (ongoing)
 ```
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Prerequisites](#prerequisites)
+1. [Prerequisites](#-prerequisites)
 2. [Quick Start](#quick-start)
 3. [Detailed Installation](#detailed-installation)
-4. [Model Setup & Checkpoints](#model-setup--checkpoints)
-5. [Data Preprocessing](#data-preprocessing)
-   - [Custom SOC Data](#custom-soc-data)
+4. [Model-Specific Setup](#-model-specific-setup)
+5. [Preparing Custom Data](#preparing-custom-data)
+   - [Data Requirements](#data-requirements)
+   - [Required Event Types](#required-event-types)
+   - [Example Data Format](#example-data-format)
+   - [Place Your Data](#place-your-data)
+   - [Preprocess Your Data](#preprocess-your-data)
+   - [Advanced Preprocessing Options](#advanced-preprocessing-options)
    - [DARPA TC Datasets](#darpa-tc-datasets)
 6. [Running Evaluation](#running-evaluation)
 7. [Analyzing Results](#analyzing-results)
    - [Visualizing Attack Graphs](#visualizing-attack-graphs)
 8. [Advanced Features](#advanced-features)
-9. [Troubleshooting](#troubleshooting)
+9. [Troubleshooting](#-troubleshooting)
 10. [Configuration](#configuration)
 11. [Command Reference](#command-reference)
+12. [Additional Resources](#additional-resources)
 
 ---
 
@@ -128,8 +133,6 @@ python scripts/download_checkpoints.py --all
 # OR — start an HTTP server for remote access (useful with VS Code Remote / SSH)
 ./scripts/visualize_attacks.sh --serve
 ```
-
-**Total time:** 15-30 minutes (depending on download speeds)
 
 ---
 
@@ -705,34 +708,43 @@ ls -lh data/custom_soc/
 ### Advanced Preprocessing Options
 
 ```bash
-# Use Elastic/ELK schema explicitly
+# Specify dataset type explicitly (instead of auto-detection)
 python scripts/preprocess_data.py \
     --input-dir ../custom_dataset \
     --output-dir data/custom_soc \
     --dataset-name custom_soc \
-    --schema elastic
+    --dataset-type custom_soc
 
-# Custom time window (for temporal graphs)
+# Force specific file format (JSON, NDJSON, binary AVRO, or auto)
 python scripts/preprocess_data.py \
-    --input-dir ../custom_dataset \
-    --output-dir data/custom_soc \
-    --dataset-name custom_soc \
-    --time-window 3600  # 1-hour windows
+    --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+    --dataset-name cadets_e3 \
+    --dataset-type darpa \
+    --format avro
 
-# Filter specific event types
+# Process specific files only
 python scripts/preprocess_data.py \
-    --input-dir ../custom_dataset \
+    --input-files ../custom_dataset/file1.json ../custom_dataset/file2.json \
     --output-dir data/custom_soc \
-    --dataset-name custom_soc \
-    --event-types process file  # Exclude network events
+    --dataset-name custom_soc
 
-# Large dataset optimization
+# Limit events for testing/sampling
 python scripts/preprocess_data.py \
     --input-dir ../custom_dataset \
-    --output-dir data/custom_soc \
     --dataset-name custom_soc \
-    --chunk-size 50000 \  # Process 50K events at a time
-    --verbose              # Show detailed progress
+    --max-events-per-file 10000
+
+# Custom file pattern matching
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --dataset-name custom_soc \
+    --file-pattern "*.ndjson"
+
+# Use custom configuration file
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --dataset-name custom_soc \
+    --config configs/datasets/my_custom_config.yaml
 ```
 ---
 
@@ -780,7 +792,7 @@ pip install avro-python3 fastavro
 
 ```bash
 # Preprocess and evaluate CADETS E3
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
   --dataset-name cadets_e3 \
   --dataset-type darpa
@@ -805,12 +817,11 @@ python scripts/preprocess.py \
 **Option 3: Process binary AVRO files**
 
 ```bash
-# Use binary files instead of JSON
-python scripts/preprocess.py \
+# Binary files are automatically detected by extension
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-trace-e3-official-1.bin \
   --dataset-name trace_e3 \
-  --dataset-type darpa \
-  --data-format bin
+  --dataset-type darpa
 ```
 
 #### Dataset Configurations
@@ -871,30 +882,29 @@ The unified preprocessing script handles all DARPA formats:
 
 ```bash
 # Basic preprocessing (auto-detects format)
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
   --dataset-name cadets_e3
 
 # With explicit dataset type
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-theia-e3-official-1r.json \
   --dataset-name theia_e3 \
   --dataset-type darpa
 
-# Process binary AVRO files
-python scripts/preprocess.py \
+# Process binary AVRO files (auto-detected by extension)
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-clearscope-e3-official-1.bin \
-  --dataset-name clearscope_e3 \
-  --data-format bin
+  --dataset-name clearscope_e3
 
 # Sample large dataset for testing
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-trace-e3-official-1.json \
   --dataset-name trace_e3_sample \
   --max-events-per-file 10000
 
 # Use specific configuration file
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
   --dataset-name cadets_e3 \
   --config configs/datasets/cadets_e3.yaml
@@ -973,11 +983,13 @@ The unified preprocessing and evaluation scripts support these flags:
 | Flag | Values | Description |
 |------|--------|-------------|
 | `--dataset-type` | `auto`, `darpa`, `custom_soc`, `custom` | Dataset type (auto-detected if not specified) |
-| `--data-format` | `auto`, `json`, `ndjson`, `bin`, `avro` | Force specific format (auto-detected by default) |
-| `--max-events` | Integer | Sample N events per file for testing |
+| `--max-events-per-file` | Integer | Sample N events per file for testing (preprocessing) |
+| `--max-events` | Integer | Sample N events per file for testing (evaluation) |
 | `--input-dir` | Path | Directory containing data files |
 | `--dataset-name` | String | Name for output files |
 | `--config` | Path | Custom configuration file |
+
+**Note:** The `--data-format` flag is no longer needed as the framework automatically detects file formats (JSON, NDJSON, binary AVRO) based on file extensions and content.
 
 #### DARPA-Specific Features
 
@@ -1032,7 +1044,7 @@ Run evaluations on multiple DARPA datasets:
 ```bash
 # Preprocess all DARPA datasets
 for dataset in cadets_e3 theia_e3 trace_e3 clearscope_e3; do
-  python scripts/preprocess.py \
+  python scripts/preprocess_data.py \
     --input-dir ../DARPA/ta1-${dataset//_/-}-official-*.json \
     --dataset-name $dataset \
     --dataset-type darpa
@@ -1079,26 +1091,27 @@ python scripts/preprocess.py \
 
 ```bash
 # Solution 1: Sample the data
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-clearscope-e3-official-1.json \
   --dataset-name clearscope_e3_sample \
   --max-events-per-file 100000
 
-# Solution 2: Process fewer files
-python scripts/preprocess.py \
-  --input-files ../DARPA/ta1-clearscope-e3-official-1.json/*.json.001 \
-  --dataset-name clearscope_e3_partial
+# Solution 2: Process fewer files at a time
+# First, process just one or two files
+python scripts/preprocess_data.py \
+  --input-dir ../DARPA/ta1-clearscope-e3-official-1.json \
+  --dataset-name clearscope_e3_partial \
+  --max-events-per-file 50000
 ```
 
 **Issue: "Format not detected" or parsing errors**
 
 ```bash
 # Solution: Explicitly specify format and dataset type
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-theia-e3-official-1r.json \
   --dataset-name theia_e3 \
-  --dataset-type darpa \
-  --data-format ndjson
+  --dataset-type darpa
 ```
 
 **Issue: Very slow preprocessing**
@@ -1106,18 +1119,16 @@ python scripts/preprocess.py \
 ```bash
 # Binary AVRO files are typically faster than JSON
 # Use .bin directory instead of .json:
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-cadets-e3-official-1.bin \
-  --dataset-name cadets_e3 \
-  --data-format bin
+  --dataset-name cadets_e3
 
 # OR sample for testing
-python scripts/preprocess.py \
+python scripts/preprocess_data.py \
   --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
   --dataset-name cadets_e3_test \
   --max-events-per-file 50000
-
----
+```
 
 ## Running Evaluation
 
@@ -1304,20 +1315,28 @@ After running model evaluations, visualize and compare attack graphs across mult
 # Activate environment
 conda activate pids_framework
 
-# Visualize with default settings (99th percentile, top 100 anomalies)
+# Visualize most recent evaluation (auto-detected)
 ./scripts/visualize_attacks.sh
 
+# Visualize specific evaluation results
+./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744
+
 # OR — start an HTTP server for remote access (useful with VS Code Remote / SSH)
-./scripts/visualize_attacks.sh --serve
+./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744 \
+  --serve
 
 # Customize thresholds
 ./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --threshold 99.9 \
   --top-k 50 \
   --top-paths 20
 
 # Custom output directory
 ./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --output-dir results/my_attack_viz \
   --cluster-by temporal
 
@@ -1359,14 +1378,17 @@ When running the framework on a remote server (e.g., via VS Code Remote SSH), us
 # Activate environment
 conda activate pids_framework
 
-# Visualize all models
+# Visualize all models from specific evaluation
 python utils/visualize_attack_graphs.py \
   --artifacts-dir artifacts \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --models magic kairos orthrus threatrace continuum_fl \
   --output-dir results/attack_viz
 
 # Customize thresholds and paths  
 python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --threshold-percentile 99.0 \
   --top-k 50 \
   --top-paths 20 \
@@ -1374,6 +1396,8 @@ python utils/visualize_attack_graphs.py \
 
 # Visualize specific models only
 python utils/visualize_attack_graphs.py \
+  --artifacts-dir artifacts \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --models magic kairos \
   --output-dir results/magic_vs_kairos
 ```
@@ -1382,12 +1406,13 @@ python utils/visualize_attack_graphs.py \
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `--evaluation-dir` | Most recent | Path to evaluation results directory (auto-detects if not specified) |
 | `--artifacts-dir` | `artifacts` | Directory containing model artifacts with inference results |
 | `--models` | All 5 models | Space-separated list of models to visualize |
 | `--output-dir` | `results/attack_graph_visualization` | Output directory for visualizations |
-| `--threshold-percentile` | `95.0` | Percentile threshold for anomalies (e.g., 90, 95, 99, 99.9) |
+| `--threshold-percentile` | `99.0` | Percentile threshold for anomalies (e.g., 90, 95, 99, 99.9) |
 | `--top-k` | `100` | Number of top anomalies to include in graph |
-| `--top-paths` | `10` | Number of attack paths to extract and visualize |
+| `--top-paths` | `15` | Number of attack paths to extract and visualize |
 | `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
 | `--serve` | Off | Start HTTP server for remote access (recommended for VS Code Remote) |
 | `--no-browser` | Off | Skip auto-opening browser (useful for headless servers) |
@@ -1421,29 +1446,38 @@ The HTML viewer provides:
 ```bash
 # Step 1: Run evaluation on your data
 ./scripts/run_evaluation.sh --data-path data/custom_soc
+# Note the evaluation directory created, e.g., results/evaluation_20251105_003744
 
-# Step 2: Visualize attack graphs with high threshold
+# Step 2: Visualize attack graphs from that evaluation
+./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251105_003744 \
+  --threshold 99.0 \
+  --top-k 100 \
+  --top-paths 20
+
+# OR use Python script directly for more control
 python utils/visualize_attack_graphs.py \
   --artifacts-dir artifacts \
-  --output-dir results/attack_viz \
+  --evaluation-dir results/evaluation_20251105_003744 \
   --threshold-percentile 99.0 \
   --top-k 100 \
   --top-paths 20
 
 # Output:
+# ✓ Using evaluation: results/evaluation_20251105_003744
 # ✓ Loaded graph and scores for magic
 # ✓ Loaded graph and scores for kairos  
 # ✓ Loaded graph and scores for orthrus
 # ✓ Reconstructed attack graph for magic (95 nodes, 234 edges)
 # ✓ Extracted 20 attack paths
-# ✓ Interactive visualization: results/attack_viz/attack_graph_viewer.html
+# ✓ Interactive visualization: results/attack_graph_visualization/attack_graph_viewer.html
 # ✓ Opened visualization in default browser
 
 # Step 3: View interactive HTML (auto-opened in browser)
-# Navigate to: results/attack_viz/attack_graph_viewer.html
+# Navigate to: results/attack_graph_visualization/attack_graph_viewer.html
 
 # Step 4: Import GraphML into Gephi for advanced analysis
-# Open Gephi → Import → results/attack_viz/magic_attack_graph.graphml
+# Open Gephi → Import → results/attack_graph_visualization/magic_attack_graph.graphml
 ```
 
 #### Integration with External Tools
@@ -1740,19 +1774,17 @@ python experiments/evaluate_pipeline.py \
 - Creates directory structure
 - Verifies installation
 
-**Time:** 10-15 minutes
-
 ---
 
 ### download_checkpoints.py
 
-**Purpose:** Download pretrained weights and install model-specific dependencies
+**Purpose:** Download pretrained weights from official GitHub repositories
 
 ```bash
-# Setup all models (recommended)
+# Download all model checkpoints (recommended)
 python scripts/download_checkpoints.py --all
 
-# Setup specific models
+# Download specific models
 python scripts/download_checkpoints.py --models magic kairos orthrus
 
 # List available models and sources
@@ -1761,27 +1793,29 @@ python scripts/download_checkpoints.py --list
 # Force re-download existing weights
 python scripts/download_checkpoints.py --all --force-download
 
-# Only install dependencies (skip weight download)
+# Skip downloading (use local fallback only)
 python scripts/download_checkpoints.py --all --no-download
 
-# Only download weights (skip dependencies)
-python scripts/download_checkpoints.py --download-only --all
-
-# Skip local fallback (GitHub only)
+# Skip local fallback (GitHub download only)
 python scripts/download_checkpoints.py --all --no-copy
+
+# Only download weights (skip local copy fallback)
+python scripts/download_checkpoints.py --download-only --all
 ```
 
 **Arguments:**
-- `--all` - Setup all 5 models
-- `--models MODEL [MODEL ...]` - Setup specific models (magic, kairos, orthrus, threatrace, continuum_fl)
-- `--list` - List all models with GitHub sources and exit
-- `--no-install` - Skip dependency installation
+- `--all` - Download checkpoints for all 5 models
+- `--models MODEL [MODEL ...]` - Download specific models (magic, kairos, orthrus, threatrace, continuum_fl)
+- `--list` - List all available models with GitHub sources and exit
 - `--no-copy` - Skip copying from local fallback directories
-- `--no-download` - Skip downloading weights
-- `--download-only` - Only download weights (skip deps and local copy)
-- `--force-download` - Force re-download existing weights
+- `--no-download` - Skip downloading from GitHub (use local fallback only)
+- `--download-only` - Only download from GitHub (skip local copy fallback)
+- `--force-download` - Force re-download even if checkpoints exist
 
-**Time:** 5-20 minutes (depending on download speeds)
+**Download Strategy:**
+- Primary: Downloads from official GitHub repositories
+- Fallback: Searches local directories (../MAGIC/checkpoints, ../kairos/checkpoints, etc.)
+- All model-specific dependencies are installed via setup.sh
 
 ---
 
@@ -1796,37 +1830,55 @@ python scripts/preprocess_data.py \
     --output-dir data/custom_soc \
     --dataset-name custom_soc
 
-# Advanced options
+# Specify dataset type explicitly
 python scripts/preprocess_data.py \
     --input-dir ../custom_dataset \
     --output-dir data/custom_soc \
     --dataset-name custom_soc \
-    --schema elastic \              # Schema type: 'elastic' or 'custom'
-    --time-window 3600 \            # Time window in seconds
-    --event-types process file \    # Filter event types
-    --chunk-size 50000 \            # Events per chunk
-    --verbose                       # Detailed progress
+    --dataset-type custom_soc
+
+# Force specific file format (instead of auto-detect)
+python scripts/preprocess_data.py \
+    --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+    --dataset-name cadets_e3 \
+    --dataset-type darpa \
+    --format avro
+
+# Process specific files only
+python scripts/preprocess_data.py \
+    --input-files ../custom_dataset/file1.json ../custom_dataset/file2.json \
+    --output-dir data/custom_soc \
+    --dataset-name custom_soc
+
+# Limit events for testing/sampling
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --dataset-name custom_soc \
+    --max-events-per-file 10000
+
+# Custom file pattern matching
+python scripts/preprocess_data.py \
+    --input-dir ../custom_dataset \
+    --dataset-name custom_soc \
+    --file-pattern "*.ndjson"
 ```
 
 **Required Arguments:**
-- `--input-dir PATH` - Directory with JSON log files
-- `--output-dir PATH` - Directory to save preprocessed data
 - `--dataset-name NAME` - Name for the dataset
 
 **Optional Arguments:**
-- `--schema {elastic,custom}` - Data schema format (default: elastic)
-- `--time-window SECONDS` - Time window for temporal graphs (default: 3600)
-- `--event-types TYPE [TYPE ...]` - Event types to include (process, file, network)
-- `--chunk-size NUM` - Events per chunk for large files (default: 10000)
-- `--config PATH` - Custom configuration file
-- `--verbose` - Show detailed progress information
+- `--input-dir PATH` - Directory with JSON/NDJSON/binary AVRO log files
+- `--input-files FILE [FILE ...]` - Specific input files to process (alternative to --input-dir)
+- `--output-dir PATH` - Directory to save preprocessed data (default: data/)
+- `--dataset-type {darpa,custom_soc,custom}` - Dataset type (auto-detected if not specified)
+- `--format {json,ndjson,bin,avro,auto}` - Force specific file format (default: auto-detect)
+- `--max-events-per-file NUM` - Maximum events to parse per file (for sampling/testing)
+- `--file-pattern PATTERN` - File pattern to match when using --input-dir (default: *.json)
+- `--config PATH` - Custom configuration file (optional, auto-selected if not provided)
 
 **Output Files:**
-- `<dataset>_graph.pkl` - Graph structure (DGL/PyG format)
-- `<dataset>_features.pt` - Node and edge features (PyTorch tensor)
-- `<dataset>_metadata.json` - Dataset statistics and metadata
-
-**Time:** 1-30 minutes (depending on dataset size)
+- `{dataset}_graph.pkl` - Graph structure (NetworkX pickle format)
+- `{dataset}_metadata.json` - Dataset statistics and metadata
 
 ---
 
@@ -1995,53 +2047,152 @@ python utils/visualize_attack_graphs.py \
 
 ---
 
+### analyze_anomalies.py
+
+**Purpose:** Extract and analyze top anomalies from PIDS model predictions with statistical analysis and ensemble detection
+
+```bash
+# Analyze single model
+python scripts/analyze_anomalies.py \
+    --artifacts-dir artifacts \
+    --data-path data/custom_soc \
+    --dataset custom_soc \
+    --model magic \
+    --top-k 100
+
+# Include detailed event information
+python scripts/analyze_anomalies.py \
+    --model magic \
+    --top-k 100 \
+    --with-details
+
+# Perform ensemble detection across models
+python scripts/analyze_anomalies.py \
+    --ensemble \
+    --top-k 200
+
+# Add temporal analysis
+python scripts/analyze_anomalies.py \
+    --model kairos \
+    --temporal \
+    --with-details
+
+# Custom output directory
+python scripts/analyze_anomalies.py \
+    --model orthrus \
+    --output-dir results/custom_analysis \
+    --top-k 150
+```
+
+**Required Arguments:**
+- `--model {magic,kairos,continuum_fl,orthrus,threatrace}` - Model to analyze (not required if --ensemble is used)
+
+**Optional Arguments:**
+- `--artifacts-dir PATH` - Path to artifacts directory (default: artifacts)
+- `--data-path PATH` - Path to dataset (default: data/custom_soc)
+- `--dataset NAME` - Dataset name (default: custom_soc)
+- `--output-dir PATH` - Output directory for analysis results (default: results/anomaly_analysis)
+- `--top-k NUM` - Number of top anomalies to extract (default: 100)
+- `--with-details` - Include detailed event information (slower, requires NetworkX graph)
+- `--ensemble` - Perform ensemble detection across all models (magic, continuum_fl, threatrace)
+- `--temporal` - Perform temporal analysis over time windows
+
+**Output Files:**
+- `{model}_analysis.json` - Top anomalies with statistics and optional event details
+- `{model}_temporal.json` - Temporal analysis results (if --temporal used)
+
+**Key Features:**
+- Extracts top-K anomalous events ranked by score
+- Calculates comprehensive statistics (mean, std, percentiles)
+- Provides threshold recommendations (99%, 99.5%, 99.9%)
+- Ensemble detection averages normalized scores across models
+- Temporal analysis identifies suspicious time windows
+- Optional detailed event information (event type, source/target nodes, timestamps)
+
+**Example Output:**
+```
+Score Statistics:
+  Events: 45,823
+  Mean: 0.234567
+  Std Dev: 0.156789
+  Range: [0.001234, 0.987654]
+
+Percentile Thresholds:
+  99th: 0.756789 (458 events above)
+  99.5th: 0.834567 (229 events above)
+  99.9th: 0.923456 (46 events above)
+
+Recommended Thresholds:
+  🔴 Critical (99.9%): > 0.923456 (46 events)
+  🟡 High (99%):      > 0.756789 (458 events)
+  🔵 Medium (95%):    > 0.645123 (2,291 events)
+```
+
+**Note:** This script is automatically called by `run_evaluation.sh` in Step 5. The `--with-details` flag significantly increases processing time but provides comprehensive event information for investigation. Ensemble detection is recommended for production use as it reduces false positives by consensus across multiple models.
+
+---
+
 ### visualize_attacks.sh
 
 **Purpose:** Convenience wrapper for attack graph visualization with simplified arguments
 
 ```bash
-# Visualize with default settings
+# Visualize most recent evaluation (auto-detected)
 ./scripts/visualize_attacks.sh
+
+# Visualize specific evaluation
+./scripts/visualize_attacks.sh \
+    --evaluation-dir results/evaluation_20251105_003744
 
 # Customize thresholds
 ./scripts/visualize_attacks.sh \
+    --evaluation-dir results/evaluation_20251105_003744 \
     --threshold 99.9 \
     --top-k 50 \
     --top-paths 20
 
 # Custom output and clustering
 ./scripts/visualize_attacks.sh \
+    --evaluation-dir results/evaluation_20251105_003744 \
     --output-dir results/my_attack_viz \
     --cluster-by temporal \
     --threshold 99
+
+# Remote server mode - start HTTP server for remote access
+./scripts/visualize_attacks.sh \
+    --evaluation-dir results/evaluation_20251105_003744 \
+    --serve
 
 # Show help
 ./scripts/visualize_attacks.sh --help
 ```
 
 **Arguments:**
+- `--evaluation-dir PATH` - Path to evaluation results directory (default: auto-detect most recent)
 - `--threshold FLOAT` - Percentile threshold for anomalies, 90-99.9 (default: 99)
 - `--top-k NUM` - Number of top anomalies to include (default: 100)
 - `--top-paths NUM` - Number of attack paths to extract (default: 15)
 - `--cluster-by STRATEGY` - Clustering strategy: entity, temporal, or path (default: entity)
 - `--output-dir PATH` - Output directory for visualizations (default: results/attack_graph_visualization/)
+- `--serve` - Start HTTP server on port 8000 for remote access (useful for VS Code Remote/SSH)
+- `--no-browser` - Skip auto-opening browser (useful for headless servers)
 - `--help` - Show help message
 
 **Features:**
 - Simplified command-line interface
-- Automatic browser opening
+- **Auto-detects most recent evaluation** if `--evaluation-dir` not specified
+- Automatic browser opening (unless --serve is used)
 - Progress feedback
 - All models visualized by default
 - Same output as `visualize_attack_graphs.py`
+- Remote access support via HTTP server
 
 **Output Files:**
 - `attack_graph_viewer.html` - Interactive visualization (auto-opens in browser)
 - `attack_summary.json` - Attack statistics and paths
 - `{model}_attack_graph.graphml` - GraphML exports for each model
 
-**Time:** 1-5 minutes depending on number of models and graph size
-
-**Note:** This script internally calls `utils/visualize_attack_graphs.py` with appropriate parameters.
+**Note:** This script internally calls `utils/visualize_attack_graphs.py` with appropriate parameters. The `--evaluation-dir` flag specifies which evaluation results to visualize - if not provided, it automatically uses the most recent evaluation in `results/`. The `--serve` flag is particularly useful when running on remote servers - it starts an HTTP server that VS Code can automatically port-forward for local access.
 
 ---
 
