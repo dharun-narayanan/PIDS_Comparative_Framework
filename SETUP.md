@@ -37,6 +37,8 @@ Setup Environment → Download Weights → Preprocess Your Data → Evaluate Mod
 3. [Detailed Installation](#detailed-installation)
 4. [Model Setup & Checkpoints](#model-setup--checkpoints)
 5. [Data Preprocessing](#data-preprocessing)
+   - [Custom SOC Data](#custom-soc-data)
+   - [DARPA TC Datasets](#darpa-tc-datasets)
 6. [Running Evaluation](#running-evaluation)
 7. [Analyzing Results](#analyzing-results)
    - [Visualizing Attack Graphs](#visualizing-attack-graphs)
@@ -732,6 +734,388 @@ python scripts/preprocess_data.py \
     --chunk-size 50000 \  # Process 50K events at a time
     --verbose              # Show detailed progress
 ```
+---
+
+### DARPA TC Datasets
+
+The framework now provides **comprehensive support for DARPA Transparent Computing (TC) datasets** with automatic format detection and parsing for both JSON (NDJSON) and binary AVRO files.
+
+#### Supported DARPA Datasets
+
+| Dataset | OS | Size | Files | Attack Scenarios |
+|---------|-----|------|-------|------------------|
+| **CADETS E3** | FreeBSD | 18GB | 5 JSON + 5 BIN | Web server compromise, credential theft |
+| **THEIA E3** | Linux (Ubuntu) | 25GB | 10 JSON + 10 BIN | Firefox exploit, backdoor installation |
+| **TRACE E3** | Android | 15GB | 7 JSON + 7 BIN | Malicious app, data exfiltration |
+| **ClearScope E3** | Linux (CentOS) | 30GB | 20 JSON + 20 BIN | APT-style attack, lateral movement |
+
+#### Format Support
+
+The framework's **Universal Semantic Parser** automatically detects and handles:
+
+- ✅ **JSON (NDJSON)** - New Line Delimited JSON format
+- ✅ **Binary AVRO** - Apache Avro version 1 (CDM v18)
+- ✅ **Auto-detection** - Automatically identifies format from file extension and content
+- ✅ **CDM v18 Schema** - Full support for DARPA Common Data Model version 18
+
+#### Prerequisites for DARPA Datasets
+
+The AVRO libraries are included in requirements.txt and automatically installed:
+
+```bash
+# Already included in requirements.txt
+avro-python3==1.10.2
+fastavro==1.8.0
+```
+
+If you need to install manually:
+
+```bash
+pip install avro-python3 fastavro
+```
+
+#### Quick Start with DARPA Data
+
+**Option 1: Use existing dataset configuration**
+
+```bash
+# Preprocess and evaluate CADETS E3
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset-name cadets_e3 \
+  --dataset-type darpa
+
+# Run evaluation
+./scripts/run_evaluation.sh \
+  --data-path data/darpa/cadets_e3 \
+  --dataset cadets_e3 \
+  --dataset-type darpa \
+  --skip-preprocess
+```
+
+**Option 2: Automatic detection and processing**
+
+```bash
+# Framework auto-detects DARPA format and dataset type
+./scripts/run_evaluation.sh \
+  --data-path ../DARPA/ta1-theia-e3-official-1r.json \
+  --dataset theia_e3
+```
+
+**Option 3: Process binary AVRO files**
+
+```bash
+# Use binary files instead of JSON
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-trace-e3-official-1.bin \
+  --dataset-name trace_e3 \
+  --dataset-type darpa \
+  --data-format bin
+```
+
+#### Dataset Configurations
+
+Pre-configured YAML files are available in `configs/datasets/`:
+
+```bash
+configs/datasets/
+├── cadets_e3.yaml         # CADETS E3 configuration
+├── theia_e3.yaml          # THEIA E3 configuration
+├── trace_e3.yaml          # TRACE E3 configuration
+├── clearscope_e3.yaml     # ClearScope E3 configuration
+└── darpa_template.yaml    # Template for new DARPA datasets
+```
+
+Example configuration (`cadets_e3.yaml`):
+
+```yaml
+data:
+  dataset_name: cadets_e3
+  root_dir: ../../DARPA/
+  dataset_folder: ta1-cadets-e3-official-1.json/
+  format: darpa_cdm
+  description: "DARPA TC CADETS Engagement 3 (FreeBSD)"
+
+format:
+  type: darpa_cdm
+  version: "18"
+  supported_formats:
+    - json
+    - ndjson
+    - bin
+    - avro
+
+graph:
+  node_types:
+    - process
+    - file
+    - network
+    - memory
+    - socket
+    - registry
+  temporal:
+    enabled: true
+    window_size: 3600  # 1 hour windows
+
+preprocessing:
+  remove_duplicates: false
+  remove_self_loops: true
+  entity_resolution:
+    enabled: true
+    strategy: uuid_based
+```
+
+#### Preprocessing DARPA Data
+
+The unified preprocessing script handles all DARPA formats:
+
+```bash
+# Basic preprocessing (auto-detects format)
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset-name cadets_e3
+
+# With explicit dataset type
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-theia-e3-official-1r.json \
+  --dataset-name theia_e3 \
+  --dataset-type darpa
+
+# Process binary AVRO files
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-clearscope-e3-official-1.bin \
+  --dataset-name clearscope_e3 \
+  --data-format bin
+
+# Sample large dataset for testing
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-trace-e3-official-1.json \
+  --dataset-name trace_e3_sample \
+  --max-events-per-file 10000
+
+# Use specific configuration file
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset-name cadets_e3 \
+  --config configs/datasets/cadets_e3.yaml
+```
+
+#### Preprocessing Output
+
+After preprocessing, you'll see detailed statistics:
+
+```
+================================================================================
+  Step 4/4: Final Statistics
+================================================================================
+
+Dataset type: darpa
+Format detected: DARPACDMParser
+Files processed: 5
+Parse errors: 0
+Total events: 45,782,934
+Total nodes: 1,234,567
+Total edges: 45,782,934
+
+Node types:
+  process        :  543,210 (43.99%)
+  file           :  456,789 (36.99%)
+  socket         :  234,568 (19.00%)
+
+Edge types (top 20):
+  read           : 15,234,567 (33.28%)
+  write          : 12,345,678 (26.97%)
+  exec           :  5,678,901 (12.40%)
+  connect        :  4,567,890 (9.98%)
+  ...
+
+Time range:
+  Start:    2018-04-10 08:00:00
+  End:      2018-04-15 20:30:00
+  Duration: 5.52 days (132.50 hours)
+================================================================================
+  ✓ Preprocessing Complete!
+================================================================================
+Output: data/darpa/cadets_e3_graph.pkl
+
+Statistics: data/darpa/cadets_e3_graph.json
+```
+
+#### Full Evaluation Workflow
+
+```bash
+# Complete workflow for DARPA CADETS
+./scripts/run_evaluation.sh \
+  --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset cadets_e3 \
+  --dataset-type darpa \
+  --model all
+
+# Quick test with sampling
+./scripts/run_evaluation.sh \
+  --data-path ../DARPA/ta1-theia-e3-official-1r.json \
+  --dataset theia_e3 \
+  --max-events 100000 \
+  --model magic
+
+# Evaluate specific model on preprocessed DARPA data
+./scripts/run_evaluation.sh \
+  --data-path data/darpa/trace_e3 \
+  --dataset trace_e3 \
+  --model kairos \
+  --skip-preprocess
+```
+
+#### Command Line Flags
+
+The unified preprocessing and evaluation scripts support these flags:
+
+| Flag | Values | Description |
+|------|--------|-------------|
+| `--dataset-type` | `auto`, `darpa`, `custom_soc`, `custom` | Dataset type (auto-detected if not specified) |
+| `--data-format` | `auto`, `json`, `ndjson`, `bin`, `avro` | Force specific format (auto-detected by default) |
+| `--max-events` | Integer | Sample N events per file for testing |
+| `--input-dir` | Path | Directory containing data files |
+| `--dataset-name` | String | Name for output files |
+| `--config` | Path | Custom configuration file |
+
+#### DARPA-Specific Features
+
+**1. CDM Entity Type Mapping**
+
+The parser automatically maps CDM entity types to framework types:
+
+| CDM Type | Framework Type | Description |
+|----------|---------------|-------------|
+| SUBJECT | process | Process/thread entities |
+| FILE_OBJECT | file | File system objects |
+| NETFLOW_OBJECT | network | Network flows |
+| MEMORY_OBJECT | memory | Memory regions |
+| SRC_SINK_OBJECT | socket | Network sockets |
+| REGISTRY_KEY_OBJECT | registry | Windows registry keys |
+| PRINCIPAL | principal | User/principal entities |
+
+**2. CDM Event Type Mapping**
+
+Common CDM event types are mapped to simplified names:
+
+| CDM Event | Framework Event | Description |
+|-----------|----------------|-------------|
+| EVENT_EXECUTE | exec | Process execution |
+| EVENT_FORK | fork | Process creation |
+| EVENT_READ | read | File/socket read |
+| EVENT_WRITE | write | File/socket write |
+| EVENT_CONNECT | connect | Network connection |
+| EVENT_OPEN | open | File open |
+| EVENT_CLOSE | close | File/socket close |
+
+**3. Timestamp Handling**
+
+DARPA datasets use nanosecond timestamps - automatically converted to Unix timestamps:
+
+```python
+# CDM timestampNanos (e.g., 1523366400000000000)
+# Converted to: 1523366400.0 (Unix timestamp)
+```
+
+**4. UUID-Based Entity Resolution**
+
+CDM uses UUIDs for entities - framework maintains UUID-to-entity mappings for:
+- Deduplication
+- Cross-file entity resolution
+- Temporal correlation
+
+#### Comparing Performance Across Datasets
+
+Run evaluations on multiple DARPA datasets:
+
+```bash
+# Preprocess all DARPA datasets
+for dataset in cadets_e3 theia_e3 trace_e3 clearscope_e3; do
+  python scripts/preprocess.py \
+    --input-dir ../DARPA/ta1-${dataset//_/-}-official-*.json \
+    --dataset-name $dataset \
+    --dataset-type darpa
+done
+
+# Evaluate MAGIC on all datasets
+for dataset in cadets_e3 theia_e3 trace_e3 clearscope_e3; do
+  ./scripts/run_evaluation.sh \
+    --data-path data/darpa/$dataset \
+    --dataset $dataset \
+    --model magic \
+    --skip-preprocess \
+    --output-dir results/darpa_comparison
+done
+
+# Compare results
+python experiments/compare_datasets.py \
+  --results-dir results/darpa_comparison \
+  --datasets cadets_e3 theia_e3 trace_e3 clearscope_e3
+```
+
+#### Troubleshooting DARPA Datasets
+
+**Issue: "No module named 'avro'"**
+
+```bash
+# Solution: Install AVRO libraries
+pip install avro-python3 fastavro
+```
+
+**Issue: "Binary file detected but no AVRO library available"**
+
+```bash
+# Solution: Either install AVRO libraries or use JSON files instead
+pip install fastavro
+
+# OR use JSON files
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset-name cadets_e3
+```
+
+**Issue: "Out of memory" when preprocessing**
+
+```bash
+# Solution 1: Sample the data
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-clearscope-e3-official-1.json \
+  --dataset-name clearscope_e3_sample \
+  --max-events-per-file 100000
+
+# Solution 2: Process fewer files
+python scripts/preprocess.py \
+  --input-files ../DARPA/ta1-clearscope-e3-official-1.json/*.json.001 \
+  --dataset-name clearscope_e3_partial
+```
+
+**Issue: "Format not detected" or parsing errors**
+
+```bash
+# Solution: Explicitly specify format and dataset type
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-theia-e3-official-1r.json \
+  --dataset-name theia_e3 \
+  --dataset-type darpa \
+  --data-format ndjson
+```
+
+**Issue: Very slow preprocessing**
+
+```bash
+# Binary AVRO files are typically faster than JSON
+# Use .bin directory instead of .json:
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.bin \
+  --dataset-name cadets_e3 \
+  --data-format bin
+
+# OR sample for testing
+python scripts/preprocess.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset-name cadets_e3_test \
+  --max-events-per-file 50000
 
 ---
 

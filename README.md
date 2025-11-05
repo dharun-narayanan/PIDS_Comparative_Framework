@@ -16,20 +16,21 @@
 
 ## Overview
 
-The **PIDS Comparative Framework** is a unified, production-ready platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on custom Security Operations Center (SOC) data. Built with extensibility and ease-of-use at its core, the framework enables rapid prototyping, comprehensive evaluation, and deployment of graph-based intrusion detection models.
+The **PIDS Comparative Framework** is a unified platform for evaluating state-of-the-art Provenance-based Intrusion Detection Systems (PIDS) on **custom Security Operations Center (SOC) data** and **DARPA TC datasets**. Built with extensibility and ease-of-use at its core, the framework enables rapid prototyping, comprehensive evaluation, and deployment of graph-based intrusion detection models.
 
 ### Why PIDS Comparative Framework?
 
 **Unified Evaluation Platform**
-- Compare state-of-the-art PIDS models on your own SOC data
+- Compare state-of-the-art PIDS models on your own SOC data **and DARPA datasets**
 - Standardized preprocessing, inference, and evaluation pipeline
+- **Universal semantic parser** automatically detects and handles multiple data formats
 - Reproducible results with consistent metrics across models
 
-**Production-Ready Design**  
-- CPU-first architecture (GPU optional for acceleration)
-- Handles large datasets (2GB+ JSON files) with chunked processing
-- Automatic error recovery and graceful degradation
-- Comprehensive logging and debugging support
+**Multi-Format Data Support**
+- ✅ **DARPA TC (CDM v18)** - JSON and binary AVRO formats
+- ✅ **Custom SOC Logs** - Elastic/ELK stack, NDJSON
+- ✅ **Custom JSON** - Configurable schema mapping
+- **Automatic format detection** - No manual format specification needed
 
 **Plug-and-Play Extensibility**
 - Add new models via YAML configuration files (zero Python code)
@@ -110,17 +111,24 @@ Raw JSON Logs → Preprocessing → Graph Construction → Feature Extraction
 
 ### 3. Data Processing Engine
 
-Handles diverse SOC data formats with robust preprocessing:
+Handles diverse provenance data formats with robust preprocessing:
 
 **Supported Formats:**
+- **DARPA TC CDM (v18)** - JSON and binary AVRO formats
 - Elastic/ELK Stack JSON logs
 - Newline-delimited JSON (NDJSON)
 - JSON arrays
 - Custom JSON schemas
 
+**Universal Semantic Parser:**
+- **Automatic format detection** - Identifies DARPA CDM, Elastic, or custom formats
+- **Entity extraction** - Processes, files, network connections, memory objects
+- **Event parsing** - 20+ event types (exec, fork, read, write, connect, etc.)
+- **Unified representation** - Converts all formats to common internal model
+
 **Processing Pipeline:**
 ```
-JSON Events → Entity Extraction → Graph Construction → Feature Engineering
+JSON/AVRO Events → Semantic Parser → Entity Extraction → Graph Construction → Feature Engineering
 ```
 
 **Features:**
@@ -153,16 +161,29 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│  INPUT: Raw SOC Logs                                        │
+│  INPUT: Raw Provenance Logs                                 │
+│  • DARPA TC (CDM v18) - JSON/Binary AVRO                    │
 │  • Elastic/ELK Stack JSON                                   │
 │  • NDJSON (newline-delimited)                               │
 │  • JSON arrays                                              │
+│  • Custom JSON formats                                      │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│  SEMANTIC PARSER (Auto-Detection)                           │
+│  • DARPACDMParser    → DARPA TC datasets                    │
+│  • ElasticParser     → Elastic/ELK logs                     │
+│  • CustomJSONParser  → Generic JSON                         │
+│                                                             │
+│  Output: Unified Event & Entity representation              │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  PREPROCESSING (scripts/preprocess_data.py)                 │
-│  • Load JSON files (chunked for 2GB+ files)                 │
+│  • Universal semantic parser (auto-detects format)          │
+│  • Parse provenance events (JSON/NDJSON/binary AVRO)        │
 │  • Extract entities (processes, files, sockets)             │
 │  • Build provenance graph (entities=nodes, events=edges)    │
 │  • Extract features (entity types, attributes)              │
@@ -217,10 +238,11 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 
 ## Quick Start
 
-**Ready to evaluate PIDS models on your SOC data?** See the [Complete Setup Guide](SETUP.md) for detailed instructions.
+**Ready to evaluate PIDS models on your provenance data?** See the [Complete Setup Guide](SETUP.md) for detailed instructions.
 
 ### 3-Step Quickstart
 
+**Option A: Evaluate on Custom SOC Data**
 ```bash
 # 1. Setup environment
 ./scripts/setup.sh
@@ -228,17 +250,87 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 # 2. Download pretrained weights
 python scripts/download_checkpoints.py --all
 
-# 3. Evaluate on your data
-python experiments/evaluate_pipeline.py \
-  --models magic,kairos,orthrus \
-  --data-path data/custom_soc \
+# 3. Preprocess and evaluate on your SOC data
+./scripts/run_evaluation.sh \
+  --data-path ../custom_dataset \
   --dataset custom_soc \
-  --output-dir results/evaluation
+  --model all
 ```
 
-**Estimated time:** 15-30 minutes (including downloads)
+**Option B: Evaluate on DARPA TC Datasets**
+```bash
+# 1. Preprocess DARPA dataset (auto-detects JSON/binary AVRO format)
+python scripts/preprocess_data.py \
+  --input-dir ../DARPA/ta1-cadets-e3-official-1.json \
+  --dataset-name cadets_e3 \
+  --dataset-type darpa
 
-For comprehensive setup instructions, data preprocessing, troubleshooting, and advanced usage, refer to **[SETUP.md](SETUP.md)**.
+# 2. Evaluate models
+./scripts/run_evaluation.sh \
+  --data-path data/darpa \
+  --dataset cadets_e3 \
+  --dataset-type darpa \
+  --skip-preprocess
+```
+
+**Option C: Quick Test with Binary AVRO Files**
+```bash
+# Process binary DARPA files and run quick evaluation
+# Note: For DARPA datasets, use --data-format bin for binary AVRO files
+./scripts/run_evaluation.sh \
+  --data-path ../DARPA/ta1-theia-e3-official-1r.bin \
+  --dataset theia_e3 \
+  --data-format bin \
+  --max-events 100000 \
+  --model magic
+
+# Alternative: Process entire dataset without sampling
+./scripts/run_evaluation.sh \
+  --data-path ../DARPA/ta1-theia-e3-official-1r.json \
+  --dataset theia_e3 \
+  --model magic
+```
+
+**Note:** DARPA datasets often come in directories with files like `*.bin`, `*.bin.1`, `*.bin.2`, etc. The framework automatically finds all files in the directory.
+
+**Estimated time:** 
+- Custom SOC: 15-30 minutes
+- DARPA datasets (full): 45-90 minutes
+- DARPA datasets (sampled): 10-20 minutes
+
+### Universal Preprocessing
+
+The framework now includes a **unified preprocessing script** that handles all data formats with automatic detection:
+
+```bash
+# Universal preprocessor - auto-detects format and dataset type
+python scripts/preprocess_data.py \
+  --input-dir <path_to_data> \
+  --dataset-name <dataset_name>
+
+# Supported formats (auto-detected):
+# - JSON (Elastic/ELK logs)
+# - NDJSON (New Line Delimited JSON)
+# - Binary AVRO (DARPA TC CDM v18)
+# - Custom JSON schemas
+
+# Supported dataset types (auto-detected):
+# - custom_soc (Elastic/ELK logs)
+# - darpa (DARPA TC CDM format)
+# - custom (any JSON format)
+```
+
+**Key Features:**
+- ✅ **Automatic format detection** - No need to specify JSON vs binary
+- ✅ **Multi-format support** - JSON, NDJSON, binary AVRO
+- ✅ **Semantic parsing** - Intelligent schema detection
+- ✅ **Large dataset handling** - Sampling support for testing
+- ✅ **Comprehensive statistics** - Detailed preprocessing metrics
+
+For comprehensive setup instructions, data preprocessing, troubleshooting, and advanced usage, refer to:
+- **[SETUP.md](SETUP.md)** - General setup and installation
+- **[DARPA_DATASETS.md](docs/DARPA_DATASETS.md)** - DARPA TC dataset guide
+- **[QUICKSTART_DARPA.md](QUICKSTART_DARPA.md)** - Quick start for DARPA datasets
 
 ---
 
@@ -960,7 +1052,7 @@ print(f"Visualization saved to: {html_path}")
 
 ### Key Scripts
 - `scripts/setup.sh` - Automated environment setup
-- `scripts/preprocess_data.py` - SOC data preprocessing
+- `scripts/preprocess_data.py` - Universal data preprocessing (SOC/DARPA/custom, JSON/NDJSON/AVRO)
 - `scripts/download_checkpoints.py` - Download pretrained weights
 - `scripts/run_evaluation.sh` - End-to-end evaluation workflow
 - `experiments/evaluate_pipeline.py` - Model evaluation

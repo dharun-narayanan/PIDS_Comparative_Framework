@@ -1,0 +1,221 @@
+# DARPA TC Dataset Configuration Template
+# This template can be customized for specific DARPA datasets
+
+dataset_name: darpa_template
+dataset_type: darpa
+
+# Data paths
+data:
+  # Path to DARPA dataset folder
+  root_dir: ../../DARPA/
+  
+  # Specific dataset folder (cadets, theia, trace, clearscope)
+  dataset_folder: ta1-cadets-e3-official-1.json/
+  
+  # File pattern to match
+  file_pattern: "*.json"
+  
+  # Output paths
+  processed_dir: data/darpa/
+  graph_cache_dir: data/cache/darpa/
+  
+# Data format (DARPA CDM)
+format:
+  type: darpa_cdm
+  version: "18"  # CDM version 18
+  schema: avro
+  
+  # CDM supports both JSON and binary AVRO formats
+  supported_formats:
+    - json
+    - bin
+    - avro
+  
+  # CDM record types
+  record_types:
+    - Event
+    - Subject          # Process
+    - FileObject       # File
+    - NetFlowObject    # Network
+    - MemoryObject     # Memory
+    - SrcSinkObject    # Socket
+    - Principal        # User/Principal
+    - Host             # Host information
+    
+# Graph construction
+graph:
+  # Node types (based on CDM)
+  node_types:
+    - process          # Subject
+    - file             # FileObject
+    - network          # NetFlowObject
+    - memory           # MemoryObject
+    - socket           # SrcSinkObject
+    - principal        # Principal
+    - registry         # RegistryKeyObject
+    
+  # Edge types (CDM event types)
+  edge_types:
+    # Process events
+    - exec
+    - fork
+    - clone
+    - exit
+    
+    # File events
+    - read
+    - write
+    - open
+    - close
+    - mmap
+    - rename
+    - link
+    - unlink
+    - create
+    - modify_attr
+    
+    # Network events
+    - connect
+    - accept
+    - sendto
+    - recvfrom
+    - sendmsg
+    - recvmsg
+    
+    # Library events
+    - loadlib
+    
+    # Other
+    - other
+    
+  # Graph features
+  node_features:
+    type: mixed
+    embedding_dim: 128
+    use_text_features: true
+    use_process_names: true
+    use_file_paths: true
+    use_cmdline: true
+    
+  edge_features:
+    use_timestamps: true
+    use_attributes: true
+    use_event_types: true
+    use_thread_id: true
+    use_sequence: true
+    
+  # Temporal settings
+  temporal:
+    enabled: true
+    window_size: 3600       # 1 hour windows (in seconds)
+    stride: 1800            # 30 minute stride
+    
+# Preprocessing
+preprocessing:
+  # Data cleaning
+  remove_duplicates: false  # CDM data is already deduplicated
+  handle_missing: skip
+  remove_self_loops: true
+  
+  # Feature engineering
+  extract_time_features: true
+  normalize_features: true
+  
+  # Filtering
+  min_node_degree: 1
+  max_graph_size: 1000000   # Max nodes per graph (DARPA is large)
+  
+  # Entity resolution
+  entity_resolution:
+    enabled: true
+    use_uuid: true          # CDM provides UUIDs
+    match_fields:
+      - uuid
+      - pid
+      - file_path
+      - network_tuple
+      
+  # Event filtering (optional - to reduce graph size)
+  filter_events:
+    enabled: false
+    # Include only specific event types
+    include_events: []
+    # Exclude noisy events
+    exclude_events: 
+      - other
+      
+  # Sampling (for testing on large datasets)
+  sampling:
+    enabled: false
+    max_events: 1000000     # Sample first N events
+    random_sample: false    # Or random sampling
+    
+# Labels (DARPA provides ground truth)
+labels:
+  # Label source
+  source: groundtruth
+  
+  # DARPA ground truth file (if available)
+  groundtruth_file: null
+  
+  # Label mapping
+  benign: 0
+  malicious: 1
+  
+  # Default label for unlabeled data
+  default_label: 0
+  
+  # Attack windows (dataset-specific)
+  attack_windows: []
+
+# Model compatibility
+models:
+  compatible:
+    - continuum_fl
+    - kairos
+    - magic
+    - orthrus
+    - threatrace
+    
+# Splitting
+split:
+  method: temporal
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  # Temporal split
+  temporal_split:
+    by: day
+    train_days: 7
+    val_days: 1
+    test_days: 2
+    
+# Data statistics
+statistics:
+  compute_stats: true
+  stats_output: data/stats/darpa.json
+  
+# Performance optimization
+optimization:
+  chunk_size: 10000
+  num_workers: 8
+  cache_processed: true
+  use_mmap: false          # Not needed for streaming processing
+  parallel_parsing: true   # Parse multiple files in parallel
+  
+# Validation
+validation:
+  validate_schema: true
+  check_consistency: true
+  report_anomalies: true
+  
+# Dataset-specific information
+dataset_info:
+  description: "DARPA Transparent Computing (TC) dataset"
+  source: "DARPA TC program"
+  collection_system: null  # e.g., CADETS, ClearScope, THEIA, TRACE
+  os: null                 # e.g., FreeBSD, Linux, Android
+  duration: null           # e.g., "7 days"
+  total_events: null
+  attack_scenarios: []

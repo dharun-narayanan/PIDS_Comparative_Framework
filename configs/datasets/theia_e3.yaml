@@ -1,12 +1,12 @@
-# DARPA TC CADETS E3 Dataset Configuration
+# DARPA TC THEIA E3 Dataset Configuration
 
-dataset_name: cadets_e3
+dataset_name: theia_e3
 dataset_type: darpa
 
 # Data paths
 data:
   root_dir: ../../DARPA/
-  dataset_folder: ta1-cadets-e3-official-1.json/
+  dataset_folder: ta1-theia-e3-official-1r.json/
   file_pattern: "*.json"
   processed_dir: data/darpa/
   graph_cache_dir: data/cache/darpa/
@@ -17,8 +17,8 @@ format:
   version: "18"
   schema: avro
   supported_formats:
-    - json      # NDJSON format
-    - bin       # Binary AVRO format
+    - json
+    - bin
     
 # Graph construction
 graph:
@@ -29,40 +29,21 @@ graph:
     - memory
     - socket
     
-  edge_types:
-    - exec
-    - fork
-    - exit
-    - read
-    - write
-    - open
-    - close
-    - connect
-    - accept
-    - sendto
-    - recvfrom
-    - mmap
-    
   node_features:
     type: mixed
     embedding_dim: 128
     use_text_features: true
-    use_process_names: true
-    use_file_paths: true
     
   edge_features:
     use_timestamps: true
-    use_attributes: true
     use_event_types: true
     
   temporal:
     enabled: true
     window_size: 3600
-    stride: 1800
     
 # Preprocessing
 preprocessing:
-  remove_duplicates: false
   remove_self_loops: true
   entity_resolution:
     enabled: true
@@ -73,7 +54,6 @@ labels:
   source: groundtruth
   benign: 0
   malicious: 1
-  default_label: 0
   
 # Model compatibility
 models:
@@ -84,27 +64,11 @@ models:
     - orthrus
     - threatrace
     
-# Splitting
-split:
-  method: temporal
-  train_ratio: 0.7
-  val_ratio: 0.15
-  test_ratio: 0.15
-  
-# Performance
-optimization:
-  chunk_size: 10000
-  num_workers: 8
-  cache_processed: true
-  
 # Dataset information
 dataset_info:
-  description: "DARPA TC CADETS Engagement 3 dataset"
-  source: "DARPA TC program"
-  collection_system: "CADETS"
-  os: "FreeBSD"
-  duration: "Multiple days"
+  description: "DARPA TC THEIA Engagement 3 dataset"
+  collection_system: "THEIA"
+  os: "Linux"
   attack_scenarios:
-    - "APT-style attack"
-    - "Credential theft"
-    - "Data exfiltration"
+    - "Browser exploit"
+    - "Backdoor installation"

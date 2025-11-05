@@ -25,6 +25,10 @@ pandas==1.5.3
 scipy==1.10.1
 scikit-learn==1.2.2
 
+# Data Format Support
+avro-python3==1.10.2  # Apache Avro support for DARPA binary files
+fastavro==1.8.0       # Fast Avro implementation (alternative)
+
 # ============================================
 # Graph Processing & Analysis
 # ============================================

@@ -25,9 +25,12 @@ NC='\033[0m' # No Color
 # Default parameters
 MODEL="all"
 DATASET="custom_soc"
+DATASET_TYPE="auto"  # auto, darpa, custom_soc, custom
 DATA_PATH="../custom_dataset"
+DATA_FORMAT="auto"  # auto, json, ndjson, bin, avro
 SKIP_DOWNLOAD=false
 SKIP_PREPROCESS=false
+MAX_EVENTS=""  # Empty means all events
 OUTPUT_DIR="results/evaluation_$(date +%Y%m%d_%H%M%S)"
 
 # Parse arguments
@@ -41,8 +44,20 @@ while [[ $# -gt 0 ]]; do
             DATASET="$2"
             shift 2
             ;;
+        --dataset-type)
+            DATASET_TYPE="$2"
+            shift 2
+            ;;
         --data-path)
             DATA_PATH="$2"
+            shift 2
+            ;;
+        --data-format)
+            DATA_FORMAT="$2"
+            shift 2
+            ;;
+        --max-events)
+            MAX_EVENTS="$2"
             shift 2
             ;;
         --skip-download)
@@ -60,26 +75,46 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
-            echo "Default workflow: Evaluate pretrained models on your custom SOC data"
+            echo "Default workflow: Evaluate pretrained models on your custom SOC data or DARPA datasets"
             echo ""
             echo "Options:"
-            echo "  --model MODEL          Model to evaluate (magic, kairos, orthrus, threatrace, continuum_fl, all)"
-            echo "                         Default: all"
-            echo "  --dataset DATASET      Dataset name (default: custom_soc)"
-            echo "  --data-path PATH       Path to preprocessed data (e.g., data/custom_soc)"
-            echo "                         OR path to JSON source files (e.g., ../custom_dataset)"
-            echo "                         Script will auto-detect if data is already preprocessed"
-            echo "                         Default: ../custom_dataset"
-            echo "  --skip-download        Skip downloading pretrained weights"
-            echo "  --skip-preprocess      Skip data preprocessing (use if already preprocessed)"
-            echo "  --output-dir DIR       Output directory for results"
-            echo "  --help, -h            Show this help message"
+            echo "  --model MODEL            Model to evaluate (magic, kairos, orthrus, threatrace, continuum_fl, all)"
+            echo "                           Default: all"
+            echo "  --dataset DATASET        Dataset name (e.g., custom_soc, cadets_e3, theia_e3)"
+            echo "                           Default: custom_soc"
+            echo "  --dataset-type TYPE      Dataset type (auto, darpa, custom_soc, custom)"
+            echo "                           Default: auto (auto-detect from path)"
+            echo "  --data-path PATH         Path to preprocessed data (e.g., data/custom_soc)"
+            echo "                           OR path to JSON/binary source files (e.g., ../DARPA/ta1-cadets-e3-official-1.json)"
+            echo "                           Script will auto-detect if data is already preprocessed"
+            echo "                           Default: ../custom_dataset"
+            echo "  --data-format FORMAT     Data format (auto, json, ndjson, bin, avro)"
+            echo "                           Default: auto (auto-detect)"
+            echo "  --max-events NUM         Maximum events to process per file (for testing/sampling)"
+            echo "                           Default: process all events"
+            echo "  --skip-download          Skip downloading pretrained weights"
+            echo "  --skip-preprocess        Skip data preprocessing (use if already preprocessed)"
+            echo "  --output-dir DIR         Output directory for results"
+            echo "  --help, -h              Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                                           # Full workflow (download, preprocess, evaluate)"
-            echo "  $0 --data-path data/custom_soc              # Use already preprocessed data"
-            echo "  $0 --model magic --skip-download            # Evaluate MAGIC, skip weight download"
-            echo "  $0 --data-path ../my_data --dataset my_soc  # Preprocess and evaluate custom data"
+            echo "  # Evaluate all models on custom SOC data"
+            echo "  $0 --data-path ../custom_dataset --dataset custom_soc"
+            echo ""
+            echo "  # Evaluate DARPA CADETS dataset"
+            echo "  $0 --data-path ../DARPA/ta1-cadets-e3-official-1.json --dataset cadets_e3 --dataset-type darpa"
+            echo ""
+            echo "  # Evaluate DARPA THEIA with binary AVRO files"
+            echo "  $0 --data-path ../DARPA/ta1-theia-e3-official-1r.bin --dataset theia_e3 --data-format bin"
+            echo ""
+            echo "  # Quick test with sample of DARPA data"
+            echo "  $0 --data-path ../DARPA/ta1-trace-e3-official-1.json --dataset trace_e3 --max-events 10000"
+            echo ""
+            echo "  # Evaluate specific model on already preprocessed data"
+            echo "  $0 --model magic --data-path data/darpa/cadets_e3 --skip-preprocess"
+            echo ""
+            echo "  # Full workflow (download weights, preprocess, evaluate all)"
+            echo "  $0"
             exit 0
             ;;
         *)
@@ -98,7 +133,12 @@ echo ""
 echo -e "${BLUE}Configuration:${NC}"
 echo -e "  Model(s):      ${GREEN}${MODEL}${NC}"
 echo -e "  Dataset:       ${GREEN}${DATASET}${NC}"
+echo -e "  Dataset Type:  ${GREEN}${DATASET_TYPE}${NC}"
 echo -e "  Data Path:     ${GREEN}${DATA_PATH}${NC}"
+echo -e "  Data Format:   ${GREEN}${DATA_FORMAT}${NC}"
+if [[ -n "$MAX_EVENTS" ]]; then
+    echo -e "  Max Events:    ${GREEN}${MAX_EVENTS}${NC}"
+fi
 echo -e "  Output Dir:    ${GREEN}${OUTPUT_DIR}${NC}"
 echo ""
 
@@ -109,11 +149,18 @@ if [[ -z "${CONDA_DEFAULT_ENV}" ]] || [[ "${CONDA_DEFAULT_ENV}" != "pids_framewo
     exit 1
 fi
 
-# Check if data path exists
+# Check if data path exists (can be directory or parent directory of preprocessed files)
 if [[ ! -d "$DATA_PATH" ]]; then
-    echo -e "${RED}Error: Data path does not exist: $DATA_PATH${NC}"
-    echo -e "${YELLOW}Please ensure your SOC data is available at the specified path.${NC}"
-    exit 1
+    # Check if it's a parent directory containing the graph file
+    PARENT_DIR=$(dirname "$DATA_PATH")
+    if [[ ! -d "$PARENT_DIR" ]]; then
+        echo -e "${RED}Error: Data path does not exist: $DATA_PATH${NC}"
+        echo -e "${YELLOW}Please ensure your data is available at the specified path.${NC}"
+        echo -e "${YELLOW}Note: DATA_PATH should be either:${NC}"
+        echo -e "${YELLOW}  - A directory with source files (for preprocessing)${NC}"
+        echo -e "${YELLOW}  - A directory containing preprocessed .pkl files${NC}"
+        exit 1
+    fi
 fi
 
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
@@ -160,40 +207,76 @@ echo -e "${CYAN}─────────────────────�
 echo -e "${CYAN}Step 3/5: Checking Preprocessed Data${NC}"
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
 
+# Determine output subdirectory based on dataset type
+if [[ "$DATASET_TYPE" == "darpa" ]] || [[ "$DATA_PATH" =~ "DARPA" ]] || [[ "$DATA_PATH" =~ "ta1-" ]]; then
+    PREPROCESSED_DATA_PATH="data/darpa"
+    ACTUAL_DATASET_TYPE="darpa"
+elif [[ "$DATASET_TYPE" == "custom_soc" ]] || [[ "$DATASET" == "custom_soc" ]]; then
+    PREPROCESSED_DATA_PATH="data/custom_soc"
+    ACTUAL_DATASET_TYPE="custom_soc"
+else
+    PREPROCESSED_DATA_PATH="data/processed"
+    ACTUAL_DATASET_TYPE="custom"
+fi
+
 # Check if data is already preprocessed (has .pkl or .pt files)
-PREPROCESSED_DATA_PATH="data/${DATASET}"
-if [[ -f "${PREPROCESSED_DATA_PATH}/custom_soc_graph.pkl" ]] || [[ -f "${PREPROCESSED_DATA_PATH}/graph.pkl" ]] || [[ -f "${DATA_PATH}/custom_soc_graph.pkl" ]]; then
+# Check in multiple locations: exact path, with dataset name, and parent directory
+if [[ -f "${DATA_PATH}/${DATASET}_graph.pkl" ]] || [[ -f "${DATA_PATH}/graph.pkl" ]]; then
+    echo -e "${GREEN}✓ Preprocessed data found in specified path${NC}"
+    PREPROCESSED_DATA_PATH="$DATA_PATH"
+    echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}/${DATASET}_graph.pkl or graph.pkl${NC}"
+elif [[ -f "${PREPROCESSED_DATA_PATH}/${DATASET}_graph.pkl" ]] || [[ -f "${PREPROCESSED_DATA_PATH}/graph.pkl" ]]; then
     echo -e "${GREEN}✓ Preprocessed data found${NC}"
-    # If user provided preprocessed data path, use it directly
-    if [[ -f "${DATA_PATH}/custom_soc_graph.pkl" ]] || [[ -f "${DATA_PATH}/graph.pkl" ]]; then
-        PREPROCESSED_DATA_PATH="$DATA_PATH"
-        echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}${NC}"
-    else
-        echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}${NC}"
-    fi
+    echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}/${DATASET}_graph.pkl${NC}"
+elif [[ -f "$(dirname ${DATA_PATH})/${DATASET}_graph.pkl" ]]; then
+    echo -e "${GREEN}✓ Preprocessed data found in parent directory${NC}"
+    PREPROCESSED_DATA_PATH="$(dirname ${DATA_PATH})"
+    echo -e "${BLUE}  Using: ${PREPROCESSED_DATA_PATH}/${DATASET}_graph.pkl${NC}"
 elif [[ "$SKIP_PREPROCESS" == false ]]; then
     echo -e "${YELLOW}⚠ Preprocessed data not found${NC}"
-    echo -e "${BLUE}Preprocessing your SOC data...${NC}"
+    echo -e "${BLUE}Preprocessing your data using unified preprocessor...${NC}"
     echo -e "${BLUE}This may take several minutes for large datasets (2GB+)${NC}"
-    echo -e "${BLUE}Note: DATA_PATH should point to JSON source files (e.g., ../custom_dataset)${NC}"
     
-    python scripts/preprocess_data.py \
-        --input-dir "$DATA_PATH" \
-        --output-dir "${PREPROCESSED_DATA_PATH}" \
-        --dataset-name "$DATASET"
+    # Build preprocessing command with flags
+    # Check if DATA_PATH is a file or directory
+    if [[ -f "$DATA_PATH" ]]; then
+        # Single file - use --input-files
+        PREPROCESS_CMD="python scripts/preprocess_data.py --input-files \"$DATA_PATH\" --output-dir data --dataset-name \"$DATASET\""
+    else
+        # Directory - use --input-dir
+        PREPROCESS_CMD="python scripts/preprocess_data.py --input-dir \"$DATA_PATH\" --output-dir data --dataset-name \"$DATASET\""
+    fi
+    
+    # Add dataset type if specified
+    if [[ "$DATASET_TYPE" != "auto" ]]; then
+        PREPROCESS_CMD="$PREPROCESS_CMD --dataset-type \"$DATASET_TYPE\""
+    fi
+    
+    # Add format if specified
+    if [[ "$DATA_FORMAT" != "auto" ]]; then
+        PREPROCESS_CMD="$PREPROCESS_CMD --format \"$DATA_FORMAT\""
+    fi
+    
+    # Add max events if specified
+    if [[ -n "$MAX_EVENTS" ]]; then
+        PREPROCESS_CMD="$PREPROCESS_CMD --max-events-per-file $MAX_EVENTS"
+    fi
+    
+    echo -e "${BLUE}Running: $PREPROCESS_CMD${NC}"
+    eval $PREPROCESS_CMD
     
     if [[ $? -eq 0 ]]; then
         echo -e "${GREEN}✓ Data preprocessing completed${NC}"
     else
         echo -e "${RED}Error: Data preprocessing failed${NC}"
-        echo -e "${YELLOW}Hint: Ensure DATA_PATH points to directory with JSON files${NC}"
+        echo -e "${YELLOW}Hint: Ensure DATA_PATH points to directory with data files${NC}"
         echo -e "${YELLOW}  Current: ${DATA_PATH}${NC}"
         exit 1
     fi
 else
     echo -e "${RED}Error: No preprocessed data found and --skip-preprocess was specified${NC}"
     echo -e "${YELLOW}Please either:${NC}"
-    echo -e "${YELLOW}  1. Run preprocessing first: python scripts/preprocess_data.py --input-dir ../custom_dataset --output-dir data/${DATASET} --dataset-name ${DATASET}${NC}"
+    echo -e "${YELLOW}  1. Run preprocessing first: python scripts/preprocess_data.py --input-dir \"${DATA_PATH}\" --output-dir data --dataset-name \"${DATASET}\"${NC}"
     echo -e "${YELLOW}  2. Provide correct --data-path pointing to preprocessed data${NC}"
     exit 1
 fi

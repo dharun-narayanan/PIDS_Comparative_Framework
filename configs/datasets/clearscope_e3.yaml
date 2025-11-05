@@ -1,0 +1,68 @@
+# DARPA TC CLEARSCOPE E3 Dataset Configuration
+
+dataset_name: clearscope_e3
+dataset_type: darpa
+
+# Data paths
+data:
+  root_dir: ../../DARPA/
+  dataset_folder: ta1-clearscope-e3-official-1.json/
+  file_pattern: "*.json"
+  processed_dir: data/darpa/
+  graph_cache_dir: data/cache/darpa/
+  
+# Data format (DARPA CDM)
+format:
+  type: darpa_cdm
+  version: "18"
+  schema: avro
+  supported_formats:
+    - json      # NDJSON format
+    - bin       # Binary AVRO format
+    
+# Graph construction
+graph:
+  node_types:
+    - process
+    - file
+    - network
+    - memory
+    
+  node_features:
+    type: mixed
+    embedding_dim: 128
+    
+  temporal:
+    enabled: true
+    window_size: 3600
+    
+# Preprocessing
+preprocessing:
+  remove_self_loops: true
+  entity_resolution:
+    enabled: true
+    use_uuid: true
+    
+# Labels
+labels:
+  source: groundtruth
+  benign: 0
+  malicious: 1
+  
+# Model compatibility
+models:
+  compatible:
+    - continuum_fl
+    - kairos
+    - magic
+    - orthrus
+    - threatrace
+    
+# Dataset information
+dataset_info:
+  description: "DARPA TC ClearScope Engagement 3 dataset"
+  collection_system: "ClearScope"
+  os: "Linux"
+  attack_scenarios:
+    - "Web-based attack"
+    - "Privilege escalation"
