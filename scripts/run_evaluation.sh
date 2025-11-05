@@ -31,7 +31,9 @@ DATA_FORMAT="auto"  # auto, json, ndjson, bin, avro
 SKIP_DOWNLOAD=false
 SKIP_PREPROCESS=false
 MAX_EVENTS=""  # Empty means all events
-OUTPUT_DIR="results/evaluation_$(date +%Y%m%d_%H%M%S)"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+OUTPUT_DIR="results/evaluation_${TIMESTAMP}"
+ARTIFACT_DIR="artifacts/artifacts_${TIMESTAMP}"  # Use timestamped artifacts directory
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -164,19 +166,13 @@ if [[ ! -d "$DATA_PATH" ]]; then
 fi
 
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
-echo -e "${CYAN}Step 1/5: Archiving Previous Artifacts${NC}"
-echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
+echo -e "${CYAN}Step 1/5: Setting Up Artifacts Directory${NC}"
+echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
 
-# Archive old artifacts to avoid confusion with cached results
-if [[ -d "artifacts" ]] && [[ -n "$(ls -A artifacts 2>/dev/null)" ]]; then
-    ARCHIVE_DIR="artifacts_archive/archive_$(date +%Y%m%d_%H%M%S)"
-    echo -e "${BLUE}Archiving previous artifacts to: ${ARCHIVE_DIR}${NC}"
-    mkdir -p "$ARCHIVE_DIR"
-    mv artifacts/* "$ARCHIVE_DIR/" 2>/dev/null || true
-    echo -e "${GREEN}✓ Previous artifacts archived${NC}"
-else
-    echo -e "${GREEN}✓ No previous artifacts to archive${NC}"
-fi
+# Create timestamped artifacts directory for this evaluation
+echo -e "${BLUE}Creating artifacts directory: ${ARTIFACT_DIR}${NC}"
+mkdir -p "$ARTIFACT_DIR"
+echo -e "${GREEN}✓ Artifacts directory created${NC}"
 
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
@@ -304,6 +300,7 @@ if [[ "$MODEL" == "all" ]]; then
             --dataset "$DATASET" \
             --data-path "${PREPROCESSED_DATA_PATH}" \
             --checkpoints-dir checkpoints \
+            --artifact-dir "$ARTIFACT_DIR" \
             --output-dir "$OUTPUT_DIR" \
             2>&1 | tee "$OUTPUT_DIR/${model_name}_evaluation.log"
         
@@ -322,6 +319,7 @@ else
         --dataset "$DATASET" \
         --data-path "${PREPROCESSED_DATA_PATH}" \
         --checkpoints-dir checkpoints \
+        --artifact-dir "$ARTIFACT_DIR" \
         --output-dir "$OUTPUT_DIR" \
         2>&1 | tee "$OUTPUT_DIR/${MODEL}_evaluation.log"
     
@@ -349,13 +347,13 @@ if [[ "$MODEL" == "all" ]]; then
     
     # Analyze each model
     for model_name in magic kairos orthrus threatrace continuum_fl; do
-        if [[ -d "artifacts/${model_name}/model_inference" ]]; then
+        if [[ -d "${ARTIFACT_DIR}/${model_name}/model_inference" ]]; then
             echo -e "${YELLOW}Analyzing ${model_name}...${NC}"
             
             python scripts/analyze_anomalies.py \
                 --model "$model_name" \
                 --top-k 100 \
-                --artifacts-dir artifacts \
+                --artifacts-dir "$ARTIFACT_DIR" \
                 --data-path "${PREPROCESSED_DATA_PATH}" \
                 --dataset "$DATASET" \
                 --output-dir "$ANOMALY_DIR" \
@@ -375,7 +373,7 @@ if [[ "$MODEL" == "all" ]]; then
     python scripts/analyze_anomalies.py \
         --ensemble \
         --top-k 100 \
-        --artifacts-dir artifacts \
+        --artifacts-dir "$ARTIFACT_DIR" \
         --data-path "${PREPROCESSED_DATA_PATH}" \
         --dataset "$DATASET" \
         --output-dir "$ANOMALY_DIR" \
@@ -386,17 +384,17 @@ if [[ "$MODEL" == "all" ]]; then
     fi
 else
     # Analyze single model
-    if [[ -d "artifacts/${MODEL}/model_inference" ]]; then
+    if [[ -d "${ARTIFACT_DIR}/${MODEL}/model_inference" ]]; then
         echo -e "${BLUE}Analyzing anomalies for ${MODEL}...${NC}"
         
         python scripts/analyze_anomalies.py \
             --model "$MODEL" \
             --top-k 100 \
-            --artifacts-dir artifacts \
+            --artifacts-dir "$ARTIFACT_DIR" \
             --data-path "${PREPROCESSED_DATA_PATH}" \
             --dataset "$DATASET" \
             --output-dir "$ANOMALY_DIR" \
-            2>&1 | tee "$ANOMALY_DIR/${MODEL}_analysis.log"
+            2>&1 | tee "$ANOMALY_DIR/analysis.log"
         
         if [[ $? -eq 0 ]]; then
             echo -e "${GREEN}✓ Anomaly analysis completed${NC}"
@@ -414,12 +412,15 @@ echo -e "${GREEN}✓ EVALUATION AND ANALYSIS COMPLETED SUCCESSFULLY!${NC}"
 echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${BLUE}Results saved to:${NC} ${GREEN}${OUTPUT_DIR}${NC}"
+echo -e "${BLUE}Artifacts saved to:${NC} ${GREEN}${ARTIFACT_DIR}${NC}"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo -e "  1. View evaluation:       cat ${OUTPUT_DIR}/evaluation_results_${DATASET}.json"
-echo -e "  2. View anomalies:        cat ${ANOMALY_DIR}/magic_analysis.json"
-echo -e "  3. Check consensus:       cat ${ANOMALY_DIR}/ensemble_analysis.json"
-echo -e "  4. Review logs:           tail ${OUTPUT_DIR}/*.log"
+echo -e "  2. View metadata:         cat ${OUTPUT_DIR}/evaluation_metadata.json"
+echo -e "  3. View anomalies:        cat ${ANOMALY_DIR}/magic_analysis.json"
+echo -e "  4. Check consensus:       cat ${ANOMALY_DIR}/ensemble_analysis.json"
+echo -e "  5. Review logs:           tail ${OUTPUT_DIR}/*.log"
+echo -e "  6. Visualize results:     ./scripts/visualize_attacks.sh --evaluation-dir ${OUTPUT_DIR}"
 echo ""
 if [[ "$MODEL" == "all" ]]; then
     echo -e "${BLUE}Performance Summary:${NC}"

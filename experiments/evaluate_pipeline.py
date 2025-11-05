@@ -298,6 +298,22 @@ def main():
     
     logger.info(f"\nResults saved to: {results_file}")
     
+    # Save metadata linking this evaluation to the artifacts directory
+    metadata = {
+        'evaluation_dir': str(output_dir),
+        'artifacts_dir': args.artifact_dir,
+        'dataset': args.dataset,
+        'data_path': args.data_path,
+        'timestamp': output_dir.name,
+        'models_evaluated': models,
+        'device': args.device
+    }
+    metadata_file = output_dir / 'evaluation_metadata.json'
+    with open(metadata_file, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    logger.info(f"Metadata saved to: {metadata_file}")
+    
     # Print summary
     logger.info("\n" + "="*80)
     logger.info("Evaluation Summary - Unsupervised Anomaly Detection")

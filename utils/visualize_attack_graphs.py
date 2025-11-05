@@ -1020,8 +1020,56 @@ class MultiModelVisualizer:
             // Render graph if not already rendered
             if (!document.getElementById(`graph-${{modelName}}`).hasAttribute('data-rendered')) {{
                 const graphData = JSON.parse(graphsData[modelName]);
-                Plotly.newPlot(`graph-${{modelName}}`, graphData.data, graphData.layout, {{responsive: true}});
+                
+                // Configure Plotly with draggable mode
+                const config = {{
+                    responsive: true,
+                    displayModeBar: true,
+                    modeBarButtonsToAdd: ['drawopenpath', 'eraseshape'],
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                    displaylogo: false,
+                    toImageButtonOptions: {{
+                        format: 'png',
+                        filename: `${{modelName}}_attack_graph`,
+                        height: 1080,
+                        width: 1920,
+                        scale: 2
+                    }}
+                }};
+                
+                // Update layout for better dragging experience
+                graphData.layout.dragmode = 'pan';
+                graphData.layout.hovermode = 'closest';
+                
+                // Enable editable mode for nodes (makes them draggable)
+                if (graphData.data && graphData.data.length > 0) {{
+                    // The last trace is usually the node trace
+                    const nodeTraceIndex = graphData.data.length - 1;
+                    if (graphData.data[nodeTraceIndex].mode && graphData.data[nodeTraceIndex].mode.includes('markers')) {{
+                        // This is the node trace - make it editable
+                        graphData.data[nodeTraceIndex].editable = true;
+                    }}
+                }}
+                
+                Plotly.newPlot(`graph-${{modelName}}`, graphData.data, graphData.layout, config);
                 document.getElementById(`graph-${{modelName}}`).setAttribute('data-rendered', 'true');
+                
+                // Add custom drag behavior for nodes
+                const graphDiv = document.getElementById(`graph-${{modelName}}`);
+                let isDragging = false;
+                let draggedPoint = null;
+                
+                graphDiv.on('plotly_click', function(data) {{
+                    // Store clicked point for potential dragging
+                    if (data.points && data.points.length > 0) {{
+                        draggedPoint = {{
+                            pointIndex: data.points[0].pointIndex,
+                            curveNumber: data.points[0].curveNumber,
+                            x: data.points[0].x,
+                            y: data.points[0].y
+                        }};
+                    }}
+                }});
             }}
             
             currentModel = modelName;
@@ -1264,7 +1312,7 @@ class MultiModelVisualizer:
             y=node_y,
             mode='markers',
             hoverinfo='text',
-            text=node_text,
+            hovertext=node_text,
             marker=dict(
                 size=node_sizes,
                 color=node_colors,
@@ -1276,7 +1324,7 @@ class MultiModelVisualizer:
         
         fig.add_trace(node_trace)
         
-        # Update layout
+        # Update layout with draggable mode
         fig.update_layout(
             title=dict(
                 text=f"<b>{model_name.upper()} Attack Graph</b><br>"
@@ -1291,7 +1339,12 @@ class MultiModelVisualizer:
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             plot_bgcolor='#f7fafc',
-            height=700
+            height=700,
+            dragmode='pan',  # Enable pan mode for dragging
+            modebar=dict(
+                orientation='h',
+                bgcolor='rgba(255, 255, 255, 0.7)'
+            )
         )
         
         return fig
@@ -1348,6 +1401,13 @@ def main():
         type=str,
         default='artifacts',
         help='Artifacts directory with model outputs'
+    )
+    
+    parser.add_argument(
+        '--evaluation-dir',
+        type=str,
+        default=None,
+        help='Evaluation results directory for reference (artifacts are loaded from --artifacts-dir)'
     )
     
     parser.add_argument(
@@ -1412,6 +1472,40 @@ def main():
     artifacts_dir = Path(args.artifacts_dir)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Log evaluation directory if specified and update artifacts_dir if metadata exists
+    if args.evaluation_dir:
+        evaluation_dir = Path(args.evaluation_dir)
+        if not evaluation_dir.exists():
+            logger.error(f"Evaluation directory not found: {evaluation_dir}")
+            return 1
+        
+        # Check for evaluation metadata to find the correct artifacts directory
+        metadata_file = evaluation_dir / 'evaluation_metadata.json'
+        if metadata_file.exists():
+            logger.info(f"Found evaluation metadata: {metadata_file}")
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+            
+            # Use the artifacts directory from metadata
+            metadata_artifacts_dir = Path(metadata.get('artifacts_dir', 'artifacts'))
+            if metadata_artifacts_dir.exists():
+                artifacts_dir = metadata_artifacts_dir
+                logger.info(f"Using artifacts from evaluation: {artifacts_dir}")
+                logger.info(f"Evaluation timestamp: {metadata.get('timestamp', 'unknown')}")
+                logger.info(f"Dataset: {metadata.get('dataset', 'unknown')}")
+            else:
+                logger.warning(f"Artifacts directory from metadata not found: {metadata_artifacts_dir}")
+                logger.info(f"Falling back to default artifacts directory: {artifacts_dir}")
+        else:
+            logger.warning(f"No evaluation metadata found in {evaluation_dir}")
+            logger.warning(f"Metadata file expected at: {metadata_file}")
+            logger.info(f"Using default artifacts directory: {artifacts_dir}")
+            logger.info("Note: Evaluations created before this update don't have metadata files")
+    
+    logger.info(f"Loading artifacts from: {artifacts_dir}")
+    if not args.evaluation_dir or not (Path(args.evaluation_dir) / 'evaluation_metadata.json').exists():
+        logger.info("Note: To visualize specific evaluations, ensure they have evaluation_metadata.json")
     
     # Track if HTTP server is started
     server_port_to_keep = None

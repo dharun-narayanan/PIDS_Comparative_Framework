@@ -911,6 +911,8 @@ After running model evaluations, you can visualize and compare attack graphs acr
 ### Features
 
 - **Interactive Multi-Model Comparison** - Compare attack graphs from all models side-by-side
+- **Clean Node Visualization** - Hover over nodes to see detailed information
+- **Evaluation Reference** - Track which evaluation run's artifacts you're visualizing
 - **Attack Path Reconstruction** - Backward/forward provenance traversal from anomalies
 - **Entity Clustering** - Group related entities and events
 - **Export Formats** - HTML (interactive), JSON (summary), GraphML (for Gephi/Cytoscape)
@@ -919,33 +921,45 @@ After running model evaluations, you can visualize and compare attack graphs acr
 ### Quick Usage
 
 ```bash
-# Visualize all models
+# Visualize using artifacts directory (most common)
+./scripts/visualize_attacks.sh
+
+# Reference a specific evaluation for logging purposes
+./scripts/visualize_attacks.sh \
+  --evaluation-dir results/evaluation_20251104_234042
+
+# Visualize all models with custom settings
 python utils/visualize_attack_graphs.py \
   --artifacts-dir artifacts \
   --models magic kairos orthrus threatrace continuum_fl
 
 # Customize thresholds and paths
-python utils/visualize_attack_graphs.py \
-  --threshold-percentile 99.0 \
+./scripts/visualize_attacks.sh \
+  --threshold 99.0 \
   --top-k 50 \
   --top-paths 20
 
 # Specify output directory
-python utils/visualize_attack_graphs.py \
+./scripts/visualize_attacks.sh \
   --output-dir results/my_attack_visualization
 ```
+
+**Note:** The `--evaluation-dir` flag is for reference/logging only. Attack graphs are always built from the artifacts in the `--artifacts-dir` directory, which contains the model inference outputs and graph transformations.
 
 ### Command-Line Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--artifacts-dir` | `artifacts` | Directory containing model artifacts |
+| `--artifacts-dir` | `artifacts` | Directory containing model artifacts (graphs, inference outputs) |
+| `--evaluation-dir` | None | Reference to evaluation results directory (for logging only) |
 | `--models` | All 5 models | Space-separated list of models to visualize |
 | `--output-dir` | `results/attack_graph_visualization` | Output directory for visualizations |
-| `--threshold-percentile` | `95.0` | Percentile threshold for anomalies (90-99.9) |
+| `--threshold-percentile` | `99.0` | Percentile threshold for anomalies (90-99.9) |
 | `--top-k` | `100` | Number of top anomalies to include |
-| `--top-paths` | `10` | Number of attack paths to extract |
+| `--top-paths` | `15` | Number of attack paths to extract |
 | `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
+| `--no-browser` | false | Skip auto-opening browser (useful for remote servers) |
+| `--serve` | false | Start HTTP server for remote access |
 
 ### Generated Output
 
