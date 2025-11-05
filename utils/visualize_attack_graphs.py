@@ -869,8 +869,9 @@ class MultiModelVisualizer:
         
         .content-area {{
             display: grid;
-            grid-template-columns: 1fr 350px;
+            grid-template-columns: 1fr 300px;
             gap: 20px;
+            height: calc(100vh - 200px);
         }}
         
         .graph-container {{
@@ -878,15 +879,23 @@ class MultiModelVisualizer:
             border-radius: 15px;
             padding: 20px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            min-height: 700px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }}
+        
+        .graph-view {{
+            flex: 1;
+            min-height: 0;
         }}
         
         .stats-card {{
             background: white;
             border-radius: 15px;
-            padding: 25px;
+            padding: 20px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            height: fit-content;
+            height: 100%;
+            overflow-y: auto;
             position: sticky;
             top: 20px;
         }}
@@ -975,7 +984,7 @@ class MultiModelVisualizer:
     <div class="container">
         <div class="header">
             <h1>🔍 Attack Graph Visualization</h1>
-            <p>Interactive provenance-based attack graph analysis across multiple detection models</p>
+            <p>Provenance-based attack graph reconstruction</p>
         </div>
         
         <div class="nav-container" id="modelNav">
@@ -1021,53 +1030,90 @@ class MultiModelVisualizer:
             if (!document.getElementById(`graph-${{modelName}}`).hasAttribute('data-rendered')) {{
                 const graphData = JSON.parse(graphsData[modelName]);
                 
-                // Configure Plotly with draggable mode
+                // Configure Plotly with full interactivity
                 const config = {{
                     responsive: true,
                     displayModeBar: true,
-                    modeBarButtonsToAdd: ['drawopenpath', 'eraseshape'],
-                    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                    modeBarButtonsToAdd: [],
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toggleSpikelines'],
                     displaylogo: false,
+                    editable: false,  // Disable built-in editing to avoid axis title buttons
                     toImageButtonOptions: {{
                         format: 'png',
                         filename: `${{modelName}}_attack_graph`,
-                        height: 1080,
+                        height: 1920,
                         width: 1920,
                         scale: 2
                     }}
                 }};
                 
-                // Update layout for better dragging experience
+                // Update layout for better interaction
                 graphData.layout.dragmode = 'pan';
                 graphData.layout.hovermode = 'closest';
                 
-                // Enable editable mode for nodes (makes them draggable)
+                // Make node trace editable for individual node dragging
                 if (graphData.data && graphData.data.length > 0) {{
-                    // The last trace is usually the node trace
-                    const nodeTraceIndex = graphData.data.length - 1;
-                    if (graphData.data[nodeTraceIndex].mode && graphData.data[nodeTraceIndex].mode.includes('markers')) {{
-                        // This is the node trace - make it editable
-                        graphData.data[nodeTraceIndex].editable = true;
+                    // Find the node trace (usually the last one with markers)
+                    for (let i = graphData.data.length - 1; i >= 0; i--) {{
+                        if (graphData.data[i].mode && graphData.data[i].mode.includes('markers')) {{
+                            // Enable dragging for this trace
+                            graphData.data[i].dragmode = 'select';
+                            break;
+                        }}
                     }}
                 }}
                 
-                Plotly.newPlot(`graph-${{modelName}}`, graphData.data, graphData.layout, config);
+                const graphDiv = document.getElementById(`graph-${{modelName}}`);
+                Plotly.newPlot(graphDiv, graphData.data, graphData.layout, config);
                 document.getElementById(`graph-${{modelName}}`).setAttribute('data-rendered', 'true');
                 
-                // Add custom drag behavior for nodes
-                const graphDiv = document.getElementById(`graph-${{modelName}}`);
+                // Add custom node dragging functionality
                 let isDragging = false;
-                let draggedPoint = null;
+                let selectedPoint = null;
                 
+                // Handle drag start
                 graphDiv.on('plotly_click', function(data) {{
-                    // Store clicked point for potential dragging
                     if (data.points && data.points.length > 0) {{
-                        draggedPoint = {{
-                            pointIndex: data.points[0].pointIndex,
-                            curveNumber: data.points[0].curveNumber,
-                            x: data.points[0].x,
-                            y: data.points[0].y
+                        const point = data.points[0];
+                        // Check if it's a node (marker trace)
+                        if (point.data.mode && point.data.mode.includes('markers')) {{
+                            selectedPoint = {{
+                                curveNumber: point.curveNumber,
+                                pointIndex: point.pointIndex,
+                                x: point.x,
+                                y: point.y
+                            }};
+                            isDragging = true;
+                            graphDiv.style.cursor = 'grab';
+                        }}
+                    }}
+                }});
+                
+                // Handle drag move
+                graphDiv.on('plotly_hover', function(data) {{
+                    if (isDragging && selectedPoint && data.points && data.points.length > 0) {{
+                        const point = data.points[0];
+                        const update = {{
+                            x: [[point.x]],
+                            y: [[point.y]]
                         }};
+                        Plotly.restyle(graphDiv, update, [selectedPoint.curveNumber], [selectedPoint.pointIndex]);
+                    }}
+                }});
+                
+                // Handle drag end
+                graphDiv.on('plotly_doubleclick', function() {{
+                    isDragging = false;
+                    selectedPoint = null;
+                    graphDiv.style.cursor = 'default';
+                }});
+                
+                // Release on mouse leave
+                graphDiv.addEventListener('mouseleave', function() {{
+                    if (isDragging) {{
+                        isDragging = false;
+                        selectedPoint = null;
+                        graphDiv.style.cursor = 'default';
                     }}
                 }});
             }}
@@ -1339,7 +1385,8 @@ class MultiModelVisualizer:
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             plot_bgcolor='#f7fafc',
-            height=700,
+            autosize=True,
+            height=None,  # Let it be responsive
             dragmode='pan',  # Enable pan mode for dragging
             modebar=dict(
                 orientation='h',

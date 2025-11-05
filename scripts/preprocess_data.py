@@ -430,7 +430,7 @@ Examples:
         '--file-pattern',
         type=str,
         default='*.json',
-        help='File pattern to match when using --input-dir (default: *.json)'
+        help='File pattern to match when using --input-dir (default: *.json, auto-expands to *.json* for DARPA datasets)'
     )
     
     parser.add_argument(
@@ -464,6 +464,13 @@ Examples:
             input_files.extend(sorted(args.input_dir.glob('*.bin.*')))
             input_files = sorted(set(input_files))  # Remove duplicates and sort
             logger.info(f"Found {len(input_files)} files matching '*.bin*' in {args.input_dir}")
+        elif file_pattern == '*.json' and args.format in ['json', 'ndjson', 'auto']:
+            # For JSON files, also match .json.* files (like DARPA's .json.1, .json.2, etc.)
+            logger.info(f"Looking for JSON files including numbered variants (*.json, *.json.*)")
+            input_files = sorted(args.input_dir.glob('*.json'))
+            input_files.extend(sorted(args.input_dir.glob('*.json.*')))
+            input_files = sorted(set(input_files))  # Remove duplicates and sort
+            logger.info(f"Found {len(input_files)} files matching '*.json*' in {args.input_dir}")
         else:
             # Find all matching files
             input_files = sorted(args.input_dir.glob(file_pattern))
