@@ -182,10 +182,48 @@ class MetricsTracker:
             'train_metrics': [],
             'val_metrics': []
         }
+        self.batch_metrics = {}  # Track batch-level metrics for averaging
     
-    def update(self, train_loss: Optional[float] = None, val_loss: Optional[float] = None,
-               train_metrics: Optional[Dict] = None, val_metrics: Optional[Dict] = None):
-        """Update tracked metrics."""
+    def update(self, **kwargs):
+        """
+        Update tracked metrics with arbitrary metric values.
+        
+        Args:
+            **kwargs: Metric name-value pairs to track
+        """
+        for key, value in kwargs.items():
+            if key not in self.batch_metrics:
+                self.batch_metrics[key] = []
+            self.batch_metrics[key].append(float(value))
+    
+    def get_averages(self) -> Dict[str, float]:
+        """
+        Get average of all tracked batch metrics.
+        
+        Returns:
+            Dictionary of averaged metrics
+        """
+        averages = {}
+        for key, values in self.batch_metrics.items():
+            if values:
+                averages[key] = np.mean(values)
+        return averages
+    
+    def reset(self):
+        """Reset batch metrics for new epoch."""
+        self.batch_metrics = {}
+    
+    def update_epoch(self, train_loss: Optional[float] = None, val_loss: Optional[float] = None,
+                     train_metrics: Optional[Dict] = None, val_metrics: Optional[Dict] = None):
+        """
+        Update epoch-level history.
+        
+        Args:
+            train_loss: Training loss
+            val_loss: Validation loss
+            train_metrics: Training metrics dictionary
+            val_metrics: Validation metrics dictionary
+        """
         if train_loss is not None:
             self.history['train_loss'].append(train_loss)
         if val_loss is not None:

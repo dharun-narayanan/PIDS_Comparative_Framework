@@ -1299,6 +1299,405 @@ Next steps:
 
 ---
 
+## Training Models
+
+The framework supports training PIDS models with automatic preprocessing, smart caching, and time window splitting for temporal data.
+
+### Key Features
+
+- ✅ **Automatic Preprocessing**: Raw data (JSON/NDJSON/AVRO) automatically preprocessed during training
+- ✅ **Smart Caching**: Preprocessed graphs cached for 10-20x faster subsequent runs
+- ✅ **Time Window Splitting**: Automatically splits temporal data into multiple training samples
+- ✅ **Format Detection**: Supports JSON, NDJSON, and binary AVRO (auto-detected)
+- ✅ **Mode Detection**: Auto-selects supervised/unsupervised based on labels
+
+### Training Quick Start
+
+```bash
+# Activate environment
+conda activate pids_framework
+
+# Basic training (auto-preprocessing with 1-hour time windows)
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --epochs 50
+
+# Using config file (recommended for DARPA datasets)
+python experiments/train_models.py \
+    --model magic \
+    --config configs/training/cadets_e3.yaml \
+    --epochs 50
+
+# Custom time window (10-minute windows for more samples)
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --time-window 600 \
+    --epochs 50
+```
+
+### Time Window Splitting
+
+Time windows split temporal data into multiple independent graphs:
+
+```bash
+# 1-hour windows (default) - Good for 24-hour datasets
+--time-window 3600     # Results in ~24 graphs for 1-day dataset
+
+# 10-minute windows - More granular temporal analysis  
+--time-window 600      # Results in ~144 graphs for 1-day dataset
+
+# 2-hour windows - For very large datasets
+--time-window 7200     # Results in ~12 graphs for 1-day dataset
+
+# No windowing - Single large graph
+--time-window 0        # All events in one graph
+```
+
+**Benefits of Time Windows:**
+- Multiple training samples from single dataset
+- Enables proper train/validation split across time
+- Better temporal generalization
+- Smaller graphs fit better in memory
+- Faster training per epoch
+
+### Caching and Preprocessing
+
+**First Run (Preprocessing + Training):**
+```bash
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --epochs 50
+
+# Parses raw data (2-3 min for 4M events)
+# Splits into time windows
+# Saves to data/darpa/cadets_e3_graph.pkl
+# Trains model
+```
+
+**Subsequent Runs (Load Cache):**
+```bash
+# Same command, but 10-20x faster startup!
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --epochs 50
+
+# Loads preprocessed graphs (5-10 seconds)
+# Trains immediately
+```
+
+**Force Reprocessing:**
+```bash
+# Regenerate cached data
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --force-preprocess \
+    --epochs 50
+```
+
+**Preprocess Only (No Training):**
+```bash
+# Just preprocess data for later use
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --preprocess-only
+```
+
+### Training Mode Auto-Detection
+
+The framework **automatically detects** whether to use supervised or unsupervised training:
+
+- **Supervised Mode**: Auto-selected if labels file exists and contains non-zero labels
+- **Unsupervised Mode**: Auto-selected otherwise (uses reconstruction-based learning)
+
+```bash
+# With labels → supervised training
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --labels-file data/labels/cadets_e3_labels.json \
+    --epochs 50
+
+# Without labels → unsupervised training
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --epochs 50
+```
+
+**Advanced**: Manually specify training mode (overrides auto-detection):
+```bash
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --mode unsupervised  # or supervised, semi_supervised \
+    --epochs 50
+```
+
+### Training Configuration Files
+
+Dataset-specific configurations are in `configs/training/`:
+
+```
+configs/training/
+├── template.yaml          # Template for new datasets
+├── cadets_e3.yaml         # CADETS E3 configuration
+├── theia_e3.yaml          # THEIA E3 configuration
+├── trace_e3.yaml          # TRACE E3 configuration
+├── clearscope_e3.yaml     # ClearScope E3 configuration
+└── custom_soc.yaml        # Custom SOC configuration
+```
+
+**Example Configuration** (`cadets_e3.yaml`):
+
+```yaml
+# Dataset configuration
+dataset_name: cadets_e3
+data_path: ../../DARPA/ta1-cadets-e3-official-1.json
+labels_file: data/labels/cadets_e3_labels.json  # Optional - enables supervised training
+
+# Training parameters
+training:
+  epochs: 50
+  batch_size: 1
+  learning_rate: 0.0005
+  val_split: 0.2
+  early_stopping_patience: 10
+
+# Data processing
+data:
+  time_window: 3600  # 1 hour windows
+  max_nodes: 50000
+  
+# Advanced options
+optimization:
+  scheduler: cosine
+  grad_clip: 1.0
+  fp16: false
+```
+
+### Training Command Reference
+
+**Essential Arguments:**
+- `--model MODEL` - Model to train (magic, kairos, continuum_fl, threatrace, orthrus) **(REQUIRED)**
+- `--config PATH` - Path to dataset configuration file
+- `--dataset NAME` - Dataset name (alternative to --config)
+- `--data-path PATH` - Path to dataset (auto-detected if not specified)
+
+**Training Options:**
+- `--epochs NUM` - Number of training epochs (default: 50)
+- `--lr FLOAT` - Learning rate (default: 0.0005)
+- `--batch-size NUM` - Batch size (default: 1)
+- `--val-split FLOAT` - Validation split ratio (default: 0.2)
+- `--early-stopping NUM` - Early stopping patience (default: 10)
+
+**Architecture Overrides:**
+- `--hidden-dim NUM` - Hidden dimension size
+- `--num-layers NUM` - Number of layers
+- `--dropout FLOAT` - Dropout rate
+- `--num-heads NUM` - Number of attention heads (for GAT-based models)
+
+**Advanced Options:**
+- `--pretrained` - Start from pretrained weights
+- `--resume` - Resume from checkpoint
+- `--fp16` - Use mixed precision training
+- `--device NUM` - GPU device ID (-1 for CPU)
+
+### Training Examples
+
+**1. Basic Unsupervised Training:**
+```bash
+python experiments/train_models.py \
+    --model magic \
+    --config configs/training/cadets_e3.yaml \
+    --epochs 50
+```
+
+**2. Supervised Training with Labels:**
+```bash
+python experiments/train_models.py \
+    --model kairos \
+    --dataset cadets_e3 \
+    --labels-file data/labels/cadets_e3_labels.json \
+    --epochs 100
+```
+
+**3. Fine-Tune Pretrained Model:**
+```bash
+python experiments/train_models.py \
+    --model magic \
+    --dataset custom_soc \
+    --pretrained \
+    --epochs 20 \
+    --lr 0.0001
+```
+
+**4. Resume from Checkpoint:**
+```bash
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --resume \
+    --checkpoint train_checkpoints/magic/checkpoint_epoch_25.pt
+```
+
+**5. Override Architecture:**
+```bash
+python experiments/train_models.py \
+    --model magic \
+    --config configs/training/cadets_e3.yaml \
+    --hidden-dim 512 \
+    --num-layers 6 \
+    --dropout 0.2
+```
+
+### Label File Format
+
+For supervised training, provide labels in JSON format:
+
+**Option 1: Dictionary (graph_id → label)**
+```json
+{
+  "0": 0,
+  "1": 0,
+  "2": 1,
+  "3": 1,
+  "4": 0
+}
+```
+
+**Option 2: List (ordered by graph index)**
+```json
+[0, 0, 1, 1, 0, 1, 0, 0, 1]
+```
+
+- `0` = benign/normal
+- `1` = malicious/anomalous
+
+### Training Output
+
+**Checkpoint Directory:**
+```
+train_checkpoints/
+  {model}/
+    checkpoint_epoch_5.pt
+    checkpoint_epoch_10.pt
+    best_model.pt           # Best validation performance
+    {dataset}_final.pt      # Final trained model
+```
+
+**Log Directory:**
+```
+logs/training/
+  {experiment_name}/
+    config.yaml              # Training configuration
+    experiment.log           # Training logs
+    metrics_history.json     # Metrics per epoch
+    training_summary.json    # Final summary
+```
+
+**Monitor Training:**
+```bash
+# Watch training logs
+tail -f logs/training/magic_cadets_e3_*/experiment.log
+
+# Check metrics
+cat logs/training/magic_cadets_e3_*/metrics_history.json
+```
+
+### Using Trained Models for Evaluation
+
+After training, copy your checkpoint to the inference directory:
+
+```bash
+# Copy trained model
+cp train_checkpoints/magic/cadets_e3_final.pt \
+   checkpoints/magic/checkpoint-cadets-e3.pt
+
+# Run evaluation
+python experiments/evaluate_pipeline.py \
+    --models magic \
+    --dataset cadets_e3 \
+    --data-path data/darpa/cadets_e3
+```
+
+### Model-Specific Recommendations
+
+| Model | Recommended LR | Hidden Dim | Layers | Epochs |
+|-------|---------------|------------|--------|--------|
+| **MAGIC** | 0.0005 | 256 | 4 | 50-100 |
+| **Kairos** | 0.0001 | 100 | 3 | 100 |
+| **Continuum_FL** | 0.001 | 128 | 3 | 50 |
+| **ThreatTrace** | 0.001 | 64 | 2 | 30 |
+| **Orthrus** | 0.0005 | 256 | 4 | 50 |
+
+### Training Tips
+
+1. **Start Small**: Test with 5 epochs first using `--debug` flag
+2. **Use Validation**: Always enable validation split (`--val-split 0.2`)
+3. **Enable Early Stopping**: Prevent overfitting (`--early-stopping 10`)
+4. **Save Frequently**: Checkpoint every 5 epochs (`--save-freq 5`)
+5. **Monitor GPU Memory**: Reduce batch size if OOM errors occur
+6. **Use Mixed Precision**: Speed up on modern GPUs (`--fp16`)
+7. **Tune Learning Rate**: Start with model defaults, then adjust
+
+### Troubleshooting Training
+
+**Issue: Out of GPU Memory**
+```bash
+# Solution: Reduce batch size or use CPU
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --batch-size 1 \
+    --device -1  # Use CPU
+```
+
+**Issue: Training too slow**
+```bash
+# Solution: Use mixed precision and increase workers
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --fp16 \
+    --num-workers 8
+```
+
+**Issue: Model not improving**
+```bash
+# Solution: Adjust learning rate or enable scheduler
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --lr 0.0001 \
+    --scheduler cosine
+```
+
+**Issue: Dataset not found**
+```bash
+# Solution: Specify data path explicitly
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json
+```
+
+---
+
 ## Analyzing Results
 
 ### Visualizing Attack Graphs

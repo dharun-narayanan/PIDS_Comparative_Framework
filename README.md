@@ -77,7 +77,7 @@ architecture:
 - Easy hyperparameter tuning
 - Consistent component interfaces
 
-### 2. Task-Based Pipeline System
+### 4. View Results
 
 The pipeline orchestrates 9 modular tasks that transform raw logs into actionable threat intelligence:
 
@@ -228,9 +228,156 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 
 ## Quick Start
 
-**Ready to evaluate PIDS models on your provenance data?** See the [Complete Setup Guide](SETUP.md) for detailed instructions.
+**Ready to evaluate PIDS models?** See the [Complete Setup Guide](SETUP.md) for detailed installation and configuration instructions.
 
-### 3-Step Quickstart
+### Training Models
+
+**Training uses automatic preprocessing with smart caching and time window splitting**
+
+The training pipeline automatically:
+- ✅ Detects and preprocesses raw data formats (JSON, NDJSON, binary AVRO)
+- ✅ Splits events into time windows for multiple training samples
+- ✅ Caches preprocessed graphs for instant loading (10-20x faster)
+- ✅ Handles both DARPA TC and custom SOC datasets
+
+#### Basic Training
+
+```bash
+# Train with automatic preprocessing and caching
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --epochs 50
+
+# First run: Preprocesses data (~2-3 min) → Trains
+# Subsequent runs: Loads cache (~5-10 sec) → Trains
+```
+
+#### Time Window Splitting
+
+Control how events are split into training samples:
+
+```bash
+# 1-hour time windows (default) - recommended for 24-hour datasets
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --time-window 3600 \
+    --epochs 50
+# Result: 24-hour dataset → ~24 graphs → Enables train/val split
+
+# 10-minute windows - for more granular temporal analysis
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --time-window 600 \
+    --epochs 50
+# Result: 24-hour dataset → ~144 graphs → More training samples
+
+# Single large graph - no time splitting
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --time-window 0 \
+    --epochs 50
+# Result: All events in one graph (useful for small datasets)
+```
+
+#### Advanced Training Options
+
+```bash
+# Using config file (contains data_path and other settings)
+python experiments/train_models.py \
+    --model magic \
+    --config configs/training/cadets_e3.yaml \
+    --epochs 50
+
+# Force reprocessing (ignore cache)
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --force-preprocess \
+    --epochs 50
+
+# Preprocess only without training
+python experiments/train_models.py \
+    --model magic \
+        --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --preprocess-only
+
+# Sample small dataset for testing (limits events processed)
+python experiments/train_models.py \
+    --model magic \
+    --dataset cadets_e3 \
+    --data-path ../DARPA/ta1-cadets-e3-official-1.json \
+    --max-events-per-file 100000 \
+    --time-window 600 \
+    --epochs 10
+```
+
+#### How It Works
+
+1. **First Training Run**:
+   - Parses raw data (JSON/NDJSON/AVRO)
+   - Splits events into time windows
+   - Builds graph structures
+   - Saves to `data/{dataset}_graph.pkl` (~2-3 min for 4M events)
+   - Trains model
+
+2. **Subsequent Runs**:
+   - Loads preprocessed graph from cache (~5-10 seconds)
+   - Trains immediately (10-20x faster startup)
+
+3. **Time Windows**:
+   - Default: 3600 seconds (1 hour)
+   - 24-hour dataset → ~24 training samples
+   - Enables proper train/validation split
+   - Better temporal generalization
+
+**Key Benefits:**
+- ✅ **Automatic**: Preprocessing happens automatically during training
+- ✅ **Cached**: Preprocessed graphs reused across runs (10-20x faster)
+- ✅ **Time Windows**: Multiple training samples from temporal data
+- ✅ **Universal**: Supports JSON, NDJSON, binary AVRO (auto-detected)
+- ✅ **Flexible**: Adjust window size based on dataset characteristics
+
+**💡 See [SETUP.md - Training Models](SETUP.md#training-models) for complete training guide**
+
+### Evaluation Quickstart
+
+**Option A: Evaluate on Custom SOC Data**
+```
+
+**Key Points:**
+- ✅ **Automatic**: Training preprocesses data automatically if not already done
+- ✅ **Cached**: Preprocessed data is saved to `data/` and reused  
+- ✅ **Force Refresh**: Use `--force-preprocess` to regenerate
+- ✅ **Universal Format**: Supports JSON, NDJSON, binary AVRO (auto-detected)
+
+# Train on custom SOC data
+python experiments/train_models.py \
+    --model magic \
+    --dataset custom_soc \
+    --data-path data/custom_soc \
+    --epochs 100
+```
+
+**Important Notes:**
+- **Data path is REQUIRED** - Must specify via `--data-path` or `--config`
+- **Auto-detects file formats** - Handles JSON, NDJSON, and binary AVRO automatically
+- **Auto-detects training mode** - Supervised if labels exist, otherwise unsupervised
+
+**💡 See [SETUP.md - Training Models](SETUP.md#training-models) for complete training guide**
+
+**� See [SETUP.md - Training Models](SETUP.md#training-models) for complete training guide**
+
+### Evaluation Quickstart
 
 **Option A: Evaluate on Custom SOC Data**
 ```bash

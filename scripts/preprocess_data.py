@@ -152,11 +152,93 @@ class UniversalPreprocessor:
             self.edge_type_map[edge_type] = len(self.edge_type_map)
         return self.edge_type_map[edge_type]
     
-    def build_graph(self, events: List[Event]) -> Dict:
-        """Build provenance graph from parsed events."""
+    def build_graphs_with_time_windows(self, events: List[Event]) -> List[Dict]:
+        """Build multiple provenance graphs split by time windows."""
+        time_window = self.data_config.get('time_window')
+        
+        if not time_window or time_window <= 0:
+            # No time windowing, build single graph
+            return [self.build_single_graph(events)]
+        
         logger.info(f"\n{'='*80}")
-        logger.info(f"  Step 2/4: Building provenance graph")
+        logger.info(f"  Step 2/4: Building provenance graphs with time windows")
         logger.info(f"{'='*80}\n")
+        logger.info(f"Time window size: {time_window} seconds ({time_window/3600:.2f} hours)")
+        
+        # Sort events by timestamp
+        sorted_events = sorted(events, key=lambda e: e.timestamp)
+        
+        if not sorted_events:
+            logger.warning("No events to process")
+            return []
+        
+        # Calculate time windows
+        start_time = sorted_events[0].timestamp
+        end_time = sorted_events[-1].timestamp
+        total_duration = end_time - start_time
+        
+        logger.info(f"Dataset time range: {datetime.fromtimestamp(start_time)} to {datetime.fromtimestamp(end_time)}")
+        logger.info(f"Total duration: {total_duration/3600:.2f} hours ({total_duration/86400:.2f} days)")
+        
+        # Split events into time windows
+        window_events = []
+        current_window_start = start_time
+        current_events = []
+        
+        for event in sorted_events:
+            # Check if event belongs to current window
+            if event.timestamp < current_window_start + time_window:
+                current_events.append(event)
+            else:
+                # Save current window
+                if current_events:
+                    window_events.append((current_window_start, current_events))
+                
+                # Start new window
+                current_window_start = start_time + (len(window_events) * time_window)
+                current_events = [event]
+        
+        # Don't forget the last window
+        if current_events:
+            window_events.append((current_window_start, current_events))
+        
+        logger.info(f"Created {len(window_events)} time windows")
+        logger.info(f"Events per window: min={min(len(e) for _, e in window_events):,}, "
+                   f"max={max(len(e) for _, e in window_events):,}, "
+                   f"avg={sum(len(e) for _, e in window_events)//len(window_events):,}\n")
+        
+        # Build graph for each window
+        graphs = []
+        for i, (window_start, events_in_window) in enumerate(tqdm(window_events, desc="Building time windows", unit="window")):
+            # Reset node mappings for each window to keep graphs independent
+            saved_node_id_map = self.node_id_map.copy()
+            saved_node_type_map = self.node_type_map.copy()
+            saved_edge_type_map = self.edge_type_map.copy()
+            saved_next_node_id = self.next_node_id
+            
+            self.node_id_map = {}
+            self.node_type_map = {}
+            self.edge_type_map = {}
+            self.next_node_id = 0
+            
+            # Build graph for this window
+            graph_data = self.build_single_graph(events_in_window, window_id=i, window_start=window_start)
+            graphs.append(graph_data)
+            
+            # Restore mappings for next window (or keep separate? - keeping separate for now)
+            # self.node_id_map = saved_node_id_map
+            # self.node_type_map = saved_node_type_map
+            # self.edge_type_map = saved_edge_type_map
+            # self.next_node_id = saved_next_node_id
+        
+        logger.info(f"\n✓ Created {len(graphs)} time-windowed graphs")
+        logger.info(f"Total nodes across all graphs: {sum(g['num_nodes'] for g in graphs):,}")
+        logger.info(f"Total edges across all graphs: {sum(g['stats']['num_edges'] for g in graphs):,}\n")
+        
+        return graphs
+    
+    def build_single_graph(self, events: List[Event], window_id: int = 0, window_start: float = None) -> Dict:
+        """Build a single provenance graph from events (used for both single graph and time windows)."""
         
         edges = []
         node_features = defaultdict(list)
@@ -168,8 +250,7 @@ class UniversalPreprocessor:
         # Sort events by timestamp for temporal consistency
         events.sort(key=lambda e: e.timestamp)
         
-        for event in tqdm(events, desc="Building graph", unit="event",
-                         bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
+        for event in events:
             
             # Skip events with missing entities
             if not event.source or not event.target:
@@ -246,54 +327,95 @@ class UniversalPreprocessor:
             'edge_features': edge_features,
             'timestamps': timestamps,
             'node_id_to_entity': node_id_to_entity,
-            'stats': self.stats
+            'stats': self.stats.copy(),
+            'window_id': window_id,
+            'window_start': window_start
         }
         
         return graph_data
     
-    def save_graph(self, graph_data: Dict, output_path: Path):
-        """Save graph data."""
+    def save_graphs(self, graphs: List[Dict], output_path: Path):
+        """Save multiple graphs (time-windowed or single graph)."""
         logger.info(f"\n{'='*80}")
         logger.info(f"  Step 3/4: Saving graph data")
         logger.info(f"{'='*80}\n")
         logger.info(f"Output path: {output_path}")
+        logger.info(f"Number of graphs: {len(graphs)}")
         
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Save as pickle
-        logger.info("Saving graph pickle...")
+        logger.info("Saving graphs pickle...")
         with open(output_path, 'wb') as f:
-            pickle.dump(graph_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(graphs, f, protocol=pickle.HIGHEST_PROTOCOL)
         
         file_size_mb = output_path.stat().st_size / (1024 * 1024)
-        logger.info(f"✓ Graph saved: {output_path} ({file_size_mb:.2f} MB)")
+        logger.info(f"✓ Graphs saved: {output_path} ({file_size_mb:.2f} MB)")
+        
+        # Aggregate statistics across all graphs
+        aggregated_stats = {
+            'num_graphs': len(graphs),
+            'num_events': sum(g['stats']['num_events'] for g in graphs),
+            'num_nodes': sum(g['num_nodes'] for g in graphs),
+            'num_edges': sum(g['stats']['num_edges'] for g in graphs),
+            'node_types': defaultdict(int),
+            'edge_types': defaultdict(int),
+            'time_range': None,
+            'files_processed': graphs[0]['stats']['files_processed'] if graphs else 0,
+            'parse_errors': graphs[0]['stats']['parse_errors'] if graphs else 0,
+            'format_detected': graphs[0]['stats']['format_detected'] if graphs else None,
+            'dataset_type': graphs[0]['stats']['dataset_type'] if graphs else 'unknown'
+        }
+        
+        # Aggregate node and edge types
+        for graph in graphs:
+            for node_type, count in graph['stats']['node_types'].items():
+                aggregated_stats['node_types'][node_type] += count
+            for edge_type, count in graph['stats']['edge_types'].items():
+                aggregated_stats['edge_types'][edge_type] += count
+        
+        # Calculate overall time range
+        all_time_ranges = [g['stats']['time_range'] for g in graphs if g['stats']['time_range']]
+        if all_time_ranges:
+            aggregated_stats['time_range'] = (
+                min(tr[0] for tr in all_time_ranges),
+                max(tr[1] for tr in all_time_ranges)
+            )
         
         # Save statistics as JSON
         logger.info("Saving statistics...")
         stats_path = output_path.with_suffix('.json')
         with open(stats_path, 'w') as f:
-            # Convert defaultdict to dict for JSON serialization
             stats_json = {
-                'num_events': self.stats['num_events'],
-                'num_nodes': self.stats['num_nodes'],
-                'num_edges': self.stats['num_edges'],
-                'node_types': dict(self.stats['node_types']),
-                'edge_types': dict(self.stats['edge_types']),
-                'time_range': self.stats['time_range'],
-                'files_processed': self.stats['files_processed'],
-                'parse_errors': self.stats['parse_errors'],
-                'format_detected': self.stats['format_detected'],
-                'dataset_type': self.stats['dataset_type']
+                'num_graphs': aggregated_stats['num_graphs'],
+                'num_events': aggregated_stats['num_events'],
+                'num_nodes': aggregated_stats['num_nodes'],
+                'num_edges': aggregated_stats['num_edges'],
+                'node_types': dict(aggregated_stats['node_types']),
+                'edge_types': dict(aggregated_stats['edge_types']),
+                'time_range': aggregated_stats['time_range'],
+                'files_processed': aggregated_stats['files_processed'],
+                'parse_errors': aggregated_stats['parse_errors'],
+                'format_detected': aggregated_stats['format_detected'],
+                'dataset_type': aggregated_stats['dataset_type']
             }
             json.dump(stats_json, f, indent=2)
         
         logger.info(f"✓ Statistics saved: {stats_path}\n")
+        
+        # Update self.stats for printing
+        self.stats = aggregated_stats
     
     def print_statistics(self):
         """Print preprocessing statistics."""
         print("\n" + "="*80)
         print("Preprocessing Statistics")
         print("="*80)
+        
+        # Check if we have multiple graphs (time windows)
+        if 'num_graphs' in self.stats and self.stats['num_graphs'] > 1:
+            print(f"Number of graphs (time windows): {self.stats['num_graphs']}")
+        
         print(f"Dataset type: {self.stats['dataset_type']}")
         print(f"Format detected: {self.stats['format_detected']}")
         print(f"Files processed: {self.stats['files_processed']}")
@@ -581,11 +703,15 @@ Examples:
         logger.error("No events were parsed!")
         return 1
     
-    # Build graph
-    graph_data = preprocessor.build_graph(events)
+    # Build graphs (with or without time windows)
+    graphs = preprocessor.build_graphs_with_time_windows(events)
     
-    # Save graph
-    preprocessor.save_graph(graph_data, output_file)
+    if not graphs:
+        logger.error("No graphs were created!")
+        return 1
+    
+    # Save graphs
+    preprocessor.save_graphs(graphs, output_file)
     
     # Print statistics
     logger.info(f"{'='*80}")
@@ -598,11 +724,16 @@ Examples:
     logger.info(f"{'='*80}")
     logger.info(f"Output: {output_file}\n")
     logger.info(f"Statistics: {output_file.with_suffix('.json')}")
-    logger.info(f"\nYou can now use this dataset with the evaluation pipeline:")
-    logger.info(f"  python experiments/evaluate_pipeline.py \\")
-    logger.info(f"    --models magic,kairos,orthrus \\")
-    logger.info(f"    --data-path {output_file.parent} \\")
-    logger.info(f"    --dataset {args.dataset_name}")
+    
+    if 'num_graphs' in preprocessor.stats and preprocessor.stats['num_graphs'] > 1:
+        logger.info(f"Number of time-windowed graphs: {preprocessor.stats['num_graphs']}")
+    
+    logger.info(f"\nYou can now use this dataset with the training pipeline:")
+    logger.info(f"  python experiments/train_models.py \\")
+    logger.info(f"    --model magic \\")
+    logger.info(f"    --dataset {args.dataset_name} \\")
+    logger.info(f"    --data-path {args.input_dir if args.input_dir else input_files[0].parent} \\")
+    logger.info(f"    --epochs 50")
     
     return 0
 

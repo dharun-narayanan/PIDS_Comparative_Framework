@@ -8,9 +8,14 @@ checkpoints/
 # Evaluation results
 results/
 
-# Data files (keep only dataset.py)
+# Data files
 data/
-!data/dataset.py
+
+# Training checkpoints
+train_checkpoints/
+
+# Training logs
+logs/
 
 # Python cache
 __pycache__/

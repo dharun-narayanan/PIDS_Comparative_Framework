@@ -1,0 +1,59 @@
+# Training Configuration Template
+# Copy this file and rename it to match your dataset (e.g., cadets_e3.yaml, custom_soc.yaml)
+# Model is specified via --model flag when running train_models.py
+
+# Dataset configuration
+dataset_name: my_dataset  # Change this to your dataset name
+data_path: null  # Auto-detect if null, or specify path
+
+# Training mode (auto-detected based on labels availability)
+# If labels_file is provided and exists, supervised mode is used
+# Otherwise, unsupervised mode is used automatically
+labels_file: null  # Path to labels file (optional, for supervised learning)
+label_ratio: 0.1  # For semi_supervised mode (if enabled)
+
+# Training hyperparameters
+epochs: 50
+batch_size: 1
+learning_rate: 0.0005
+weight_decay: 0.0
+optimizer: adam  # adam, adamw, sgd
+scheduler: null  # step, cosine, plateau, or null
+warmup_epochs: 0
+
+# Model architecture overrides (optional)
+# These override the model's default architecture from configs/models/
+architecture_overrides:
+  hidden_dim: 256
+  num_layers: 4
+  dropout: 0.2
+  num_heads: 4
+
+# Training options
+early_stopping_patience: 10  # 0 to disable
+val_split: 0.2
+grad_clip: 1.0  # 0 to disable
+accumulation_steps: 1
+
+# Data preprocessing
+time_window: 3600  # seconds (for temporal windowing)
+max_nodes: null  # null for unlimited
+num_workers: 4
+
+# Checkpointing
+resume: false
+checkpoint_path: null
+pretrained: false
+save_freq: 5
+save_dir: train_checkpoints
+
+# System
+device: -1  # -1 for CPU, 0+ for GPU
+seed: 42
+fp16: false  # Mixed precision training
+
+# Logging
+log_dir: logs/training
+experiment_name: null  # Auto-generated if null
+wandb: false
+debug: false

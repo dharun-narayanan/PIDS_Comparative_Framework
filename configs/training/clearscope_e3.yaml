@@ -1,0 +1,23 @@
+# ClearScope E3 Training Configuration
+# DARPA TC ClearScope Engagement 3 dataset
+
+# Dataset configuration (REQUIRED)
+dataset_name: clearscope_e3
+data_path: ../DARPA/ta1-clearscope-e3-official-1.json  # Path to DARPA data directory (JSON/NDJSON/AVRO)
+
+# Labels file (optional - enables supervised training if provided)
+# labels_file: data/labels/clearscope_e3_labels.json
+
+# Training parameters
+training:
+  epochs: 50
+  batch_size: 1
+  learning_rate: 0.0005
+
+# Data processing
+data:
+  time_window: 3600  # 1 hour windows
+  max_files: 5  # Limit number of files to process
+  max_events_per_file: 100000  # Limit events per file
+  max_windows: 100  # Maximum time windows to create
+  remove_self_loops: true
