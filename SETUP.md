@@ -28,7 +28,7 @@ Setup Environment → Download Weights → Preprocess Your Data → Evaluate Mod
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Prerequisites](#prerequisites)
 2. [Quick Start](#quick-start)

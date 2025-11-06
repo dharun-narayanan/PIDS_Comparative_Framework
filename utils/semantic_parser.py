@@ -15,6 +15,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from datetime import datetime
 import struct
+from tqdm import tqdm
 
 # Try to import Avro libraries for binary file support
 try:
@@ -668,54 +669,96 @@ class SemanticParser:
         
         try:
             with open(file_path, 'r') as f:
-                # Read first line to detect format
-                first_line = f.readline().strip()
-                if not first_line:
-                    logger.warning(f"Empty file: {file_path}")
-                    return events
+                # Try to load entire file as JSON array first
+                content = f.read()
                 
-                # Try to parse as JSON
                 try:
-                    first_record = json.loads(first_line)
+                    # Try parsing as JSON array
+                    data = json.loads(content)
                     
-                    # Auto-detect format
-                    if not self.selected_parser:
-                        self.selected_parser = self.auto_detect_format(first_record)
-                    
-                    # Parse first record
-                    event = self.selected_parser.parse_event(first_record)
-                    if event:
-                        events.append(event)
-                    
-                    lines_processed += 1
-                    
-                    # Continue parsing rest of file
+                    if isinstance(data, list):
+                        # It's a JSON array
+                        logger.info(f"Detected JSON array format with {len(data)} records")
+                        
+                        # Use tqdm progress bar with dynamic_ncols=False to prevent line breaks
+                        total_records = min(len(data), max_events) if max_events else len(data)
+                        with tqdm(total=total_records, desc="Parsing records", unit="record", 
+                                 ncols=100, dynamic_ncols=False, leave=False, 
+                                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
+                            for record in data:
+                                if max_events and lines_processed >= max_events:
+                                    break
+                                
+                                # Auto-detect format from first record
+                                if not self.selected_parser and lines_processed == 0:
+                                    self.selected_parser = self.auto_detect_format(record)
+                                
+                                # Parse record
+                                event = self.selected_parser.parse_event(record)
+                                if event:
+                                    events.append(event)
+                                
+                                lines_processed += 1
+                                pbar.update(1)
+                        
+                        logger.info(f"✓ Parsed {len(events)} events from {lines_processed} records")
+                        return events
+                        
+                    elif isinstance(data, dict):
+                        # It's a single JSON object
+                        logger.info(f"Detected single JSON object format")
+                        
+                        if not self.selected_parser:
+                            self.selected_parser = self.auto_detect_format(data)
+                        
+                        event = self.selected_parser.parse_event(data)
+                        if event:
+                            events.append(event)
+                            lines_processed = 1
+                        
+                        logger.info(f"✓ Parsed {len(events)} events from 1 record")
+                        return events
+                        
+                except json.JSONDecodeError:
+                    # Not a valid JSON array or object, try NDJSON
+                    logger.info(f"Not a JSON array/object, trying NDJSON (newline-delimited) format")
+                    pass
+            
+            # Fallback to NDJSON parsing
+            with open(file_path, 'r') as f:
+                with tqdm(desc="Parsing NDJSON", unit="line", ncols=100, 
+                         dynamic_ncols=False, leave=False,
+                         bar_format='{desc}: {n_fmt} lines [{elapsed}, {rate_fmt}]') as pbar:
                     for line in f:
                         if max_events and lines_processed >= max_events:
                             break
                         
                         line = line.strip()
-                        if not line:
+                        if not line or line == '[' or line == ']' or line == ',':
                             continue
+                        
+                        # Remove trailing comma if present
+                        if line.endswith(','):
+                            line = line[:-1]
                         
                         try:
                             record = json.loads(line)
+                            
+                            # Auto-detect format from first record
+                            if not self.selected_parser and lines_processed == 0:
+                                self.selected_parser = self.auto_detect_format(record)
+                            
+                            # Parse record
                             event = self.selected_parser.parse_event(record)
                             if event:
                                 events.append(event)
                             
                             lines_processed += 1
-                            
-                            if lines_processed % 10000 == 0:
-                                logger.info(f"Processed {lines_processed} lines, extracted {len(events)} events")
+                            pbar.update(1)
                                 
-                        except json.JSONDecodeError:
-                            logger.debug(f"Skipping invalid JSON line")
+                        except json.JSONDecodeError as e:
+                            logger.debug(f"Skipping invalid JSON line: {e}")
                             continue
-                    
-                except json.JSONDecodeError:
-                    logger.error(f"File is not in JSON format: {file_path}")
-                    return events
         
         except Exception as e:
             logger.error(f"Error parsing JSON file {file_path}: {e}")
@@ -738,46 +781,48 @@ class SemanticParser:
                 with open(file_path, 'rb') as f:
                     reader = fastavro.reader(f)
                     
-                    for record in reader:
-                        if max_events and records_processed >= max_events:
-                            break
-                        
-                        # Auto-detect format if not already done
-                        if not self.selected_parser and records_processed == 0:
-                            self.selected_parser = self.auto_detect_format(record)
-                        
-                        # Parse record
-                        event = self.selected_parser.parse_event(record)
-                        if event:
-                            events.append(event)
-                        
-                        records_processed += 1
-                        
-                        if records_processed % 10000 == 0:
-                            logger.info(f"Processed {records_processed} records, extracted {len(events)} events")
+                    with tqdm(desc="Parsing AVRO", unit="record", ncols=100, 
+                             dynamic_ncols=False, leave=False,
+                             bar_format='{desc}: {n_fmt} records [{elapsed}, {rate_fmt}]') as pbar:
+                        for record in reader:
+                            if max_events and records_processed >= max_events:
+                                break
+                            
+                            # Auto-detect format if not already done
+                            if not self.selected_parser and records_processed == 0:
+                                self.selected_parser = self.auto_detect_format(record)
+                            
+                            # Parse record
+                            event = self.selected_parser.parse_event(record)
+                            if event:
+                                events.append(event)
+                            
+                            records_processed += 1
+                            pbar.update(1)
             
             # Fallback to avro-python3
             elif AVRO_AVAILABLE:
                 with open(file_path, 'rb') as f:
                     reader = avro.datafile.DataFileReader(f, avro.io.DatumReader())
                     
-                    for record in reader:
-                        if max_events and records_processed >= max_events:
-                            break
-                        
-                        # Auto-detect format if not already done
-                        if not self.selected_parser and records_processed == 0:
-                            self.selected_parser = self.auto_detect_format(record)
-                        
-                        # Parse record
-                        event = self.selected_parser.parse_event(record)
-                        if event:
-                            events.append(event)
-                        
-                        records_processed += 1
-                        
-                        if records_processed % 10000 == 0:
-                            logger.info(f"Processed {records_processed} records, extracted {len(events)} events")
+                    with tqdm(desc="Parsing AVRO", unit="record", ncols=100,
+                             dynamic_ncols=False, leave=False,
+                             bar_format='{desc}: {n_fmt} records [{elapsed}, {rate_fmt}]') as pbar:
+                        for record in reader:
+                            if max_events and records_processed >= max_events:
+                                break
+                            
+                            # Auto-detect format if not already done
+                            if not self.selected_parser and records_processed == 0:
+                                self.selected_parser = self.auto_detect_format(record)
+                            
+                            # Parse record
+                            event = self.selected_parser.parse_event(record)
+                            if event:
+                                events.append(event)
+                            
+                            records_processed += 1
+                            pbar.update(1)
                     
                     reader.close()
         

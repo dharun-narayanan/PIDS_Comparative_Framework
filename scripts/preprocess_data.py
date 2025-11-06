@@ -612,12 +612,14 @@ Examples:
         logger.info(f"Auto-detected dataset type: {args.dataset_type}")
     
     # Determine output subdirectory based on dataset type
+    # Determine output subdirectory based on dataset type
     if args.dataset_type == 'darpa':
         output_subdir = 'darpa'
     elif args.dataset_type == 'custom_soc':
         output_subdir = 'custom_soc'
     else:
-        output_subdir = 'processed'
+        # For custom and other types, use dataset name as subdirectory
+        output_subdir = args.dataset_name
     
     output_file = args.output_dir / output_subdir / f'{args.dataset_name}_graph.pkl'
     output_file.parent.mkdir(parents=True, exist_ok=True)

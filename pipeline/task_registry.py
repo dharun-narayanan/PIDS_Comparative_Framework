@@ -177,7 +177,22 @@ class TaskRegistry:
             graph_data = dependencies['construct_time_windows']['original_graph']
         else:
             # Fallback: work with original graph
-            graph_data = dependencies['load_preprocessed_data']['graph_data']
+            loaded_data = dependencies['load_preprocessed_data']['graph_data']
+            
+            # Handle case where graph_data is a list of graphs (from preprocessing)
+            if isinstance(loaded_data, list):
+                if len(loaded_data) == 0:
+                    raise ValueError("Loaded graph data is an empty list")
+                # Take the first graph if it's a list
+                graph_data = loaded_data[0]
+                logger.info(f"Extracted first graph from list of {len(loaded_data)} graphs")
+            else:
+                graph_data = loaded_data
+            
+            # Ensure graph_data is a dictionary
+            if not isinstance(graph_data, dict):
+                raise TypeError(f"Expected graph_data to be dict, got {type(graph_data)}")
+            
             time_windows = [{'edges': graph_data.get('edges', []), 'original': True}]
         
         transform_type = task_config.get('type', 'none')
