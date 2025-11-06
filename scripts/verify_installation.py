@@ -195,8 +195,6 @@ def check_directory_structure():
         'configs/datasets',
         'configs/experiments',
         'checkpoints',
-        'results',
-        'logs',
     ]
     
     all_good = True
@@ -223,7 +221,6 @@ def check_configuration_files():
         'configs/models/continuum_fl.yaml',
         'configs/datasets/custom_soc.yaml',
         'configs/datasets/cadets_e3.yaml',
-        'configs/datasets/streamspot.yaml',
     ]
     
     all_good = True
@@ -307,7 +304,7 @@ def print_summary(results):
         print("2. Copy pretrained weights: python scripts/download_weights.py --copy-existing")
         print("3. Preprocess data: python scripts/preprocess_data.py --input-dir ../custom_dataset/")
         print("4. Start training: python experiments/train.py --model magic --dataset custom_soc")
-        print("\n📖 See QUICKSTART.md for detailed instructions")
+        print("\n📖 See SETUP.md for detailed instructions")
         return True
     else:
         print("\n" + "="*80)

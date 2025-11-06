@@ -1,14 +1,12 @@
-# PIDS Comparative Framework
-
 <div align="center">
 
-**A Production-Ready, Extensible Platform for Provenance-based Intrusion Detection Systems**
+# PIDS Comparative Framework
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8--3.10-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.12%2B-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Overview](#-overview) | [Architecture](#-architecture-overview) | [Models](#-supported-models) | [Quick Start](SETUP.md#-quick-start) | [Full Setup](SETUP.md)
+[Overview](#overview) | [Architecture](#architecture-overview) | [Models](#supported-models) | [Quick Start](SETUP.md#quick-start) | [Full Setup](SETUP.md#detailed-installation)
 
 </div>
 
@@ -27,20 +25,18 @@ The **PIDS Comparative Framework** is a unified platform for evaluating state-of
 - Reproducible results with consistent metrics across models
 
 **Multi-Format Data Support**
-- ✅ **DARPA TC (CDM v18)** - JSON and binary AVRO formats
-- ✅ **Custom SOC Logs** - Elastic/ELK stack, NDJSON
-- ✅ **Custom JSON** - Configurable schema mapping
+- **DARPA TC (CDM v18)** - JSON and binary AVRO formats
+- **Custom SOC Logs** - Elastic/ELK stack, NDJSON
+- **Custom JSON** - Configurable schema mapping
 - **Automatic format detection** - No manual format specification needed
 
 **Plug-and-Play Extensibility**
 - Add new models via YAML configuration files (zero Python code)
 - 17 reusable components: 8 encoders + 9 decoders
 - Mix-and-match architecture components to create custom models
-- Smart caching of intermediate results for fast iteration
 
 **Comprehensive Analysis**
 - Unsupervised anomaly detection metrics (score separation, percentiles)
-- Optional supervised metrics when ground truth available (AUROC, F1)
 - Ensemble consensus detection across multiple models
 - Automatic extraction and ranking of top anomalies
 
@@ -77,8 +73,7 @@ architecture:
 - **Shared Decoders** (9 types) - Edge, Node, Contrastive, Reconstruction, Anomaly, InnerProduct, NodLink, EdgeLinear, CustomEdgeMLP
 
 **Benefits:**
-- Add new models in minutes (not hours)
-- No Python wrapper code required
+- Add new models in minutes
 - Easy hyperparameter tuning
 - Consistent component interfaces
 
@@ -117,8 +112,6 @@ Handles diverse provenance data formats with robust preprocessing:
 - **DARPA TC CDM (v18)** - JSON and binary AVRO formats
 - Elastic/ELK Stack JSON logs
 - Newline-delimited JSON (NDJSON)
-- JSON arrays
-- Custom JSON schemas
 
 **Universal Semantic Parser:**
 - **Automatic format detection** - Three specialized parsers: DARPACDMParser, ElasticParser, CustomJSONParser
@@ -152,8 +145,6 @@ All models are unsupervised anomaly detectors pretrained on standard PIDS benchm
 | **ThreaTrace** | Scalable Sketch-based | Locality-sensitive hashing | DARPA TC, StreamSpot, Unicorn SC (140+ models) |
 | **Continuum_FL** | Federated Learning PIDS | Federated GNN | StreamSpot, CADETS E3, THEIA E3, TRACE E3, CLEARSCOPE E3 |
 
-**Total Pretrained Weights:** 20+ checkpoints across 5 models covering major PIDS benchmarks.
-
 ---
 
 ## ⚙️ System Workflow
@@ -166,8 +157,6 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 │  • DARPA TC (CDM v18) - JSON/Binary AVRO                    │
 │  • Elastic/ELK Stack JSON                                   │
 │  • NDJSON (newline-delimited)                               │
-│  • JSON arrays                                              │
-│  • Custom JSON formats                                      │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -316,16 +305,10 @@ python scripts/preprocess_data.py \
 ```
 
 **Key Features:**
-- ✅ **Automatic format detection** - No need to specify JSON vs binary
-- ✅ **Multi-format support** - JSON, NDJSON, binary AVRO
-- ✅ **Semantic parsing** - Intelligent schema detection
-- ✅ **Large dataset handling** - Sampling support for testing
-- ✅ **Comprehensive statistics** - Detailed preprocessing metrics
-
-For comprehensive setup instructions, data preprocessing, troubleshooting, and advanced usage, refer to:
-- **[SETUP.md](SETUP.md)** - General setup and installation
-- **[DARPA_DATASETS.md](docs/DARPA_DATASETS.md)** - DARPA TC dataset guide
-- **[QUICKSTART_DARPA.md](QUICKSTART_DARPA.md)** - Quick start for DARPA datasets
+- **Automatic format detection** - No need to specify JSON vs binary
+- **Semantic parsing** - Intelligent schema detection
+- **Large dataset handling** - Sampling support for testing
+- **Comprehensive statistics** - Detailed preprocessing metrics
 
 ---
 
@@ -465,7 +448,7 @@ python experiments/evaluate_pipeline.py \
 
 ---
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```text
 PIDS_Comparative_Framework/
@@ -478,11 +461,20 @@ PIDS_Comparative_Framework/
 │
 ├── configs/                                            # YAML configuration files
 │   ├── models/                                         # Per-model configurations
-│   │   ├── magic.yaml, kairos.yaml, orthrus.yaml
-│   │   ├── threatrace.yaml, continuum_fl.yaml
+│   │   ├── magic.yaml
+│   │   ├── kairos.yaml
+│   │   ├── orthrus.yaml
+│   │   ├── threatrace.yaml
+│   │   ├── continuum_fl.yaml
 │   │   └── template.yaml                               # Template for new models
 │   ├── datasets/                                       # Dataset configurations
+│   │   ├── custom_soc.yaml                             # Custom SOC dataset
+│   │   ├── cadets_e3.yaml                               # CADETS E3 dataset
+│   │   ├── clearscope_e3.yaml                           # ClearScope E3 dataset
+│   │   ├── theia_e3.yaml                                # THEIA E3 dataset
+│   │   └── trace_e3.yaml                                 # TRACE E3 dataset
 │   └── experiments/                                    # Experiment presets
+│       └── pipeline_evaluation.yaml                    # Pipeline evaluation configuration
 │
 ├── pipeline/                                           # Task-based pipeline system
 │   ├── pipeline_builder.py                             # Pipeline orchestration
@@ -629,15 +621,15 @@ The framework's task-based pipeline provides modularity, caching, and flexibilit
 
 | Task | Description | Input | Output | Cacheable |
 |------|-------------|-------|--------|-----------|
-| **1. load_preprocessed_data** | Load graph from pickle file | Preprocessed data path | Graph data dictionary | ✅ |
-| **2. construct_time_windows** | Create temporal batches | Graph data | List of time windows | ✅ |
-| **3. graph_transformation** | Convert to model format | Graph data | DGL/PyG graphs | ✅ |
-| **4. feature_extraction** | Extract node/edge features | Graph data | Feature tensors | ✅ |
-| **5. featurization_inference** | Model-specific transforms | Features + model | Transformed features | ✅ |
-| **6. batch_construction** | Create DataLoaders | Features + graphs | DataLoaders | ✅ |
-| **7. model_inference** | Run model predictions | Model + DataLoaders | Predictions + scores | ✅ |
-| **8. calculate_metrics** | Compute metrics | Predictions + labels | Metrics dictionary | ✅ |
-| **9. attack_tracing** | Trace attack paths | Graph + predictions | Attack subgraphs | ⚠️ |
+| **load_preprocessed_data** | Load graph from pickle file | Preprocessed data path | Graph data dictionary | ✅ |
+| **construct_time_windows** | Create temporal batches | Graph data | List of time windows | ✅ |
+| **graph_transformation** | Convert to model format | Graph data | DGL/PyG graphs | ✅ |
+| **feature_extraction** | Extract node/edge features | Graph data | Feature tensors | ✅ |
+| **featurization_inference** | Model-specific transforms | Features + model | Transformed features | ✅ |
+| **batch_construction** | Create DataLoaders | Features + graphs | DataLoaders | ✅ |
+| **model_inference** | Run model predictions | Model + DataLoaders | Predictions + scores | ✅ |
+| **calculate_metrics** | Compute metrics | Predictions + labels | Metrics dictionary | ✅ |
+| **attack_tracing** | Trace attack paths | Graph + predictions | Attack subgraphs | ⚠️ |
 
 ### Task Details
 
@@ -899,7 +891,7 @@ python experiments/evaluate_pipeline.py \
 
 ---
 
-## 📊 Attack Graph Visualization
+## Attack Graph Visualization
 
 After running model evaluations, you can visualize and compare attack graphs across multiple models using the `visualize_attack_graphs.py` utility.
 
@@ -914,9 +906,6 @@ After running model evaluations, you can visualize and compare attack graphs acr
 - **Auto-Open Browser** - Automatically opens visualization in your default browser
 
 ### Quick Usage
-
-```bash
-**Quick Usage
 
 ```bash
 # Visualize using most recent evaluation (auto-detected)
@@ -949,39 +938,6 @@ python utils/visualize_attack_graphs.py \
 ```
 
 **Note:** The `--evaluation-dir` flag specifies which evaluation results to use. If not provided, the script automatically uses the most recent evaluation found in `results/`. The `--serve` flag starts an HTTP server on port 8000, which VS Code can automatically forward for remote access.
-```
-
-**Note:** The `--evaluation-dir` flag is for reference/logging only. Attack graphs are always built from the artifacts in the `--artifacts-dir` directory, which contains the model inference outputs and graph transformations.
-
-### Command-Line Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--evaluation-dir` | Most recent | Path to evaluation results directory (auto-detects most recent if not specified) |
-| `--artifacts-dir` | `artifacts` | Directory containing model artifacts (graphs, inference outputs) |
-| `--models` | All 5 models | Space-separated list of models to visualize |
-| `--output-dir` | `results/attack_graph_visualization` | Output directory for visualizations |
-| `--threshold-percentile` | `99.0` | Percentile threshold for anomalies (90-99.9) |
-| `--top-k` | `100` | Number of top anomalies to include |
-| `--top-paths` | `15` | Number of attack paths to extract |
-| `--cluster-by` | `entity` | Clustering strategy: `entity`, `temporal`, or `path` |
-| `--no-browser` | false | Skip auto-opening browser (useful for headless servers) |
-| `--serve` | false | Start HTTP server on port 8000 for remote access (e.g., VS Code Remote) |
-
-### Generated Output
-
-The visualization script creates:
-
-```
-results/attack_graph_visualization/
-├── attack_graph_viewer.html          # Interactive visualization (auto-opens)
-├── attack_summary.json               # Attack statistics and paths
-├── magic_attack_graph.graphml        # GraphML for external tools
-├── kairos_attack_graph.graphml
-├── orthrus_attack_graph.graphml
-├── threatrace_attack_graph.graphml
-└── continuum_fl_attack_graph.graphml
-```
 
 ### Interactive Viewer Features
 
@@ -1064,7 +1020,7 @@ print(f"Visualization saved to: {html_path}")
 ```
 
 ---
-## 📚 Resources
+## Resources
 
 ### Documentation
 - **[Complete Setup Guide](SETUP.md)** - Installation, configuration, troubleshooting
@@ -1094,15 +1050,10 @@ print(f"Visualization saved to: {html_path}")
 
 ## Next Steps & Contributions
 
-We welcome contributions! Areas of interest:
-
-**High Priority:**
 - Add new PIDS models (via YAML config)
 - Implement new encoders/decoders
 - Add log format parsers
 - Improve documentation
-
-**Medium Priority:**
 - Web visualization dashboard
 - SIEM integrations
 - Performance optimizations
@@ -1110,17 +1061,15 @@ We welcome contributions! Areas of interest:
 
 ---
 
-<!-- ## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
---- -->
+---
 
-## 📧 Contact
+## Contact
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/PIDS_Comparative_Framework/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/PIDS_Comparative_Framework/discussions)
 
 ---
-
-**Built with ❤️ for the cybersecurity research community**

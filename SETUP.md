@@ -1,7 +1,6 @@
 # PIDS Comparative Framework - Complete Setup Guide
----
 
-## 🎯 Overview
+## Overview
 
 This guide provides **complete setup instructions** for the PIDS Comparative Framework. For architectural details and framework capabilities, see **[README.md](README.md)**.
 
@@ -31,7 +30,7 @@ Setup Environment → Download Weights → Preprocess Your Data → Evaluate Mod
 
 ## 📋 Table of Contents
 
-1. [Prerequisites](#-prerequisites)
+1. [Prerequisites](#prerequisites)
 2. [Quick Start](#quick-start)
 3. [Detailed Installation](#detailed-installation)
 4. [Model-Specific Setup](#-model-specific-setup)
@@ -47,44 +46,44 @@ Setup Environment → Download Weights → Preprocess Your Data → Evaluate Mod
 7. [Analyzing Results](#analyzing-results)
    - [Visualizing Attack Graphs](#visualizing-attack-graphs)
 8. [Advanced Features](#advanced-features)
-9. [Troubleshooting](#-troubleshooting)
+9. [Troubleshooting](#troubleshooting)
 10. [Configuration](#configuration)
 11. [Command Reference](#command-reference)
 12. [Additional Resources](#additional-resources)
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 ### Required
 
-- ✅ **Conda** (Anaconda or Miniconda)
+- **Conda** (Anaconda or Miniconda)
   - Download: https://docs.conda.io/en/latest/miniconda.html
   - Verify: `conda --version`
 
-- ✅ **Python 3.8-3.10** (installed via conda environment)
+- **Python 3.8-3.10** (installed via conda environment)
 
-- ✅ **16GB+ RAM** (8GB minimum, 32GB recommended for large datasets)
+- **16GB+ RAM** (8GB minimum, 32GB recommended for large datasets)
 
-- ✅ **50GB+ free disk space**
+- **100GB+ free disk space**
   - Framework: ~5GB
   - Pretrained weights: ~10GB
-  - Datasets: 10-30GB (depending on your data)
+  - Datasets: 80GB+ (depending on your data)
 
 ### Optional (Enhanced Functionality)
 
-- ⚙️ **GPU with CUDA 11.6+** (optional - framework runs on CPU by default)
+- **GPU with CUDA 11.6+** (optional - framework runs on CPU by default)
   - Speeds up evaluation 5-10x
   - Verify: `nvidia-smi`
 
-- 🔧 **Download Tools** (usually pre-installed):
+- **Download Tools** (usually pre-installed):
   - `curl` or `wget` - For downloading weights
   - `git` - For repository operations
   - `svn` (Subversion) - For ThreaTrace weights download
     - macOS: `brew install subversion`
     - Ubuntu: `sudo apt-get install subversion`
 
-- 📦 **Google Drive Downloads** (for Kairos only):
+- **Google Drive Downloads** (for Kairos only):
   - `gdown` package (auto-installed, but may need manual intervention)
 
 ### Check Your System
@@ -111,22 +110,26 @@ nvidia-smi  # Should show GPU info if available
 For most users, these commands will get you up and running:
 
 ```bash
-# Step 1: Navigate to framework directory
+
+### Step 1: Clone or Navigate to Framework
+git clone https://github.com/dharun-narayanan/PIDS_Comparative_Framework.git
+
+# Step 2: Navigate to framework directory
 cd PIDS_Comparative_Framework
 
-# Step 2: Run complete setup (creates environment, installs dependencies)
+# Step 3: Run complete setup (creates environment, installs dependencies)
 ./scripts/setup.sh
 
-# Step 3: Activate environment
+# Step 4: Activate environment
 conda activate pids_framework
 
-# Step 4: Setup models and download pretrained weights
+# Step 5: Setup models and download pretrained weights
 python scripts/download_checkpoints.py --all
 
-# Step 5: Run evaluation on your data
+# Step 6: Run evaluation on your data
 ./scripts/run_evaluation.sh --data-path ../custom_dataset
 
-# Step 6: Visualize attack graphs
+# Step 7: Visualize attack graphs
 # Local visualization (opens HTML locally)
 ./scripts/visualize_attacks.sh
 
@@ -150,7 +153,6 @@ cd PIDS_Comparative_Framework
 
 # Verify you're in the correct directory
 ls -la
-# Expected: README.md, Setup.md, scripts/, models/, experiments/, etc.
 ```
 
 ### Step 2: Run Automated Setup Script
@@ -433,29 +435,27 @@ Python version: 3.10.x
   Model Integrations
 ================================================================================
 Found 9 registered models:
-  ✅ magic
-  ✅ magic_streamspot
-  ✅ magic_darpa
-  ✅ kairos
-  ✅ orthrus
-  ✅ threatrace
-  ✅ continuum_fl
-  ✅ continuum_fl_streamspot
-  ✅ continuum_fl_darpa
+Found 5 model configurations:
+✅   continuum_fl.yaml
+✅   kairos.yaml
+✅   magic.yaml
+✅   orthrus.yaml
+✅   threatrace.yaml
 ✅ All expected models are registered
 
 ================================================================================
   Directory Structure
 ================================================================================
-✅ data                     - EXISTS
-✅ models                   - EXISTS
-✅ utils                    - EXISTS
-✅ experiments              - EXISTS
-✅ scripts                  - EXISTS
-✅ configs                  - EXISTS
-✅ checkpoints              - EXISTS
-✅ results                  - EXISTS
-✅ logs                     - EXISTS
+✅ data                      - EXISTS
+✅ models                    - EXISTS
+✅ utils                     - EXISTS
+✅ experiments               - EXISTS
+✅ scripts                   - EXISTS
+✅ configs                   - EXISTS
+✅ configs/models            - EXISTS
+✅ configs/datasets          - EXISTS
+✅ configs/experiments       - EXISTS
+✅ checkpoints               - EXISTS
 
 ================================================================================
   Configuration Files
@@ -467,34 +467,50 @@ Found 9 registered models:
 ✅ configs/models/continuum_fl.yaml
 ✅ configs/datasets/custom_soc.yaml
 ✅ configs/datasets/cadets_e3.yaml
-✅ configs/datasets/streamspot.yaml
-✅ configs/experiments/compare_all.yaml
-✅ configs/experiments/train_single.yaml
+
+================================================================================
+  Scripts
+================================================================================
+✅ scripts/setup.sh                    - EXISTS (executable)
+✅ scripts/preprocess_data.py          - EXISTS (executable)
+✅ experiments/train.py                - EXISTS (executable)
+✅ experiments/evaluate_pipeline.py    - EXISTS (executable)
+
+================================================================================
+  Documentation
+================================================================================
+✅ README.md                      - 39,506 bytes
+✅ SETUP.md                       - 81,419 bytes
 
 ================================================================================
   Verification Summary
 ================================================================================
 
-Total checks: 9
-Passed: 9
+Total checks: 8
+Passed: 8
 Failed: 0
 
 ================================================================================
 🎉 ALL CHECKS PASSED! Framework is ready to use.
 ================================================================================
+
+Next steps:
+1. Install model dependencies: ./scripts/install_model_deps.sh --all
+2. Copy pretrained weights: python scripts/download_weights.py --copy-existing
+3. Preprocess data: python scripts/preprocess_data.py --input-dir ../custom_dataset/
+4. Start training: python experiments/train.py --model magic --dataset custom_soc
+
+📖 See SETUP.md for detailed instructions
 ```
 
 ---
 
 ## 🔧 Model-Specific Setup
 
-Each model has unique requirements and weight sources:
-
 ### MAGIC
 
 **Description:** Masked Graph Autoencoder for APT Detection  
-**GitHub:** https://github.com/FDUDSDE/MAGIC  
-**Dependencies:** DGL 1.0.0, torch-geometric  
+**GitHub:** https://github.com/FDUDSDE/MAGIC   
 **Weights:** ✅ Auto-downloaded from GitHub  
 **Special Requirements:** None
 
@@ -509,8 +525,7 @@ Each model has unique requirements and weight sources:
 
 **Description:** Practical Intrusion Detection with Whole-system Provenance  
 **GitHub:** https://github.com/ubc-provenance/kairos  
-**Dependencies:** psycopg2, sqlalchemy (for database access)  
-**Weights:** ⚠️ **Manual download required**  
+**Weights:** ✅ Auto-downloaded from Google Drive 
 **Special Requirements:** Google Drive access
 
 **Manual Download Instructions:**
@@ -529,8 +544,7 @@ gdown --folder https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_h
 
 **Description:** High Quality Attribution in Provenance-based IDS  
 **GitHub:** https://github.com/ubc-provenance/orthrus  
-**Dependencies:** torch-geometric, contrastive learning libraries  
-**Weights:** ✅ Auto-downloaded from GitHub (or Zenodo)  
+**Weights:** ✅ Auto-downloaded from GitHub 
 **Special Requirements:** None
 
 **Available Pretrained Weights:**
@@ -540,13 +554,10 @@ gdown --folder https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_h
 - `THEIA_E3.pkl` - DARPA TC THEIA E3
 - `THEIA_E5.pkl` - DARPA TC THEIA E5
 
-**Alternative Source:** https://zenodo.org/records/14641605
-
 ### ThreaTrace
 
 **Description:** Scalable Sketch-based Threat Detection  
 **GitHub:** https://github.com/Provenance-IDS/threaTrace  
-**Dependencies:** scikit-learn, graph processing libraries  
 **Weights:** ✅ Auto-downloaded via git sparse-checkout (large)  
 **Special Requirements:** `git` or `svn` (Subversion)
 
@@ -563,16 +574,12 @@ gdown --folder https://drive.google.com/drive/folders/1YAKoO3G32xlYrCs4BuATt1h_h
 # Method 1: Full clone and copy
 git clone https://github.com/Provenance-IDS/threaTrace.git /tmp/threatrace
 cp -r /tmp/threatrace/example_models checkpoints/threatrace/
-
-# Method 2: SVN export (faster)
-svn export https://github.com/Provenance-IDS/threaTrace/trunk/example_models checkpoints/threatrace
 ```
 
 ### Continuum_FL
 
 **Description:** Federated Learning for Provenance-based IDS  
 **GitHub:** https://github.com/kamelferrahi/Continuum_FL  
-**Dependencies:** mpi4py, federated learning libraries  
 **Weights:** ✅ Auto-downloaded from GitHub  
 **Special Requirements:** MPI (for federated learning features)
 
@@ -765,10 +772,10 @@ The framework now provides **comprehensive support for DARPA Transparent Computi
 
 The framework's **Universal Semantic Parser** automatically detects and handles:
 
-- ✅ **JSON (NDJSON)** - New Line Delimited JSON format
-- ✅ **Binary AVRO** - Apache Avro version 1 (CDM v18)
-- ✅ **Auto-detection** - Automatically identifies format from file extension and content
-- ✅ **CDM v18 Schema** - Full support for DARPA Common Data Model version 18
+- **JSON (NDJSON)** - New Line Delimited JSON format
+- **Binary AVRO** - Apache Avro version 1 (CDM v18)
+- **Auto-detection** - Automatically identifies format from file extension and content
+- **CDM v18 Schema** - Full support for DARPA Common Data Model version 18
 
 #### Prerequisites for DARPA Datasets
 
@@ -2196,7 +2203,7 @@ Recommended Thresholds:
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues and Solutions
 
@@ -2589,8 +2596,7 @@ Experiment configurations are in `configs/experiments/`:
 
 ```bash
 configs/experiments/
-├── compare_all.yaml    # Compare all models
-└── train_single.yaml   # Train single model
+├── pipeline_evaluation.yaml   # Pipeline evaluation settings
 ```
 
 ### Modifying Configurations
@@ -2633,40 +2639,13 @@ Each model has its own documentation:
 
 ---
 
-### Installation Checklist
-
-- [ ] Conda installed and verified
-- [ ] Framework directory accessible
-- [ ] `./scripts/setup.sh` executed successfully
-- [ ] Environment activated: `conda activate pids_framework`
-- [ ] `python scripts/download_checkpoints.py --all` completed
-- [ ] Pretrained weights downloaded (check `checkpoints/`)
-- [ ] `python scripts/verify_installation.py` passes all checks
-
-### Evaluation Checklist
-
-- [ ] Custom data in JSON format
-- [ ] Data placed in `custom_dataset/` directory
-- [ ] `python scripts/preprocess_data.py` completed
-- [ ] Preprocessed files exist in `data/custom_soc/`
-- [ ] `./scripts/run_evaluation.sh` executed
-- [ ] Results saved in `results/evaluation_*/`
-- [ ] Comparison report generated
-- [ ] Attack graphs visualized: `python utils/visualize_attack_graphs.py`
-- [ ] Interactive visualization opened in browser
-
 ### Next Steps
 
 1. **Review results:** Check `results/` directory for evaluation metrics
 2. **Compare models:** Analyze comparison report to find best model
-3. **Deploy:** Integrate best-performing model into your SOC pipeline
-4. **Retrain (optional):** Train models on your specific data for better performance
+3. **Retrain (optional):** Train models on your specific data for better performance
 
 ---
-
-## Conclusion
-
-You've successfully set up the PIDS Comparative Framework! The framework is now ready to evaluate state-of-the-art intrusion detection models on your custom SOC data.
 
 For questions or issues:
 - Check the [Troubleshooting](#troubleshooting) section
