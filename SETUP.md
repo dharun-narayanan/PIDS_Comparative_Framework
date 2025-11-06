@@ -454,8 +454,14 @@ Found 5 model configurations:
 ✅ configs                   - EXISTS
 ✅ configs/models            - EXISTS
 ✅ configs/datasets          - EXISTS
+✅ configs/training          - EXISTS
 ✅ configs/experiments       - EXISTS
 ✅ checkpoints               - EXISTS
+✅ train_checkpoints         - EXISTS
+✅ artifacts                 - EXISTS
+✅ logs                      - EXISTS
+✅ results                   - EXISTS
+✅ pipeline                  - EXISTS
 
 ================================================================================
   Configuration Files
@@ -465,15 +471,23 @@ Found 5 model configurations:
 ✅ configs/models/orthrus.yaml
 ✅ configs/models/threatrace.yaml
 ✅ configs/models/continuum_fl.yaml
+✅ configs/models/template.yaml
 ✅ configs/datasets/custom_soc.yaml
 ✅ configs/datasets/cadets_e3.yaml
+✅ configs/datasets/theia_e3.yaml
+✅ configs/datasets/trace_e3.yaml
+✅ configs/datasets/clearscope_e3.yaml
+✅ configs/datasets/darpa_template.yaml
+✅ configs/training/custom_soc.yaml
+✅ configs/training/cadets_e3.yaml
+✅ configs/training/template.yaml
 
 ================================================================================
   Scripts
 ================================================================================
 ✅ scripts/setup.sh                    - EXISTS (executable)
 ✅ scripts/preprocess_data.py          - EXISTS (executable)
-✅ experiments/train.py                - EXISTS (executable)
+✅ experiments/train_models.py         - EXISTS (executable)
 ✅ experiments/evaluate_pipeline.py    - EXISTS (executable)
 
 ================================================================================
@@ -495,10 +509,16 @@ Failed: 0
 ================================================================================
 
 Next steps:
-1. Install model dependencies: ./scripts/install_model_deps.sh --all
-2. Copy pretrained weights: python scripts/download_weights.py --copy-existing
-3. Preprocess data: python scripts/preprocess_data.py --input-dir ../custom_dataset/
-4. Start training: python experiments/train.py --model magic --dataset custom_soc
+1. Activate the environment (if not already active):
+   conda activate pids_framework
+
+2. Setup models and download pretrained weights:
+   python scripts/download_checkpoints.py --all
+
+3. Preprocess your custom SOC data:
+   python scripts/preprocess_data.py --input-dir ../custom_dataset/
+
+4. Start training: python experiments/train_models.py --model magic --dataset custom_soc
 
 📖 See SETUP.md for detailed instructions
 ```
@@ -695,8 +715,7 @@ Step 3/4: Extracting features...
 
 Step 4/4: Saving preprocessed data...
 ✓ Saved graph: data/custom_soc/custom_soc_graph.pkl
-✓ Saved features: data/custom_soc/custom_soc_features.pt
-✓ Saved metadata: data/custom_soc/custom_soc_metadata.json
+✓ Saved metadata: data/custom_soc/custom_soc_graph.json
 
 ✓ Preprocessing completed successfully!
 ```
@@ -707,9 +726,8 @@ Step 4/4: Saving preprocessed data...
 ls -lh data/custom_soc/
 
 # Expected files:
-# custom_soc_graph.pkl       - DGL/PyG graph structure (~50-500MB)
-# custom_soc_features.pt     - Node/edge features (PyTorch tensor)
-# custom_soc_metadata.json   - Dataset statistics and info
+# custom_soc_graph.pkl       - Graph structure with embedded features (~50-500MB)
+# custom_soc_graph.json      - Graph metadata & statistics
 ```
 
 ### Advanced Preprocessing Options
@@ -2283,8 +2301,8 @@ python scripts/preprocess_data.py \
 - `--config PATH` - Custom configuration file (optional, auto-selected if not provided)
 
 **Output Files:**
-- `{dataset}_graph.pkl` - Graph structure (NetworkX pickle format)
-- `{dataset}_metadata.json` - Dataset statistics and metadata
+- `{dataset}_graph.pkl` - Graph structure with embedded features (pickle format)
+- `{dataset}_graph.json` - Graph metadata & statistics
 
 ---
 

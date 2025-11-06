@@ -616,10 +616,18 @@ PIDS_Comparative_Framework/
 │   │   └── template.yaml                               # Template for new models
 │   ├── datasets/                                       # Dataset configurations
 │   │   ├── custom_soc.yaml                             # Custom SOC dataset
-│   │   ├── cadets_e3.yaml                               # CADETS E3 dataset
-│   │   ├── clearscope_e3.yaml                           # ClearScope E3 dataset
-│   │   ├── theia_e3.yaml                                # THEIA E3 dataset
-│   │   └── trace_e3.yaml                                 # TRACE E3 dataset
+│   │   ├── cadets_e3.yaml                              # CADETS E3 dataset
+│   │   ├── clearscope_e3.yaml                          # ClearScope E3 dataset
+│   │   ├── theia_e3.yaml                               # THEIA E3 dataset
+│   │   ├── trace_e3.yaml                               # TRACE E3 dataset
+│   │   └── darpa_template.yaml                         # Template for DARPA datasets
+│   ├── training/                                       # Training configurations
+│   │   ├── custom_soc.yaml                             # Custom SOC training config
+│   │   ├── cadets_e3.yaml                              # CADETS E3 training config
+│   │   ├── theia_e3.yaml                               # THEIA E3 training config
+│   │   ├── trace_e3.yaml                               # TRACE E3 training config
+│   │   ├── clearscope_e3.yaml                          # ClearScope E3 training config
+│   │   └── template.yaml                               # Template for training configs
 │   └── experiments/                                    # Experiment presets
 │       └── pipeline_evaluation.yaml                    # Pipeline evaluation configuration
 │
@@ -629,45 +637,57 @@ PIDS_Comparative_Framework/
 │   ├── task_registry.py                                # 9 task implementations
 │   └── __init__.py
 │
-├── experiments/                                        # Main evaluation scripts
+├── experiments/                                        # Evaluation and training scripts
 │   ├── evaluate_pipeline.py                            # Primary evaluation script
-│   └── train.py                                        # Reference training script
+│   └── train_models.py                                 # Training script with auto-preprocessing
 │
 ├── scripts/                                            # Setup and utility scripts
 │   ├── analyze_anomalies.py                            # Anomaly analysis tools
 │   ├── download_checkpoints.py                         # Download pretrained weights
-│   ├── preprocess_data.py                              # SOC data preprocessing
-│   ├── run_evaluation.sh                               # End-to-end workflow
+│   ├── preprocess_data.py                              # Universal data preprocessing
+│   ├── run_evaluation.sh                               # End-to-end evaluation workflow
 │   ├── setup.sh                                        # One-command environment setup
 │   ├── verify_installation.py                          # Installation check
 │   └── visualize_attacks.sh                            # Attack visualization workflow
 │
-├── data/                                               # Data management
-│   ├── dataset.py                                      # Dataset loading utilities
-│   └── {dataset_name}/                                 # Preprocessed datasets
-│       ├── graph.pkl                                   # Graph structure
-│       └── metadata.json                               # Dataset statistics
+├── data/                                               # Preprocessed datasets
+│   └── {dataset_name}/                                 # Per-dataset directory
+│       ├── {dataset_name}_graph.pkl                    # Serialized graph structure
+│       └── {dataset_name}_graph.json                   # Graph metadata & statistics
 │
 ├── utils/                                              # Common utilities
 │   ├── common.py                                       # Logging, config loading
 │   ├── metrics.py                                      # Detection metrics
+│   ├── graph_dataset.py                                # PyG dataset loader with caching
+│   ├── semantic_parser.py                              # Universal semantic parser (JSON/AVRO)
 │   └── visualize_attack_graphs.py                      # Attack graph visualization
 │
 ├── checkpoints/                                        # Pretrained model weights
 │   └── {model}/                                        # Per-model checkpoints
-│       └── {dataset}.pt                                # Model weights
+│       └── {dataset}.pt                                # Pretrained model weights
+│
+├── train_checkpoints/                                  # Training outputs
+│   └── {model}/                                        # Per-model training checkpoints
+│       └── {dataset}_epoch_{n}.pt                      # Training epoch checkpoints
 │
 ├── artifacts/                                          # Cached pipeline results
-│   └── {model}/                                        # Per-model artifacts
-│       ├── {task}/                                     # Per-task outputs
-│       └── execution_metadata.json
+│   └── artifacts_{timestamp}/                          # Per-run artifacts
+│       └── {model}/                                    # Per-model artifacts
+│           ├── {task}/                                 # Per-task outputs
+│           └── execution_metadata.json                 # Execution metadata
+│
+├── logs/                                               # Log files
+│   └── training/                                       # Training logs
+│       └── {model}_{dataset}_{timestamp}.log           # Training session logs
 │
 └── results/                                            # Evaluation outputs
-    └── evaluation_{timestamp}/
-        ├── {model}_metrics.json
-        ├── {model}_anomalies.json
-        ├── ensemble_consensus.json
-        └── comparison_report.json
+    ├── evaluation_{timestamp}/                         # Timestamped evaluation results
+    │   ├── {model}_metrics.json                        # Detection metrics
+    │   ├── {model}_anomalies.json                      # Top-K anomalies
+    │   ├── ensemble_consensus.json                     # Multi-model agreement
+    │   └── comparison_report.json                      # Model rankings
+    └── attack_graph_visualization/                     # Visualization outputs
+        └── {dataset}_attack_graph.html                 # Interactive graph visualizations
 ```
 
 ---
