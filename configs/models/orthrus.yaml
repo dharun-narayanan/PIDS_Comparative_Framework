@@ -10,7 +10,7 @@ architecture:
   # Encoder configuration
   encoder:
     type: gat                # Graph Attention Network (encoder_type)
-    in_dim: 100              # Input feature dimension
+    in_dim: 128              # Input feature dimension (updated to match data)
     hidden_dim: 128          # Hidden dimension
     out_dim: 100             # Output embedding dimension
     num_layers: 3            # Number of layers (encoder_layers)
@@ -42,7 +42,7 @@ architecture:
       type: reconstruction   # Graph reconstruction
       in_dim: 100
       hidden_dim: 128
-      out_dim: 100
+      out_dim: 128           # Output dimension must match input features
       
   # Node/Edge metadata
   num_nodes: 100000          # Expected number of nodes

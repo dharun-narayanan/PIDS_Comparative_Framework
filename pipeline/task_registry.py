@@ -52,14 +52,20 @@ class TaskRegistry:
         
         logger.info(f"Loading preprocessed data from {data_path}")
         
-        # Look for preprocessed pickle file
-        pkl_files = list(data_path.glob('*.pkl'))
-        if not pkl_files:
-            raise FileNotFoundError(f"No .pkl files found in {data_path}")
-        
-        # Load the first pkl file (assuming single dataset)
-        pkl_file = pkl_files[0]
-        logger.info(f"Loading from {pkl_file}")
+        # Check if data_path is a direct .pkl file or a directory
+        if data_path.is_file() and data_path.suffix == '.pkl':
+            # Direct file path
+            pkl_file = data_path
+            logger.info(f"Loading from {pkl_file}")
+        else:
+            # Directory path - look for preprocessed pickle file
+            pkl_files = list(data_path.glob('*.pkl'))
+            if not pkl_files:
+                raise FileNotFoundError(f"No .pkl files found in {data_path}")
+            
+            # Load the first pkl file (assuming single dataset)
+            pkl_file = pkl_files[0]
+            logger.info(f"Loading from {pkl_file}")
         
         with open(pkl_file, 'rb') as f:
             graph_data = pickle.load(f)

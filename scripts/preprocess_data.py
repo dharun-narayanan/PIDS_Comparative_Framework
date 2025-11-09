@@ -209,27 +209,32 @@ class UniversalPreprocessor:
         
         # Build graph for each window
         graphs = []
-        for i, (window_start, events_in_window) in enumerate(tqdm(window_events, desc="Building time windows", unit="window")):
-            # Reset node mappings for each window to keep graphs independent
-            saved_node_id_map = self.node_id_map.copy()
-            saved_node_type_map = self.node_type_map.copy()
-            saved_edge_type_map = self.edge_type_map.copy()
-            saved_next_node_id = self.next_node_id
-            
-            self.node_id_map = {}
-            self.node_type_map = {}
-            self.edge_type_map = {}
-            self.next_node_id = 0
-            
-            # Build graph for this window
-            graph_data = self.build_single_graph(events_in_window, window_id=i, window_start=window_start)
-            graphs.append(graph_data)
-            
-            # Restore mappings for next window (or keep separate? - keeping separate for now)
-            # self.node_id_map = saved_node_id_map
-            # self.node_type_map = saved_node_type_map
-            # self.edge_type_map = saved_edge_type_map
-            # self.next_node_id = saved_next_node_id
+        with tqdm(total=len(window_events), desc="Building time windows", unit="window", 
+                 ncols=100, dynamic_ncols=False, 
+                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
+            for i, (window_start, events_in_window) in enumerate(window_events):
+                # Reset node mappings for each window to keep graphs independent
+                saved_node_id_map = self.node_id_map.copy()
+                saved_node_type_map = self.node_type_map.copy()
+                saved_edge_type_map = self.edge_type_map.copy()
+                saved_next_node_id = self.next_node_id
+                
+                self.node_id_map = {}
+                self.node_type_map = {}
+                self.edge_type_map = {}
+                self.next_node_id = 0
+                
+                # Build graph for this window
+                graph_data = self.build_single_graph(events_in_window, window_id=i, window_start=window_start)
+                graphs.append(graph_data)
+                
+                pbar.update(1)
+                
+                # Restore mappings for next window (or keep separate? - keeping separate for now)
+                # self.node_id_map = saved_node_id_map
+                # self.node_type_map = saved_node_type_map
+                # self.edge_type_map = saved_edge_type_map
+                # self.next_node_id = saved_next_node_id
         
         logger.info(f"\n✓ Created {len(graphs)} time-windowed graphs")
         logger.info(f"Total nodes across all graphs: {sum(g['num_nodes'] for g in graphs):,}")
@@ -296,10 +301,13 @@ class UniversalPreprocessor:
         self.stats['num_nodes'] = self.next_node_id
         self.stats['num_edges'] = len(edges)
         
-        logger.info(f"\n✓ Created {self.next_node_id:,} nodes")
-        logger.info(f"✓ Created {len(edges):,} edges")
-        if skipped_events > 0:
-            logger.info(f"⚠ Skipped {skipped_events:,} events (missing entities or self-loops)\n")
+        # Only log for single graph mode (not for time-windowed graphs)
+        # Time-windowed graphs are logged in aggregate after the loop
+        if window_id == 0 and window_start is None:
+            logger.info(f"\n✓ Created {self.next_node_id:,} nodes")
+            logger.info(f"✓ Created {len(edges):,} edges")
+            if skipped_events > 0:
+                logger.info(f"⚠ Skipped {skipped_events:,} events (missing entities or self-loops)\n")
         
         # Calculate time range
         if timestamps:
