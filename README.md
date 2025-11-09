@@ -147,7 +147,7 @@ All models are unsupervised anomaly detectors pretrained on standard PIDS benchm
 
 ---
 
-## ⚙️ System Workflow
+## System Workflow
 
 The framework provides an end-to-end pipeline from raw SOC logs to actionable threat intelligence:
 
@@ -215,10 +215,10 @@ The framework provides an end-to-end pipeline from raw SOC logs to actionable th
 │  OUTPUT: Evaluation Results                                 │
 │                                                             │
 │  results/evaluation_{timestamp}/                            │
-│  ├── {model}_metrics.json     (Detection metrics)          │
-│  ├── {model}_anomalies.json   (Top-K anomalies)           │
-│  ├── ensemble_consensus.json  (Multi-model agreement)      │
-│  └── comparison_report.json   (Model rankings)             │
+│  ├── {model}_metrics.json     (Detection metrics)           │
+│  ├── {model}_anomalies.json   (Top-K anomalies)             │
+│  ├── ensemble_consensus.json  (Multi-model agreement)       │
+│  └── comparison_report.json   (Model rankings)              │
 │                                                             │
 │  artifacts/{model}/            (Cached intermediate data)   │
 └─────────────────────────────────────────────────────────────┘
