@@ -720,6 +720,29 @@ Examples:
         logger.error("No graphs were created!")
         return 1
     
+    # Add ground truth labels for DARPA datasets
+    if config['dataset_type'] == 'darpa':
+        logger.info("\nAdding ground truth labels based on attack timestamps...")
+        try:
+            from utils.darpa_ground_truth import add_labels_to_graph, normalize_dataset_name
+            
+            dataset_canonical = normalize_dataset_name(args.dataset_name)
+            
+            for graph in graphs:
+                add_labels_to_graph(graph, dataset_canonical)
+            
+            # Log label statistics
+            if graphs and 'stats' in graphs[0] and 'ground_truth' in graphs[0]['stats']:
+                gt_stats = graphs[0]['stats']['ground_truth']
+                logger.info(f"✓ Added ground truth labels:")
+                logger.info(f"  Total events: {gt_stats['total_events']:,}")
+                logger.info(f"  Benign: {gt_stats['benign_events']:,}")
+                logger.info(f"  Malicious: {gt_stats['malicious_events']:,}")
+                logger.info(f"  Attack ratio: {gt_stats['malicious_percentage']:.2f}%")
+        except Exception as e:
+            logger.warning(f"Could not add ground truth labels: {e}")
+            logger.warning("Continuing without labels (unsupervised mode only)")
+    
     # Save graphs
     preprocessor.save_graphs(graphs, output_file)
     

@@ -100,6 +100,8 @@ class GenericModel(nn.Module):
         x = data.x
         if self.input_projection is not None:
             x = self.input_projection(x)
+            # Store projected features for reconstruction comparison
+            data.x_projected = x
         
         if self.multi_encoder:
             # Get embeddings from each encoder
@@ -166,7 +168,9 @@ class GenericModel(nn.Module):
                 features = getattr(data, 'x', None)
                 
                 if 'target_features' in sig:
-                    return decoder(h, features, inference)
+                    # Use projected features if available (when input_projection was applied)
+                    target_features = getattr(data, 'x_projected', features)
+                    return decoder(h, target_features, inference)
                 else:
                     return decoder(h, labels, inference=inference)
     
@@ -255,14 +259,16 @@ class ModelBuilder:
         name = encoder_config.pop('name', None)  # Remove name if present
         
         # Normalize parameter names: map *_dim to *_channels
-        param_mapping = {
-            'in_dim': 'in_channels',
-            'hidden_dim': 'hidden_channels',
-            'out_dim': 'out_channels'
-        }
-        for old_key, new_key in param_mapping.items():
-            if old_key in encoder_config and new_key not in encoder_config:
-                encoder_config[new_key] = encoder_config.pop(old_key)
+        # Skip this for Kairos which uses *_dim parameters
+        if encoder_type != 'kairos':
+            param_mapping = {
+                'in_dim': 'in_channels',
+                'hidden_dim': 'hidden_channels',
+                'out_dim': 'out_channels'
+            }
+            for old_key, new_key in param_mapping.items():
+                if old_key in encoder_config and new_key not in encoder_config:
+                    encoder_config[new_key] = encoder_config.pop(old_key)
         
         # Remove model-specific parameters not supported by base encoders
         unsupported_params = [
@@ -270,7 +276,9 @@ class ModelBuilder:
             'max_time_delta', 'memory_dim', 'max_nodes', 'memory_updater',
             'msg_dim', 'aggregator', 'normalization', 'add_self_loops',
             'temporal', 'n_snapshot', 'pooling', 'negative_slope', 'use_all_hidden',
-            'loss_fn', 'alpha_l', 'use_graphchi', 'graphchi_niters', 'graphchi_nshards'
+            'loss_fn', 'alpha_l', 'use_graphchi', 'graphchi_niters', 'graphchi_nshards',
+            # Parameters from pipeline model_config that aren't encoder params
+            'num_hidden', 'mask_rate', 'n_dim', 'e_dim'
         ]
         for param in unsupported_params:
             encoder_config.pop(param, None)
@@ -424,7 +432,25 @@ class ModelBuilder:
         logger.info(f"Loading checkpoint: {checkpoint_file}")
         
         try:
-            checkpoint = torch.load(str(checkpoint_file), map_location=device)
+            # Handle legacy checkpoints with custom module dependencies
+            # Create a stub for missing modules that were used during training
+            import sys
+            import types
+            
+            # Create stub modules for legacy checkpoints (e.g., Kairos)
+            if 'model' not in sys.modules:
+                # Import our legacy stub module and register it as 'model'
+                from models import kairos_legacy_stub
+                sys.modules['model'] = kairos_legacy_stub
+            
+            # Try to load checkpoint
+            try:
+                checkpoint = torch.load(str(checkpoint_file), map_location=device)
+            except Exception as e:
+                logger.warning(f"Failed to load checkpoint with stub module: {e}")
+                logger.warning(f"Kairos checkpoints from original repo cannot be loaded directly")
+                logger.warning(f"Returning model with random weights")
+                return model
             
             # Handle different checkpoint formats
             if isinstance(checkpoint, dict):

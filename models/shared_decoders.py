@@ -643,6 +643,11 @@ def get_decoder(decoder_type: str, config: dict) -> nn.Module:
     elif decoder_type in ['edge_mlp', 'custom_edge_mlp']:
         return CustomEdgeMLPDecoder(**config)
     
+    elif decoder_type == 'kairos':
+        # Import Kairos decoder
+        from models.kairos_model import KairosDecoder
+        return KairosDecoder(**config)
+    
     else:
         raise ValueError(f"Unknown decoder type: {decoder_type}")
 

@@ -227,6 +227,30 @@ class PipelineBuilder:
             dataset_name = self.config.get('data', {}).get('dataset', 'custom_soc')
             task_config['dataset_name'] = dataset_name
             
+            # Add model config overrides from pipeline config (for enhanced features)
+            if 'models' in self.config and model_name in self.config['models']:
+                pipeline_model_config = self.config['models'][model_name].get('model_config', {})
+                if pipeline_model_config:
+                    # Wrap in architecture.encoder/decoder structure
+                    override = {'architecture': {}}
+                    # Apply to both encoder and decoder
+                    if 'encoder' not in override['architecture']:
+                        override['architecture']['encoder'] = {}
+                    if 'decoder' not in override['architecture']:
+                        override['architecture']['decoder'] = {}
+                    
+                    override['architecture']['encoder'].update(pipeline_model_config)
+                    # For decoder: in_dim should match encoder out_dim
+                    decoder_params = {
+                        'in_dim': pipeline_model_config.get('out_dim', pipeline_model_config.get('hidden_dim')),
+                        'hidden_dim': pipeline_model_config.get('hidden_dim'),
+                    }
+                    decoder_params = {k: v for k, v in decoder_params.items() if v is not None}
+                    if decoder_params:
+                        override['architecture']['decoder'].update(decoder_params)
+                    
+                    task_config['model_config_override'] = override
+            
         elif task_name == 'calculate_metrics':
             eval_config = model_config.get('evaluation', {})
             task_config['metrics'] = eval_config.get('metrics', [])

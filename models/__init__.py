@@ -22,6 +22,11 @@ from models.shared_decoders import (
     InnerProductDecoder
 )
 
+# Legacy compatibility stub (prevents checkpoint loading errors)
+class kairos_legacy_stub:
+    """Stub for legacy Kairos imports in old checkpoints."""
+    pass
+
 __all__ = [
     'ModelBuilder',
     'GenericModel',

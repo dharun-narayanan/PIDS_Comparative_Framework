@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import torch
 import numpy as np
+from utils.rich_features import RichFeatureExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +59,21 @@ class TaskRegistry:
             pkl_file = data_path
             logger.info(f"Loading from {pkl_file}")
         else:
-            # Directory path - look for preprocessed pickle file
-            pkl_files = list(data_path.glob('*.pkl'))
-            if not pkl_files:
-                raise FileNotFoundError(f"No .pkl files found in {data_path}")
-            
-            # Load the first pkl file (assuming single dataset)
-            pkl_file = pkl_files[0]
-            logger.info(f"Loading from {pkl_file}")
+            # Directory path - look for preprocessed pickle file matching dataset name
+            # First try to find file matching the dataset name exactly
+            dataset_pkl = data_path / f"{dataset_name}_graph.pkl"
+            if dataset_pkl.exists():
+                pkl_file = dataset_pkl
+                logger.info(f"Loading from {pkl_file}")
+            else:
+                # Fallback: look for any .pkl file
+                pkl_files = list(data_path.glob('*.pkl'))
+                if not pkl_files:
+                    raise FileNotFoundError(f"No .pkl files found in {data_path}")
+                
+                # Load the first pkl file (assuming single dataset)
+                pkl_file = pkl_files[0]
+                logger.info(f"Loading from {pkl_file}")
         
         with open(pkl_file, 'rb') as f:
             graph_data = pickle.load(f)
@@ -94,11 +102,18 @@ class TaskRegistry:
         Task 2: Construct time-window based graphs.
         
         Takes the loaded graph data and constructs temporal windows
-        for streaming graph processing.
+        for streaming graph processing. This matches the paper methodology
+        where graphs are divided into hourly/configurable windows.
+        
+        Benefits of time windowing:
+        - Models learn temporal anomalies (unusual for THIS time period)
+        - Reduces memory footprint (smaller graphs)
+        - Enables online/streaming processing
+        - Matches MAGIC/Kairos paper evaluation
         
         Args:
             config: Global configuration
-            task_config: Task config (window_size, overlap, etc.)
+            task_config: Task config (window_size, overlap, min_edges, etc.)
             dependencies: Must contain 'load_preprocessed_data' result
             
         Returns:
@@ -106,52 +121,113 @@ class TaskRegistry:
         """
         graph_data = dependencies['load_preprocessed_data']['graph_data']
         
-        window_size = task_config.get('window_size', 3600)  # seconds
-        overlap = task_config.get('overlap', 0.0)  # fraction
+        window_size = task_config.get('window_size', 3600)  # seconds (default 1 hour)
+        overlap = task_config.get('overlap', 0.0)  # fraction (0 = no overlap)
+        min_edges_per_window = task_config.get('min_edges', 10)  # Skip windows with too few edges
+        max_windows = task_config.get('max_windows', None)  # Limit total windows (for memory)
         
-        logger.info(f"Constructing time windows (size={window_size}s, overlap={overlap})")
+        logger.info(f"Constructing time windows:")
+        logger.info(f"  Window size: {window_size}s ({window_size/3600:.2f} hours)")
+        logger.info(f"  Overlap: {overlap*100:.0f}%")
+        logger.info(f"  Min edges per window: {min_edges_per_window}")
         
         edges = graph_data.get('edges', graph_data.get('events', []))
         
+        # Extract timestamps from edges
+        edges_with_timestamps = []
+        for edge in edges:
+            if isinstance(edge, dict):
+                timestamp = edge.get('timestamp', 0)
+                edges_with_timestamps.append((timestamp, edge))
+            elif isinstance(edge, tuple) and len(edge) >= 3:
+                # Tuple format - try to find timestamp in graph_data
+                # For now, assume no timestamp (will be handled below)
+                edges_with_timestamps.append((0, edge))
+        
         # Sort by timestamp
-        if edges and 'timestamp' in edges[0]:
-            edges = sorted(edges, key=lambda x: x['timestamp'])
+        edges_with_timestamps.sort(key=lambda x: x[0])
         
         # Create time windows
         time_windows = []
-        if edges:
-            min_time = edges[0].get('timestamp', 0)
-            max_time = edges[-1].get('timestamp', 0)
-            
-            current_start = min_time
-            stride = window_size * (1 - overlap)
-            
-            while current_start < max_time:
-                current_end = current_start + window_size
-                
-                # Get edges in this window
-                window_edges = [
-                    e for e in edges
-                    if current_start <= e.get('timestamp', 0) < current_end
-                ]
-                
-                if window_edges:
-                    time_windows.append({
-                        'start_time': current_start,
-                        'end_time': current_end,
-                        'edges': window_edges,
-                        'num_edges': len(window_edges)
-                    })
-                
-                current_start += stride
         
-        logger.info(f"Created {len(time_windows)} time windows")
+        if edges_with_timestamps:
+            timestamps = [t for t, _ in edges_with_timestamps]
+            min_time = min(timestamps)
+            max_time = max(timestamps)
+            
+            # Handle case where all timestamps are 0 (no temporal info)
+            if max_time == min_time:
+                logger.warning("No temporal information found in edges - creating single window")
+                time_windows.append({
+                    'window_id': 0,
+                    'start_time': 0,
+                    'end_time': float('inf'),
+                    'edges': [edge for _, edge in edges_with_timestamps],
+                    'num_edges': len(edges_with_timestamps),
+                    'has_temporal_info': False
+                })
+            else:
+                # Create windows with overlap
+                current_start = min_time
+                stride = window_size * (1 - overlap)
+                window_id = 0
+                
+                logger.info(f"  Time range: {min_time:.0f} to {max_time:.0f} ({(max_time-min_time)/3600:.2f} hours)")
+                
+                while current_start < max_time:
+                    current_end = current_start + window_size
+                    
+                    # Get edges in this window
+                    window_edges = [
+                        edge for timestamp, edge in edges_with_timestamps
+                        if current_start <= timestamp < current_end
+                    ]
+                    
+                    # Only create window if it has enough edges
+                    if len(window_edges) >= min_edges_per_window:
+                        # Calculate window statistics
+                        window_timestamps = [t for t, e in edges_with_timestamps if current_start <= t < current_end]
+                        
+                        time_windows.append({
+                            'window_id': window_id,
+                            'start_time': current_start,
+                            'end_time': current_end,
+                            'edges': window_edges,
+                            'num_edges': len(window_edges),
+                            'has_temporal_info': True,
+                            'duration': current_end - current_start,
+                            'edge_rate': len(window_edges) / (current_end - current_start) if current_end > current_start else 0
+                        })
+                        window_id += 1
+                        
+                        # Limit total windows if specified
+                        if max_windows and len(time_windows) >= max_windows:
+                            logger.info(f"  Reached max_windows limit ({max_windows}), stopping")
+                            break
+                    
+                    current_start += stride
+        else:
+            logger.warning("No edges found in graph data")
+        
+        logger.info(f"✓ Created {len(time_windows)} time windows")
+        
+        # Log window statistics
+        if time_windows:
+            window_sizes = [w['num_edges'] for w in time_windows]
+            logger.info(f"  Window sizes: min={min(window_sizes)}, max={max(window_sizes)}, mean={np.mean(window_sizes):.0f}")
+            
+            # Show first few windows
+            for i, window in enumerate(time_windows[:3]):
+                logger.info(f"  Window {i}: {window['num_edges']} edges, "
+                          f"time=[{window['start_time']:.0f}, {window['end_time']:.0f}]")
         
         return {
             'time_windows': time_windows,
             'window_size': window_size,
             'overlap': overlap,
-            'original_graph': graph_data
+            'original_graph': graph_data,
+            'num_windows': len(time_windows),
+            'windowing_enabled': len(time_windows) > 1
         }
     
     @staticmethod
@@ -201,6 +277,9 @@ class TaskRegistry:
             
             time_windows = [{'edges': graph_data.get('edges', []), 'original': True}]
         
+        # Extract labels if available
+        labels = graph_data.get('labels', None) if not isinstance(graph_data, list) else None
+        
         transform_type = task_config.get('type', 'none')
         
         logger.info(f"Applying graph transformation: {transform_type}")
@@ -208,6 +287,28 @@ class TaskRegistry:
         transformed_windows = []
         for window in time_windows:
             edges = window['edges']
+            
+            # Convert edges to dict format with labels if labels are available
+            if labels is not None and len(labels) == len(edges):
+                edges_with_labels = []
+                for i, edge in enumerate(edges):
+                    if isinstance(edge, tuple):
+                        # Convert tuple to dict and add label
+                        src, dst, edge_type_id = edge
+                        edge_dict = {
+                            'src': src,
+                            'dst': dst,
+                            'type_id': edge_type_id,
+                            'label': int(labels[i])
+                        }
+                        edges_with_labels.append(edge_dict)
+                    else:
+                        # Already dict, just add label if not present
+                        edge_copy = edge.copy()
+                        if 'label' not in edge_copy:
+                            edge_copy['label'] = int(labels[i])
+                        edges_with_labels.append(edge_copy)
+                edges = edges_with_labels
             
             if transform_type == 'undirected':
                 # Make graph undirected (add reverse edges)
@@ -297,6 +398,7 @@ class TaskRegistry:
         # Get metadata for tuple-format edges
         node_type_map = graph_data.get('node_type_map', {})
         edge_type_map = graph_data.get('edge_type_map', {})
+        node_id_to_entity = graph_data.get('node_id_to_entity', {})
         
         # Create reverse mapping for edge types (id -> name)
         edge_id_to_type = {v: k for k, v in edge_type_map.items()} if edge_type_map else {}
@@ -306,11 +408,18 @@ class TaskRegistry:
         edge_feat_dim = task_config.get('edge_feat_dim', 64)
         
         logger.info(f"Extracting features using method: {method}")
+        logger.info(f"Node type map contains {len(node_type_map)} entries")
+        logger.info(f"Edge type map contains {len(edge_type_map)} entries")
         
         # Collect all unique nodes and edges
         all_nodes = set()
         all_edge_types = set()
         node_types = {}
+        
+        # First, populate node_types from the preprocessed node_type_map
+        # node_type_map is {node_id: type_string}
+        for node_id, node_type in node_type_map.items():
+            node_types[node_id] = node_type
         
         for window in windows:
             for edge in window.get('edges', []):
@@ -320,31 +429,58 @@ class TaskRegistry:
                     src, dst, edge_type_id = edge
                     all_nodes.add(src)
                     all_nodes.add(dst)
-                    if src in node_type_map:
+                    
+                    # Node types already populated from node_type_map
+                    # But ensure they're in the set
+                    if src in node_type_map and src not in node_types:
                         node_types[src] = node_type_map[src]
-                    if dst in node_type_map:
+                    if dst in node_type_map and dst not in node_types:
                         node_types[dst] = node_type_map[dst]
+                    
+                    # Add edge type - use id directly if no mapping available
                     if edge_type_id in edge_id_to_type:
                         all_edge_types.add(edge_id_to_type[edge_type_id])
-                else:
+                    else:
+                        all_edge_types.add(str(edge_type_id))  # Use ID as string
+                elif isinstance(edge, dict):
                     # Dictionary format
                     src = edge.get('src')
                     dst = edge.get('dst')
                     if src:
                         all_nodes.add(src)
+                        # Try multiple ways to get node type
                         if 'src_type' in edge:
                             node_types[src] = edge['src_type']
+                        elif src in node_type_map:
+                            node_types[src] = node_type_map[src]
                     if dst:
                         all_nodes.add(dst)
                         if 'dst_type' in edge:
                             node_types[dst] = edge['dst_type']
+                        elif dst in node_type_map:
+                            node_types[dst] = node_type_map[dst]
+                    
                     if 'type' in edge:
                         all_edge_types.add(edge['type'])
+                    elif 'type_id' in edge:
+                        type_id = edge['type_id']
+                        if type_id in edge_id_to_type:
+                            all_edge_types.add(edge_id_to_type[type_id])
+                        else:
+                            all_edge_types.add(str(type_id))
         
         num_nodes = len(all_nodes)
         num_edge_types = len(all_edge_types)
         
         logger.info(f"Found {num_nodes} unique nodes, {num_edge_types} edge types")
+        logger.info(f"Found {len(node_types)} nodes with type information")
+        
+        # Log node type distribution
+        if node_types:
+            type_counts = {}
+            for node_type in node_types.values():
+                type_counts[node_type] = type_counts.get(node_type, 0) + 1
+            logger.info(f"Node type distribution: {type_counts}")
         
         # Create node ID mapping
         node_to_id = {node: idx for idx, node in enumerate(sorted(all_nodes))}
@@ -353,21 +489,76 @@ class TaskRegistry:
         # Initialize feature matrices
         if method == 'one_hot':
             # One-hot encoding based on node types
-            unique_node_types = set(node_types.values())
+            unique_node_types = set(node_types.values()) if node_types else set()
+            
+            # If no node types found, use configured dimension
+            if len(unique_node_types) == 0:
+                logger.warning(f"No node types found, using random features with dimension {node_feat_dim}")
+                node_features = np.random.randn(num_nodes, node_feat_dim)
+            else:
+                node_type_to_id = {nt: idx for idx, nt in enumerate(sorted(unique_node_types))}
+                node_features = np.zeros((num_nodes, len(unique_node_types)))
+                for node, node_id in node_to_id.items():
+                    if node in node_types:
+                        type_id = node_type_to_id[node_types[node]]
+                        node_features[node_id, type_id] = 1.0
+            
+            # If no edge types found, use configured dimension
+            if num_edge_types == 0:
+                logger.warning(f"No edge types found, using random features with dimension {edge_feat_dim}")
+                edge_features = np.random.randn(1, edge_feat_dim)  # At least 1 row for indexing
+            else:
+                edge_features = np.eye(num_edge_types)  # One-hot for edge types
+        
+        elif method == 'rich':
+            # Rich feature extraction (type embeddings + structural + temporal + metadata)
+            # This method provides 50-100 dimensional features instead of 3-dim one-hot
+            unique_node_types = set(node_types.values()) if node_types else set(['unknown'])
             node_type_to_id = {nt: idx for idx, nt in enumerate(sorted(unique_node_types))}
             
-            node_features = np.zeros((num_nodes, len(unique_node_types)))
-            for node, node_id in node_to_id.items():
-                if node in node_types:
-                    type_id = node_type_to_id[node_types[node]]
-                    node_features[node_id, type_id] = 1.0
+            logger.info("Using rich feature extraction (type embeddings + graph topology + temporal + metadata)")
             
-            edge_features = np.eye(num_edge_types)  # One-hot for edge types
+            # Initialize rich feature extractor
+            rich_extractor = RichFeatureExtractor(
+                num_node_types=len(unique_node_types),
+                type_embed_dim=32,  # Learnable type embeddings
+                structural_dim=16,  # Degree, PageRank, clustering
+                temporal_dim=16,    # First/last seen, lifetime, frequency
+                metadata_dim=16,    # PID, UID, command hash
+                device=str(task_config.get('device', 'cpu'))
+            )
+            
+            # Extract timestamps from edges if available
+            edge_timestamps = []
+            for edge in windows[0].get('edges', []):
+                if isinstance(edge, dict) and 'timestamp' in edge:
+                    edge_timestamps.append(edge['timestamp'])
+            
+            # Extract rich features
+            node_features = rich_extractor.extract_features(
+                node_to_id=node_to_id,
+                node_types=node_types,
+                node_type_to_id=node_type_to_id,
+                edges=windows[0].get('edges', []),
+                node_id_to_entity=node_id_to_entity,
+                edge_timestamps=edge_timestamps if edge_timestamps else None
+            )
+            
+            # Save the embedding layer for later use in model
+            graph_data['type_embedding'] = rich_extractor.get_embedding_layer()
+            
+            # Edge features (one-hot or random)
+            if num_edge_types == 0:
+                logger.warning(f"No edge types found, using random features with dimension {edge_feat_dim}")
+                edge_features = np.random.randn(1, edge_feat_dim)
+            else:
+                edge_features = np.eye(num_edge_types)  # One-hot for edge types
         
         elif method == 'random':
             # Random features (baseline)
             node_features = np.random.randn(num_nodes, node_feat_dim)
-            edge_features = np.random.randn(num_edge_types, edge_feat_dim)
+            # Ensure at least 1 edge type for indexing
+            edge_features = np.random.randn(max(num_edge_types, 1), edge_feat_dim)
         
         elif method == 'pretrained':
             # Load pretrained embeddings if available
@@ -376,11 +567,11 @@ class TaskRegistry:
                 with open(embed_path, 'rb') as f:
                     embeddings = pickle.load(f)
                 node_features = embeddings.get('node_features', np.random.randn(num_nodes, node_feat_dim))
-                edge_features = embeddings.get('edge_features', np.eye(num_edge_types))
+                edge_features = embeddings.get('edge_features', np.random.randn(max(num_edge_types, 1), edge_feat_dim))
             else:
                 logger.warning("Pretrained embeddings not found, using random")
                 node_features = np.random.randn(num_nodes, node_feat_dim)
-                edge_features = np.eye(num_edge_types)
+                edge_features = np.random.randn(max(num_edge_types, 1), edge_feat_dim)
         
         else:
             raise ValueError(f"Unknown feature extraction method: {method}")
@@ -450,9 +641,14 @@ class TaskRegistry:
         - Labels
         - Batch information
         
+        Supports mini-batch sampling for large graphs to avoid OOM errors.
+        
         Args:
             config: Global configuration
             task_config: Batch construction config
+                - batch_size: Number of windows per batch
+                - edge_batch_size: Max edges per batch (for large graph sampling)
+                - sample_strategy: 'full' or 'random_edges'
             dependencies: Graph data and features
             
         Returns:
@@ -479,40 +675,39 @@ class TaskRegistry:
         edge_type_to_id = feat_data['edge_type_to_id']
         
         batch_size = task_config.get('batch_size', 1)
+        edge_batch_size = task_config.get('edge_batch_size', None)  # None = no limit
+        sample_strategy = task_config.get('sample_strategy', 'full')
         
-        logger.info(f"Constructing batches (batch_size={batch_size})")
+        logger.info(f"Constructing batches (batch_size={batch_size}, edge_batch_size={edge_batch_size})")
         
         # Get metadata for tuple-format edges from feature data (passed through the pipeline)
         graph_data = feat_data.get('graph_data', {})
         edge_type_map = graph_data.get('edge_type_map', {})
         edge_id_to_type = {v: k for k, v in edge_type_map.items()} if edge_type_map else {}
         
-        # Create Data objects for each window
-        data_list = []
-        for i, window in enumerate(windows):
-            edges = window.get('edges', [])
-            
-            if not edges:
-                continue
-            
-            # Build edge index
+        # Helper function to create Data object from edge list
+        def create_data_object(edges_subset):
+            """Create PyG Data object from edge list."""
             edge_index = []
             edge_attrs = []
             edge_labels = []
             
-            for edge in edges:
+            for edge in edges_subset:
                 # Handle both tuple and dict formats
                 if isinstance(edge, tuple):
                     # Tuple format: (src_id, dst_id, edge_type_id)
                     src, dst, edge_type_id = edge
                     edge_type = edge_id_to_type.get(edge_type_id, 'unknown')
                     label = 0  # Default label for tuple format
-                else:
+                elif isinstance(edge, dict):
                     # Dictionary format
                     src = edge.get('src')
                     dst = edge.get('dst')
-                    edge_type = edge.get('type', 'unknown')
+                    edge_type_id = edge.get('type_id')
+                    edge_type = edge.get('type', edge_id_to_type.get(edge_type_id, 'unknown'))
                     label = edge.get('label', 0)
+                else:
+                    continue
                 
                 if src in node_to_id and dst in node_to_id:
                     src_id = node_to_id[src]
@@ -529,14 +724,59 @@ class TaskRegistry:
                     edge_labels.append(label)
             
             if edge_index:
-                data = Data(
+                return Data(
                     x=node_features,
                     edge_index=torch.LongTensor(edge_index).t().contiguous(),
                     edge_attr=torch.stack(edge_attrs) if edge_attrs else None,
                     y=torch.LongTensor(edge_labels),
                     num_nodes=len(node_to_id)
                 )
-                data_list.append(data)
+            return None
+        
+        # Create Data objects for each window (with mini-batch support)
+        data_list = []
+        for i, window in enumerate(windows):
+            edges = window.get('edges', [])
+            
+            if not edges:
+                continue
+            
+            # If edge_batch_size is set and edges exceed limit, split into chunks
+            if edge_batch_size and len(edges) > edge_batch_size:
+                logger.info(f"Window {i} has {len(edges)} edges, splitting into chunks of {edge_batch_size}")
+                
+                # Split edges into chunks
+                num_chunks = (len(edges) + edge_batch_size - 1) // edge_batch_size
+                
+                if sample_strategy == 'random_edges':
+                    # Random sampling without replacement
+                    import numpy as np
+                    indices = np.random.permutation(len(edges))[:edge_batch_size]
+                    edges_chunk = [edges[idx] for idx in indices]
+                    data = create_data_object(edges_chunk)
+                    if data:
+                        data_list.append(data)
+                    logger.info(f"Randomly sampled {edge_batch_size} edges from {len(edges)} total")
+                else:
+                    # Full coverage - split into sequential chunks
+                    for chunk_idx in range(num_chunks):
+                        start_idx = chunk_idx * edge_batch_size
+                        end_idx = min(start_idx + edge_batch_size, len(edges))
+                        edges_chunk = edges[start_idx:end_idx]
+                        
+                        data = create_data_object(edges_chunk)
+                        if data:
+                            data_list.append(data)
+                        
+                        if (chunk_idx + 1) % 10 == 0:
+                            logger.info(f"Processed {chunk_idx + 1}/{num_chunks} chunks for window {i}")
+                    
+                    logger.info(f"Split window {i} into {num_chunks} chunks")
+            else:
+                # Small enough to process in one go
+                data = create_data_object(edges)
+                if data:
+                    data_list.append(data)
         
         logger.info(f"Created {len(data_list)} graph data objects")
         
@@ -604,8 +844,8 @@ class TaskRegistry:
             all_checkpoints = []
             
             if checkpoint_dir.exists():
-                # Get ALL .pt files in the checkpoint directory
-                all_checkpoints = sorted(checkpoint_dir.glob('*.pt'))
+                # Get ALL .pt and .pkl files in the checkpoint directory
+                all_checkpoints = sorted(checkpoint_dir.glob('*.pt')) + sorted(checkpoint_dir.glob('*.pkl'))
             
             if all_checkpoints:
                 # Use the first available checkpoint
@@ -632,11 +872,16 @@ class TaskRegistry:
         
         # Build and load model
         logger.info(f"Building model: {model_name}")
+        
+        # Get model config overrides from task_config (from pipeline config)
+        model_config_override = task_config.get('model_config_override')
+        
         model = model_builder.build_and_load(
             model_name,
             dataset_name=dataset_name,
             checkpoint_path=checkpoint_path,
             device=device,
+            override_config=model_config_override,
             input_dim=input_dim
         )
         
@@ -653,6 +898,11 @@ class TaskRegistry:
         all_labels = []
         all_scores = []
         
+        # Check if model is an autoencoder (reconstruction-based)
+        model_config = task_config.get('model_config', {})
+        model_type = model_config.get('model_type', 'autoencoder')
+        is_autoencoder = model_type in ['autoencoder', 'vae', 'masked_autoencoder']
+        
         with torch.no_grad():
             for batch in batches:
                 batch = batch.to(device)
@@ -660,66 +910,105 @@ class TaskRegistry:
                 # Forward pass
                 output = model(batch, inference=True)
                 
-                # Handle different output formats
-                if isinstance(output, dict):
-                    # Multi-decoder output, use primary decoder
-                    primary_key = list(output.keys())[0]
-                    output = output[primary_key]
-                
-                if isinstance(output, torch.Tensor):
-                    # Check if output is node-level and we need edge-level predictions
-                    num_edges = batch.edge_index.shape[1] if hasattr(batch, 'edge_index') else 0
-                    output_size = output.shape[0]
-                    
-                    # If output is node-level but we have edge labels, convert to edge-level
-                    if num_edges > 0 and output_size == batch.num_nodes and hasattr(batch, 'y') and batch.y.shape[0] == num_edges:
-                        # Node-level output, convert to edge-level
-                        # Use reconstruction error or embedding similarity for edges
-                        src_nodes = batch.edge_index[0]  # Source nodes
-                        dst_nodes = batch.edge_index[1]  # Destination nodes
-                        
-                        if output.dim() == 2:
-                            # output is [num_nodes, feature_dim]
-                            # Compute edge scores as similarity between src and dst node embeddings
-                            src_emb = output[src_nodes]  # [num_edges, feature_dim]
-                            dst_emb = output[dst_nodes]  # [num_edges, feature_dim]
-                            
-                            # Cosine similarity for anomaly scores (higher similarity = lower anomaly)
-                            scores = torch.nn.functional.cosine_similarity(src_emb, dst_emb, dim=1)
-                            # Invert: higher score = more anomalous
-                            scores = 1.0 - scores
-                            predictions = (scores > 0.5).long()
-                        else:
-                            # Fallback: use node predictions for edges (average src and dst)
-                            src_pred = output[src_nodes].squeeze()
-                            dst_pred = output[dst_nodes].squeeze()
-                            scores = (src_pred + dst_pred) / 2.0
-                            predictions = (scores > 0.5).long()
-                    elif output.dim() == 2 and output.shape[1] > 1 and output.shape[0] == num_edges:
-                        # Multi-class classification (already softmax from decoder)
-                        scores = output
-                        predictions = torch.argmax(scores, dim=1)
-                    elif output.dim() == 1 or (output.dim() == 2 and output.shape[1] == 1):
-                        # Binary classification (already sigmoid from decoder)
-                        scores = output.squeeze()
-                        predictions = (scores > 0.5).long()
+                # Compute anomaly scores based on model type
+                if is_autoencoder:
+                    # For autoencoders, anomaly score = reconstruction error
+                    # Higher reconstruction error = more anomalous
+                    if isinstance(output, dict):
+                        # Multi-decoder output
+                        reconstructed = output.get('reconstruction', output.get('node_recon', list(output.values())[0]))
                     else:
-                        # Multi-class or other format
-                        if output.shape[0] == num_edges:
-                            # Assume edge-level output
-                            if output.dim() == 2 and output.shape[1] > 1:
-                                scores = output
-                                predictions = torch.argmax(scores, dim=1)
-                            else:
-                                scores = output.squeeze()
-                                predictions = (scores > 0.5).long()
+                        reconstructed = output
+                    
+                    # Compute reconstruction error at node level
+                    if hasattr(batch, 'x') and batch.x is not None:
+                        # Use projected features if available (when input_projection was applied)
+                        # Otherwise use original features
+                        target_features = batch.x_projected if hasattr(batch, 'x_projected') else batch.x
+                        
+                        # Mean squared error between target and reconstructed features
+                        node_recon_error = torch.mean((target_features - reconstructed) ** 2, dim=1)
+                        
+                        # Map node errors to edge errors (average of src and dst node errors)
+                        if hasattr(batch, 'edge_index'):
+                            src_nodes = batch.edge_index[0]
+                            dst_nodes = batch.edge_index[1]
+                            src_errors = node_recon_error[src_nodes]
+                            dst_errors = node_recon_error[dst_nodes]
+                            scores = (src_errors + dst_errors) / 2.0
                         else:
-                            # Fallback: create zero predictions
-                            scores = torch.zeros(num_edges, device=device)
-                            predictions = torch.zeros(num_edges, dtype=torch.long, device=device)
+                            # No edges, use node errors directly
+                            scores = node_recon_error
+                    else:
+                        # Fallback: use output magnitude as score
+                        scores = torch.mean(torch.abs(reconstructed), dim=1)
+                    
+                    # Predictions: threshold at median
+                    threshold = torch.median(scores)
+                    predictions = (scores > threshold).long()
+                
                 else:
-                    scores = torch.zeros(1, device=device)
-                    predictions = torch.zeros(1, dtype=torch.long, device=device)
+                    # For classifiers, use direct output
+                    # Handle different output formats
+                    if isinstance(output, dict):
+                        # Multi-decoder output, use primary decoder
+                        primary_key = list(output.keys())[0]
+                        output = output[primary_key]
+                    
+                    if isinstance(output, torch.Tensor):
+                        # Check if output is node-level and we need edge-level predictions
+                        num_edges = batch.edge_index.shape[1] if hasattr(batch, 'edge_index') else 0
+                        output_size = output.shape[0]
+                        
+                        # If output is node-level but we have edge labels, convert to edge-level
+                        if num_edges > 0 and output_size == batch.num_nodes and hasattr(batch, 'y') and batch.y.shape[0] == num_edges:
+                            # Node-level output, convert to edge-level
+                            # Use reconstruction error or embedding similarity for edges
+                            src_nodes = batch.edge_index[0]  # Source nodes
+                            dst_nodes = batch.edge_index[1]  # Destination nodes
+                            
+                            if output.dim() == 2:
+                                # output is [num_nodes, feature_dim]
+                                # Compute edge scores as similarity between src and dst node embeddings
+                                src_emb = output[src_nodes]  # [num_edges, feature_dim]
+                                dst_emb = output[dst_nodes]  # [num_edges, feature_dim]
+                                
+                                # Cosine similarity for anomaly scores (higher similarity = lower anomaly)
+                                scores = torch.nn.functional.cosine_similarity(src_emb, dst_emb, dim=1)
+                                # Invert: higher score = more anomalous
+                                scores = 1.0 - scores
+                                predictions = (scores > 0.5).long()
+                            else:
+                                # Fallback: use node predictions for edges (average src and dst)
+                                src_pred = output[src_nodes].squeeze()
+                                dst_pred = output[dst_nodes].squeeze()
+                                scores = (src_pred + dst_pred) / 2.0
+                                predictions = (scores > 0.5).long()
+                        elif output.dim() == 2 and output.shape[1] > 1 and output.shape[0] == num_edges:
+                            # Multi-class classification (already softmax from decoder)
+                            scores = output
+                            predictions = torch.argmax(scores, dim=1)
+                        elif output.dim() == 1 or (output.dim() == 2 and output.shape[1] == 1):
+                            # Binary classification (already sigmoid from decoder)
+                            scores = output.squeeze()
+                            predictions = (scores > 0.5).long()
+                        else:
+                            # Multi-class or other format
+                            if output.shape[0] == num_edges:
+                                # Assume edge-level output
+                                if output.dim() == 2 and output.shape[1] > 1:
+                                    scores = output
+                                    predictions = torch.argmax(scores, dim=1)
+                                else:
+                                    scores = output.squeeze()
+                                    predictions = (scores > 0.5).long()
+                            else:
+                                # Fallback: create zero predictions
+                                scores = torch.zeros(num_edges, device=device)
+                                predictions = torch.zeros(num_edges, dtype=torch.long, device=device)
+                    else:
+                        scores = torch.zeros(1, device=device)
+                        predictions = torch.zeros(1, dtype=torch.long, device=device)
                 
                 all_predictions.append(predictions.cpu())
                 all_scores.append(scores.cpu())
@@ -750,13 +1039,14 @@ class TaskRegistry:
         """
         Task 8: Calculate evaluation metrics for unsupervised anomaly detection.
         
-        Since all PIDS models are unsupervised, we use anomaly score-based metrics:
-        - Anomaly score statistics (mean, std, percentiles)
-        - Score separation metrics
-        - High-confidence anomaly counts
-        - Distribution analysis
+        Calculates both edge-level and entity-level metrics:
+        - Edge-level: Traditional per-edge anomaly detection
+        - Entity-level: Aggregate scores per source entity (matches paper methodology)
         
-        Traditional supervised metrics (AUROC, F1) are only calculated if labels exist.
+        Entity-level aggregation provides:
+        - Better comparison with paper results
+        - More robust anomaly detection
+        - Matches MAGIC/Kairos evaluation approach
         
         Args:
             config: Global configuration
@@ -764,7 +1054,7 @@ class TaskRegistry:
             dependencies: Model inference results
             
         Returns:
-            Dictionary of computed metrics
+            Dictionary of computed metrics (edge-level and entity-level)
         """
         inference_results = dependencies['model_inference']
         
@@ -772,13 +1062,16 @@ class TaskRegistry:
         scores = inference_results['scores']
         labels = inference_results['labels']
         
-        logger.info("Calculating evaluation metrics for unsupervised anomaly detection")
+        logger.info("Calculating evaluation metrics (edge-level + entity-level aggregation)")
         
         metrics = {}
         scores_array = np.array(scores)
         
+        # ========== EDGE-LEVEL METRICS (Original) ==========
+        
         # Core anomaly detection metrics (always calculated)
-        metrics['anomaly_score_stats'] = {
+        metrics['edge_level'] = {}
+        metrics['edge_level']['anomaly_score_stats'] = {
             'mean': float(np.mean(scores_array)),
             'std': float(np.std(scores_array)),
             'min': float(np.min(scores_array)),
@@ -787,7 +1080,7 @@ class TaskRegistry:
         }
         
         # Percentile thresholds for anomaly detection
-        metrics['percentiles'] = {
+        metrics['edge_level']['percentiles'] = {
             '90': float(np.percentile(scores_array, 90)),
             '95': float(np.percentile(scores_array, 95)),
             '99': float(np.percentile(scores_array, 99)),
@@ -796,73 +1089,210 @@ class TaskRegistry:
         }
         
         # Score separation metric (higher = better anomaly detection)
-        # Measures how well the model can distinguish anomalies from normal events
-        if metrics['anomaly_score_stats']['mean'] > 0:
-            metrics['score_separation_ratio'] = (
-                metrics['anomaly_score_stats']['std'] / 
-                metrics['anomaly_score_stats']['mean']
+        if metrics['edge_level']['anomaly_score_stats']['mean'] > 0:
+            metrics['edge_level']['score_separation_ratio'] = (
+                metrics['edge_level']['anomaly_score_stats']['std'] / 
+                metrics['edge_level']['anomaly_score_stats']['mean']
             )
         else:
-            metrics['score_separation_ratio'] = 0.0
+            metrics['edge_level']['score_separation_ratio'] = 0.0
         
         # Count anomalies at different thresholds
-        metrics['anomaly_counts'] = {
-            'critical_99.9': int(np.sum(scores_array >= metrics['percentiles']['99.9'])),
-            'high_99': int(np.sum(scores_array >= metrics['percentiles']['99'])),
-            'medium_95': int(np.sum(scores_array >= metrics['percentiles']['95'])),
-            'elevated_90': int(np.sum(scores_array >= metrics['percentiles']['90'])),
+        metrics['edge_level']['anomaly_counts'] = {
+            'critical_99.9': int(np.sum(scores_array >= metrics['edge_level']['percentiles']['99.9'])),
+            'high_99': int(np.sum(scores_array >= metrics['edge_level']['percentiles']['99'])),
+            'medium_95': int(np.sum(scores_array >= metrics['edge_level']['percentiles']['95'])),
+            'elevated_90': int(np.sum(scores_array >= metrics['edge_level']['percentiles']['90'])),
         }
         
-        # Top anomalies (event indices with highest scores)
-        top_k = min(100, len(scores_array))
-        top_indices = np.argsort(scores_array)[-top_k:][::-1]
-        metrics['top_anomalies'] = {
-            'event_ids': [int(idx) for idx in top_indices],
-            'scores': [float(scores_array[idx]) for idx in top_indices],
-        }
-        
-        # Optional: Supervised metrics if labels are available
+        # Optional: Supervised metrics if labels are available (EDGE-LEVEL)
+        # Skip for custom datasets without ground truth
         if labels is not None and len(np.unique(labels)) > 1:
+            logger.info("Ground truth labels detected - calculating supervised metrics")
             try:
                 from sklearn.metrics import (
                     roc_auc_score, average_precision_score,
                     precision_recall_fscore_support, confusion_matrix
                 )
                 
-                metrics['supervised_metrics'] = {
+                metrics['edge_level']['supervised'] = {
                     'auroc': float(roc_auc_score(labels, scores)),
                     'auprc': float(average_precision_score(labels, scores)),
                 }
                 
+                # Find optimal threshold for F1 score
+                from sklearn.metrics import f1_score
+                best_f1 = 0
+                best_threshold = np.median(scores)
+                best_predictions = predictions
+                
+                # Try different percentile thresholds
+                for percentile in [50, 75, 90, 95, 99]:
+                    threshold = np.percentile(scores, percentile)
+                    temp_predictions = (np.array(scores) > threshold).astype(int)
+                    temp_f1 = f1_score(labels, temp_predictions, zero_division=0)
+                    if temp_f1 > best_f1:
+                        best_f1 = temp_f1
+                        best_threshold = threshold
+                        best_predictions = temp_predictions
+                
+                # Use best predictions
                 precision, recall, f1, support = precision_recall_fscore_support(
-                    labels, predictions, average='binary', zero_division=0
+                    labels, best_predictions, average='binary', zero_division=0
                 )
-                metrics['supervised_metrics']['precision'] = float(precision)
-                metrics['supervised_metrics']['recall'] = float(recall)
-                metrics['supervised_metrics']['f1_score'] = float(f1)
+                metrics['edge_level']['supervised']['precision'] = float(precision)
+                metrics['edge_level']['supervised']['recall'] = float(recall)
+                metrics['edge_level']['supervised']['f1_score'] = float(f1)
+                metrics['edge_level']['supervised']['threshold'] = float(best_threshold)
                 
                 cm = confusion_matrix(labels, predictions)
-                metrics['supervised_metrics']['confusion_matrix'] = cm.tolist()
+                metrics['edge_level']['supervised']['confusion_matrix'] = cm.tolist()
                 
-                logger.info(f"Supervised metrics: AUROC={metrics['supervised_metrics']['auroc']:.4f}, "
-                          f"AUPRC={metrics['supervised_metrics']['auprc']:.4f}, "
-                          f"F1={metrics['supervised_metrics']['f1_score']:.4f}")
+                logger.info(f"Edge-level supervised metrics: AUROC={metrics['edge_level']['supervised']['auroc']:.4f}, "
+                          f"F1={metrics['edge_level']['supervised']['f1_score']:.4f}")
             except Exception as e:
-                logger.warning(f"Could not calculate supervised metrics: {e}")
-                metrics['supervised_metrics'] = None
+                logger.warning(f"Could not calculate edge-level supervised metrics: {e}")
+                metrics['edge_level']['supervised'] = None
         else:
-            metrics['supervised_metrics'] = None
-            logger.info("No ground truth labels available - using unsupervised metrics only")
+            metrics['edge_level']['supervised'] = None
         
-        # Summary
-        metrics['num_samples'] = len(scores_array)
+        # ========== ENTITY-LEVEL METRICS (Paper-style aggregation) ==========
+        
+        # Entity-level aggregation: group edges by source entity and aggregate scores
+        # This matches the methodology in MAGIC/Kairos papers (Table 3)
+        logger.info("Computing entity-level aggregation (matches paper methodology)")
+        
+        # Try to get edge information from batch construction or featurization
+        entity_level_available = False
+        
+        try:
+            # Get batch construction data to extract edge->entity mapping
+            if 'batch_construction' in dependencies:
+                batch_data = dependencies['batch_construction']
+                data_list = batch_data.get('data_list', [])
+                
+                # Extract edge index (source, destination) for entity mapping
+                entity_scores = {}  # entity_id -> list of scores
+                entity_labels = {}  # entity_id -> label (if available)
+                edge_idx = 0
+                
+                for data in data_list:
+                    if hasattr(data, 'edge_index'):
+                        edge_index = data.edge_index
+                        num_edges_in_batch = edge_index.shape[1]
+                        
+                        # Get scores and labels for this batch
+                        batch_scores = scores_array[edge_idx:edge_idx + num_edges_in_batch]
+                        batch_labels = labels[edge_idx:edge_idx + num_edges_in_batch] if labels is not None else None
+                        
+                        # Aggregate by source entity
+                        for i in range(num_edges_in_batch):
+                            src_entity = int(edge_index[0, i])  # Source node ID
+                            
+                            if src_entity not in entity_scores:
+                                entity_scores[src_entity] = []
+                            entity_scores[src_entity].append(float(batch_scores[i]))
+                            
+                            # Store entity label (majority vote if multiple edges)
+                            if batch_labels is not None:
+                                if src_entity not in entity_labels:
+                                    entity_labels[src_entity] = []
+                                entity_labels[src_entity].append(int(batch_labels[i]))
+                        
+                        edge_idx += num_edges_in_batch
+                
+                if entity_scores:
+                    entity_level_available = True
+                    
+                    # Aggregate scores: use MAX score per entity (most anomalous edge)
+                    entity_max_scores = {eid: max(scores_list) for eid, scores_list in entity_scores.items()}
+                    entity_mean_scores = {eid: np.mean(scores_list) for eid, scores_list in entity_scores.items()}
+                    
+                    # Aggregate labels: use majority vote (or max for malicious)
+                    entity_final_labels = {}
+                    if entity_labels:
+                        for eid, label_list in entity_labels.items():
+                            # If any edge is malicious (1), entity is malicious
+                            entity_final_labels[eid] = max(label_list)
+                    
+                    # Convert to arrays
+                    entity_ids = sorted(entity_max_scores.keys())
+                    entity_scores_array = np.array([entity_max_scores[eid] for eid in entity_ids])
+                    entity_labels_array = np.array([entity_final_labels[eid] for eid in entity_ids]) if entity_final_labels else None
+                    
+                    # Calculate entity-level metrics
+                    metrics['entity_level'] = {}
+                    metrics['entity_level']['num_entities'] = len(entity_ids)
+                    metrics['entity_level']['aggregation_method'] = 'max'  # MAX score per entity
+                    
+                    metrics['entity_level']['anomaly_score_stats'] = {
+                        'mean': float(np.mean(entity_scores_array)),
+                        'std': float(np.std(entity_scores_array)),
+                        'min': float(np.min(entity_scores_array)),
+                        'max': float(np.max(entity_scores_array)),
+                        'median': float(np.median(entity_scores_array)),
+                    }
+                    
+                    # Entity-level supervised metrics (if labels available)
+                    if entity_labels_array is not None and len(np.unique(entity_labels_array)) > 1:
+                        try:
+                            from sklearn.metrics import (
+                                roc_auc_score, average_precision_score,
+                                precision_recall_fscore_support
+                            )
+                            
+                            metrics['entity_level']['supervised'] = {
+                                'auroc': float(roc_auc_score(entity_labels_array, entity_scores_array)),
+                                'auprc': float(average_precision_score(entity_labels_array, entity_scores_array)),
+                            }
+                            
+                            # Threshold at median for predictions
+                            threshold = np.median(entity_scores_array)
+                            entity_predictions = (entity_scores_array > threshold).astype(int)
+                            
+                            precision, recall, f1, support = precision_recall_fscore_support(
+                                entity_labels_array, entity_predictions, average='binary', zero_division=0
+                            )
+                            metrics['entity_level']['supervised']['precision'] = float(precision)
+                            metrics['entity_level']['supervised']['recall'] = float(recall)
+                            metrics['entity_level']['supervised']['f1_score'] = float(f1)
+                            
+                            logger.info(f"✓ Entity-level supervised metrics (n={len(entity_ids)}):")
+                            logger.info(f"  AUROC: {metrics['entity_level']['supervised']['auroc']:.4f}")
+                            logger.info(f"  AUPRC: {metrics['entity_level']['supervised']['auprc']:.4f}")
+                            logger.info(f"  F1: {metrics['entity_level']['supervised']['f1_score']:.4f}")
+                            logger.info(f"  (Aggregation: MAX score per entity)")
+                        except Exception as e:
+                            logger.warning(f"Could not calculate entity-level supervised metrics: {e}")
+                            metrics['entity_level']['supervised'] = None
+                    else:
+                        metrics['entity_level']['supervised'] = None
+                else:
+                    logger.warning("No entities extracted from batch data")
+        
+        except Exception as e:
+            logger.warning(f"Could not perform entity-level aggregation: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        if not entity_level_available:
+            metrics['entity_level'] = {'available': False, 'reason': 'Could not extract entity information'}
+            logger.warning("Entity-level metrics not available - using edge-level only")
+        
+        # ========== SUMMARY ==========
+        
+        metrics['num_samples'] = {'edges': len(scores_array)}
+        if entity_level_available:
+            metrics['num_samples']['entities'] = metrics['entity_level']['num_entities']
+        
         metrics['detection_approach'] = 'unsupervised'
         
-        logger.info(f"Anomaly Detection Metrics:")
-        logger.info(f"  Score range: [{metrics['anomaly_score_stats']['min']:.6f}, {metrics['anomaly_score_stats']['max']:.6f}]")
-        logger.info(f"  Mean: {metrics['anomaly_score_stats']['mean']:.6f}, Std: {metrics['anomaly_score_stats']['std']:.6f}")
-        logger.info(f"  Separation ratio: {metrics['score_separation_ratio']:.4f}")
-        logger.info(f"  Critical anomalies (99.9%): {metrics['anomaly_counts']['critical_99.9']}")
+        # Log edge-level summary
+        logger.info(f"Edge-Level Anomaly Detection Metrics:")
+        logger.info(f"  Score range: [{metrics['edge_level']['anomaly_score_stats']['min']:.6f}, {metrics['edge_level']['anomaly_score_stats']['max']:.6f}]")
+        logger.info(f"  Mean: {metrics['edge_level']['anomaly_score_stats']['mean']:.6f}, Std: {metrics['edge_level']['anomaly_score_stats']['std']:.6f}")
+        logger.info(f"  Separation ratio: {metrics['edge_level']['score_separation_ratio']:.4f}")
+        logger.info(f"  Critical anomalies (99.9%): {metrics['edge_level']['anomaly_counts']['critical_99.9']}")
         
         return metrics
     

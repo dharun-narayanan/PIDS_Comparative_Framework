@@ -422,7 +422,7 @@ def get_encoder(encoder_type: str, config: dict) -> nn.Module:
     Factory function to create encoder based on type and configuration.
     
     Args:
-        encoder_type: Type of encoder ('gat', 'sage', 'transformer', 'time', 'gin', 'glstm', 'linear', 'sum_aggregation')
+        encoder_type: Type of encoder ('gat', 'sage', 'transformer', 'time', 'gin', 'glstm', 'linear', 'sum_aggregation', 'kairos')
         config: Configuration dictionary with encoder parameters
         
     Returns:
@@ -464,6 +464,11 @@ def get_encoder(encoder_type: str, config: dict) -> nn.Module:
     
     elif encoder_type in ['sum_aggregation', 'sum_pool']:
         return SumAggregationEncoder(**config)
+    
+    elif encoder_type == 'kairos':
+        # Import Kairos encoder
+        from models.kairos_model import KairosEncoder
+        return KairosEncoder(**config)
     
     else:
         raise ValueError(f"Unknown encoder type: {encoder_type}")

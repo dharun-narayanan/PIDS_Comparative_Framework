@@ -169,7 +169,8 @@ def build_global_config(args) -> Dict[str, Any]:
     # Load custom config if provided
     if args.config:
         custom_config = load_config(Path(args.config))
-        config = merge_configs(config, custom_config)
+        # Merge with command-line args taking priority over config file
+        config = merge_configs(custom_config, config)
     
     return config
 
@@ -212,19 +213,37 @@ def evaluate_model(
         
         logger.info(f"\n{model_name} Results:")
         if metrics:
+            # Check for edge-level metrics (newer format)
+            edge_metrics = metrics.get('edge_level', {})
+            
             # Display unsupervised anomaly detection metrics
-            if 'anomaly_score_stats' in metrics:
+            if edge_metrics.get('anomaly_score_stats'):
+                stats = edge_metrics['anomaly_score_stats']
+                logger.info(f"  Anomaly Score Range: [{stats['min']:.6f}, {stats['max']:.6f}]")
+                logger.info(f"  Mean: {stats['mean']:.6f}, Std: {stats['std']:.6f}")
+                logger.info(f"  Separation Ratio: {edge_metrics.get('score_separation_ratio', 0):.4f}")
+                if 'anomaly_counts' in edge_metrics:
+                    logger.info(f"  Critical Anomalies (99.9%): {edge_metrics['anomaly_counts']['critical_99.9']}")
+                    logger.info(f"  High Anomalies (99%): {edge_metrics['anomaly_counts']['high_99']}")
+            elif 'anomaly_score_stats' in metrics:
+                # Fallback to old format
                 stats = metrics['anomaly_score_stats']
                 logger.info(f"  Anomaly Score Range: [{stats['min']:.6f}, {stats['max']:.6f}]")
                 logger.info(f"  Mean: {stats['mean']:.6f}, Std: {stats['std']:.6f}")
                 logger.info(f"  Separation Ratio: {metrics.get('score_separation_ratio', 0):.4f}")
-                logger.info(f"  Critical Anomalies (99.9%): {metrics['anomaly_counts']['critical_99.9']}")
-                logger.info(f"  High Anomalies (99%): {metrics['anomaly_counts']['high_99']}")
+                if 'anomaly_counts' in metrics:
+                    logger.info(f"  Critical Anomalies (99.9%): {metrics['anomaly_counts']['critical_99.9']}")
+                    logger.info(f"  High Anomalies (99%): {metrics['anomaly_counts']['high_99']}")
             
             # If supervised metrics available, show them too
-            if metrics.get('supervised_metrics'):
-                sup = metrics['supervised_metrics']
-                logger.info(f"  [Supervised] AUROC: {sup.get('auroc', 0):.4f}, F1: {sup.get('f1_score', 0):.4f}")
+            sup = edge_metrics.get('supervised') if edge_metrics else metrics.get('supervised_metrics')
+            if sup:
+                logger.info(f"\n  📊 Supervised Evaluation (with ground truth):")
+                logger.info(f"    AUROC:     {sup.get('auroc', 0):.4f}")
+                logger.info(f"    AUPRC:     {sup.get('auprc', 0):.4f}")
+                logger.info(f"    F1 Score:  {sup.get('f1_score', 0):.4f}")
+                logger.info(f"    Precision: {sup.get('precision', 0):.4f}")
+                logger.info(f"    Recall:    {sup.get('recall', 0):.4f}")
         else:
             logger.warning("No metrics available")
         
@@ -316,36 +335,99 @@ def main():
     
     # Print summary
     logger.info("\n" + "="*80)
-    logger.info("Evaluation Summary - Unsupervised Anomaly Detection")
+    logger.info("Evaluation Summary")
     logger.info("="*80)
     
     successful = sum(1 for r in all_results if r['success'])
     logger.info(f"Models evaluated: {successful}/{len(all_results)}")
+    
+    # Check if any model has supervised metrics (check both old and new format)
+    has_supervised = False
+    for r in all_results:
+        if r['success']:
+            metrics = r.get('metrics', {})
+            # Check new format (edge_level)
+            edge_metrics = metrics.get('edge_level', {})
+            sup = edge_metrics.get('supervised')
+            if sup is None:
+                # Check old format
+                sup = metrics.get('supervised_metrics')
+            if sup is not None:
+                has_supervised = True
+                break
+    
+    if has_supervised:
+        logger.info("\n📊 Supervised Metrics (with Ground Truth):")
+        logger.info(f"{'Model':<20} {'AUROC':<10} {'AUPRC':<10} {'F1':<10} {'Precision':<12} {'Recall':<10}")
+        logger.info("-" * 72)
+        
+        # Sort by AUROC
+        supervised_results = []
+        for result in all_results:
+            if result['success']:
+                metrics = result.get('metrics', {})
+                # Try new format first (edge_level)
+                edge_metrics = metrics.get('edge_level', {})
+                sup = edge_metrics.get('supervised')
+                if sup is None:
+                    # Fallback to old format
+                    sup = metrics.get('supervised_metrics')
+                
+                if sup:
+                    supervised_results.append((
+                        result['model'],
+                        sup.get('auroc', 0),
+                        sup.get('auprc', 0),
+                        sup.get('f1_score', 0),
+                        sup.get('precision', 0),
+                        sup.get('recall', 0)
+                    ))
+        
+        supervised_results.sort(key=lambda x: x[1], reverse=True)  # Sort by AUROC
+        
+        for model, auroc, auprc, f1, prec, rec in supervised_results:
+            logger.info(f"{model:<20} {auroc:<10.4f} {auprc:<10.4f} {f1:<10.4f} {prec:<12.4f} {rec:<10.4f}")
+        
+        if not supervised_results:
+            logger.info("(No models produced supervised metrics)")
+    
+    # Unsupervised anomaly detection summary
+    logger.info("\n🔍 Unsupervised Anomaly Detection:")
     
     # Sort by score separation ratio (best anomaly detector first)
     results_with_scores = []
     for result in all_results:
         if result['success']:
             metrics = result.get('metrics', {})
-            sep_ratio = metrics.get('score_separation_ratio', 0)
+            # Get separation ratio from edge_level metrics
+            sep_ratio = metrics.get('edge_level', {}).get('score_separation_ratio', 0)
             results_with_scores.append((result['model'], sep_ratio, metrics))
     
     results_with_scores.sort(key=lambda x: x[1], reverse=True)
     
-    logger.info(f"\n{'Model':<20} {'Sep. Ratio':<12} {'Critical':<10} {'High':<10}")
+    logger.info(f"{'Model':<20} {'Sep. Ratio':<12} {'Critical':<10} {'High':<10}")
     logger.info("-" * 52)
     for model_name, sep_ratio, metrics in results_with_scores:
-        critical = metrics.get('anomaly_counts', {}).get('critical_99.9', 0)
-        high = metrics.get('anomaly_counts', {}).get('high_99', 0)
+        # Get counts from edge_level metrics
+        edge_metrics = metrics.get('edge_level', {})
+        critical = edge_metrics.get('anomaly_counts', {}).get('critical_99.9', 0)
+        high = edge_metrics.get('anomaly_counts', {}).get('high_99', 0)
         logger.info(f"{model_name:<20} {sep_ratio:<12.4f} {critical:<10} {high:<10}")
     
     # Show failed models
-    for result in all_results:
-        if not result['success']:
-            logger.info(f"  {result['model']}: FAILED - {result.get('error', 'Unknown error')}")
+    failed = [r for r in all_results if not r['success']]
+    if failed:
+        logger.info("\n❌ Failed Models:")
+        for result in failed:
+            logger.info(f"  {result['model']}: {result.get('error', 'Unknown error')}")
     
-    logger.info("="*80)
-    logger.info("Higher separation ratio = better anomaly detection capability")
+    logger.info("\n" + "="*80)
+    if has_supervised:
+        logger.info("✓ Evaluation complete with ground truth labels")
+        logger.info("  AUROC/F1 indicate detection performance vs. known attacks")
+    else:
+        logger.info("✓ Evaluation complete (unsupervised mode)")
+        logger.info("  Higher separation ratio = better anomaly detection capability")
     logger.info("="*80)
 
 

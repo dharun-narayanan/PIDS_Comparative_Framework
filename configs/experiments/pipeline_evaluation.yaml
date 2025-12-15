@@ -39,6 +39,8 @@ tasks:
   
   batch_construction:
     batch_size: 1
+    edge_batch_size: 500000  # Max edges per batch (for large graph sampling)
+    sample_strategy: full  # 'full' for sequential chunks, 'random_edges' for random sampling
   
   model_inference:
     # checkpoint_path is set automatically based on model and dataset
@@ -79,6 +81,8 @@ models:
         
         batch_construction:
           batch_size: 1
+          edge_batch_size: 500000  # Max edges per batch (for large graph sampling)
+          sample_strategy: full  # 'full' for sequential chunks, 'random_edges' for random sampling
     
     model_config:
       num_hidden: 256
@@ -112,6 +116,8 @@ models:
         
         batch_construction:
           batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
     
     model_config:
       in_channels: 100
@@ -140,6 +146,8 @@ models:
         
         batch_construction:
           batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
     
     model_config:
       num_nodes: 100000
@@ -165,6 +173,8 @@ models:
         
         batch_construction:
           batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
     
     model_config:
       hidden_dim: 128
@@ -192,6 +202,8 @@ models:
         
         batch_construction:
           batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
     
     model_config:
       num_hidden: 256

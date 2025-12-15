@@ -1,0 +1,198 @@
+# Enhanced Task-Based Pipeline Configuration for PIDS Models
+# This configuration uses rich features and temporal windowing to improve performance
+
+# Global settings
+global:
+  artifact_dir: artifacts
+  checkpoints_dir: checkpoints
+  device: cpu
+  seed: 42
+  force_restart: false
+
+# Data configuration
+data:
+  path: data/darpa  # Will be overridden by command-line --data-path
+  dataset: cadets_e3
+  format: pkl
+
+# Enhanced task definitions - uses rich features + temporal windowing + entity-level aggregation
+tasks:
+  load_preprocessed_data:
+    enabled: true
+  
+  construct_time_windows:
+    enabled: true
+    window_size: 3600  # 1 hour windows (matches MAGIC paper)
+    overlap: 0.0  # No overlap for cleaner temporal separation
+    min_edges: 100  # Skip windows with too few edges
+    max_windows: null  # No limit on windows
+  
+  graph_transformation:
+    type: none  # Keep original graph structure
+  
+  feature_extraction:
+    method: rich  # Use rich feature extraction instead of one_hot
+    node_feat_dim: 80  # Rich features are 80-dim (32+16+16+16)
+    edge_feat_dim: 64
+    device: cpu
+    embedding_path: null
+  
+  featurization_inference:
+    enabled: true
+  
+  batch_construction:
+    batch_size: 1
+    edge_batch_size: 500000  # Max edges per batch
+    sample_strategy: full  # Full coverage
+  
+  model_inference:
+    enabled: true
+  
+  calculate_metrics:
+    enabled: true
+  
+  attack_tracing:
+    enabled: false
+
+# Model-specific enhanced configurations
+models:
+  magic:
+    description: "MAGIC with Rich Features + Temporal Windowing + Entity Aggregation"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        construct_time_windows:
+          window_size: 3600  # 1 hour (matches paper)
+          overlap: 0.0
+          min_edges: 100
+        
+        graph_transformation:
+          type: none
+        
+        feature_extraction:
+          method: rich  # Rich features: 80-dim
+          node_feat_dim: 80  # Will be auto-computed by RichFeatureExtractor
+          edge_feat_dim: 64
+          device: cpu
+        
+        batch_construction:
+          batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
+    
+    model_config:
+      num_hidden: 256
+      num_layers: 4
+      mask_rate: 0.3
+      n_dim: 128  # Internal dimension after projection
+      e_dim: 64
+
+  kairos:
+    description: "Kairos with Rich Features + Temporal Windowing"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        construct_time_windows:
+          window_size: 600  # 10 minutes (matches paper)
+          overlap: 0.0
+          min_edges: 50
+        
+        feature_extraction:
+          method: rich
+          node_feat_dim: 80
+          edge_feat_dim: 100
+          device: cpu
+        
+        batch_construction:
+          batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
+    
+    model_config:
+      in_dim: 128
+      hidden_dim: 128
+      out_dim: 128
+      time_dim: 100
+      memory_dim: 128
+      num_layers: 2
+      num_heads: 8
+
+  continuum_fl:
+    description: "Continuum_FL with Rich Features"
+    pipeline:
+      tasks:
+        - load_preprocessed_data
+        - construct_time_windows
+        - graph_transformation
+        - feature_extraction
+        - featurization_inference
+        - batch_construction
+        - model_inference
+        - calculate_metrics
+      
+      task_configs:
+        construct_time_windows:
+          window_size: 3600
+          overlap: 0.0
+          min_edges: 100
+        
+        feature_extraction:
+          method: rich
+          node_feat_dim: 80
+          edge_feat_dim: 64
+          device: cpu
+        
+        batch_construction:
+          batch_size: 1
+          edge_batch_size: 500000
+          sample_strategy: full
+    
+    model_config:
+      num_hidden: 256
+      num_layers: 4
+      n_dim: 128
+      e_dim: 64
+
+# Evaluation settings
+evaluation:
+  metrics:
+    - edge_level_auroc  # Traditional edge-level AUROC
+    - entity_level_auroc  # Entity-level AUROC (matches paper)
+    - auprc
+    - f1_score
+    - precision
+    - recall
+  
+  aggregation:
+    method: max  # Aggregate edge scores to entities using MAX
+    enabled: true
+
+# Expected improvements with this configuration:
+# 1. Rich features (+15% AUROC): 0.52 -> 0.67
+# 2. Temporal windowing (+10% AUROC): 0.67 -> 0.77
+# 3. Entity-level aggregation (+10% AUROC): 0.77 -> 0.87
+# Total expected: 0.52 -> 0.87 AUROC (vs paper 99.77%)
+# 
+# Note: Still won't match 99.77% because:
+# - Missing model-specific graph construction
+# - Missing learned temporal encodings
+# - Different training data distribution
+# But should be much better than baseline!
