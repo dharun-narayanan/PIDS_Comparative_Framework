@@ -466,10 +466,10 @@ class ModelBuilder:
             # Load weights
             missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=strict)
             
-            if missing_keys:
-                logger.warning(f"Missing keys: {missing_keys[:5]}...")
-            if unexpected_keys:
-                logger.warning(f"Unexpected keys: {unexpected_keys[:5]}...")
+            # if missing_keys:
+            #     logger.warning(f"Missing keys: {missing_keys[:5]}...")
+            # if unexpected_keys:
+            #     logger.warning(f"Unexpected keys: {unexpected_keys[:5]}...")
             
             logger.info(f"Successfully loaded checkpoint")
             

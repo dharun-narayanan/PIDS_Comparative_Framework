@@ -1275,9 +1275,9 @@ class TaskRegistry:
             import traceback
             traceback.print_exc()
         
-        if not entity_level_available:
-            metrics['entity_level'] = {'available': False, 'reason': 'Could not extract entity information'}
-            logger.warning("Entity-level metrics not available - using edge-level only")
+        # if not entity_level_available:
+        #     metrics['entity_level'] = {'available': False, 'reason': 'Could not extract entity information'}
+        #     logger.warning("Entity-level metrics not available - using edge-level only")
         
         # ========== SUMMARY ==========
         

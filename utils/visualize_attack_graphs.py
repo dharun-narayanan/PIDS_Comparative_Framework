@@ -55,6 +55,110 @@ logger = setup_logging()
 logger = logging.getLogger("visualize_attack_graphs")
 
 
+def extract_entity_name(entity_data: Dict) -> str:
+    """
+    Extract a human-readable name from entity metadata.
+    
+    Args:
+        entity_data: Entity metadata containing entity_type, entity_id, and attributes
+        
+    Returns:
+        Human-readable entity name
+    """
+    entity_type = entity_data.get('entity_type', 'unknown')
+    entity_id = entity_data.get('entity_id', '')
+    attributes = entity_data.get('attributes', {})
+    
+    if entity_type == 'process':
+        # Try to get process name from cmdline
+        cmdline = attributes.get('cmdline', '')
+        if cmdline:
+            # Extract executable name (first part before space)
+            parts = cmdline.split()
+            if parts:
+                # Get just the executable name, not full path
+                exec_name = parts[0].split('/')[-1]
+                # Truncate if too long but keep PID if available
+                pid = attributes.get('pid') or attributes.get('cid')
+                if pid:
+                    return f"{exec_name} (PID:{pid})"
+                return exec_name
+        
+        # Fallback to PID if no cmdline
+        pid = attributes.get('pid') or attributes.get('cid')
+        if pid:
+            return f"Process (PID:{pid})"
+            
+    elif entity_type == 'file':
+        # Get file path
+        path = attributes.get('path', entity_id)
+        if path:
+            # Show just filename for brevity, full path in tooltip
+            return path.split('/')[-1] if '/' in path else path
+            
+    elif entity_type == 'network':
+        # Show network connection info
+        src_addr = attributes.get('src_address', '')
+        dst_addr = attributes.get('dest_address', '')
+        dst_port = attributes.get('dest_port', '')
+        if dst_addr:
+            return f"{dst_addr}:{dst_port}" if dst_port else dst_addr
+        elif src_addr:
+            return src_addr
+    
+    # Fallback to entity_id (truncated)
+    return str(entity_id)[:40]
+
+
+def extract_entity_details(entity_data: Dict) -> str:
+    """
+    Extract detailed entity information for tooltips.
+    
+    Args:
+        entity_data: Entity metadata
+        
+    Returns:
+        Detailed entity description
+    """
+    entity_type = entity_data.get('entity_type', 'unknown')
+    attributes = entity_data.get('attributes', {})
+    details = []
+    
+    if entity_type == 'process':
+        cmdline = attributes.get('cmdline', '')
+        if cmdline:
+            # Show full cmdline, truncated if needed
+            details.append(f"Command: {cmdline[:100]}")
+        
+        pid = attributes.get('pid') or attributes.get('cid')
+        ppid = attributes.get('ppid')
+        if pid:
+            details.append(f"PID: {pid}")
+        if ppid:
+            details.append(f"PPID: {ppid}")
+            
+    elif entity_type == 'file':
+        path = attributes.get('path', '')
+        if path:
+            details.append(f"Path: {path}")
+            
+    elif entity_type == 'network':
+        src_addr = attributes.get('src_address', '')
+        src_port = attributes.get('src_port', '')
+        dst_addr = attributes.get('dest_address', '')
+        dst_port = attributes.get('dest_port', '')
+        protocol = attributes.get('protocol', '')
+        
+        if src_addr:
+            details.append(f"Source: {src_addr}:{src_port}" if src_port else f"Source: {src_addr}")
+        if dst_addr:
+            details.append(f"Dest: {dst_addr}:{dst_port}" if dst_port else f"Dest: {dst_addr}")
+        if protocol:
+            details.append(f"Protocol: {protocol}")
+    
+    return '<br>'.join(details) if details else ''
+
+
 def open_in_browser(filepath: Path) -> bool:
     """
     Open HTML file in default browser with cross-platform support.
@@ -233,6 +337,7 @@ class AttackGraphReconstructor:
         edge_type_map = self.graph_data.get('edge_type_map', {})
         timestamps = self.graph_data.get('timestamps', [])
         node_features = self.graph_data.get('node_features', None)
+        node_id_to_entity = self.graph_data.get('node_id_to_entity', {})
         
         logger.info(f"Building graph from {len(edges)} edges and {len(node_id_map)} nodes")
         
@@ -242,10 +347,25 @@ class AttackGraphReconstructor:
         # Add nodes with attributes
         for node_id, node_idx in node_id_map.items():
             node_type = node_type_map.get(node_idx, 'unknown')
+            
+            # Get entity metadata if available
+            entity_data = node_id_to_entity.get(node_idx, {})
+            
+            # Extract human-readable name
+            if entity_data:
+                display_name = extract_entity_name(entity_data)
+                entity_details = extract_entity_details(entity_data)
+            else:
+                display_name = str(node_id)[:50]
+                entity_details = ''
+            
             attrs = {
                 'node_id': node_idx,
                 'node_type': node_type,
-                'name': str(node_id)[:50]  # Truncate long names
+                'name': display_name,
+                'entity_data': entity_data,
+                'entity_details': entity_details,
+                'original_id': str(node_id)[:50]
             }
             
             # Add node features if available (check if it's a valid array index)
@@ -686,12 +806,31 @@ class AttackGraphReconstructor:
     def _get_node_info(self, G: nx.DiGraph, node: Any) -> Dict:
         """Get node information."""
         attrs = G.nodes.get(node, {})
-        return {
+        entity_data = attrs.get('entity_data', {})
+        
+        node_info = {
             'id': str(node),
             'type': attrs.get('node_type', attrs.get('type', 'unknown')),
             'name': attrs.get('name', attrs.get('label', str(node))),
             'importance': attrs.get('importance', 0.0)
         }
+        
+        # Add entity attributes if available
+        if entity_data:
+            entity_attrs = entity_data.get('attributes', {})
+            if entity_attrs:
+                # Include relevant attributes based on entity type
+                entity_type = entity_data.get('entity_type', '')
+                if entity_type == 'process':
+                    node_info['pid'] = entity_attrs.get('pid') or entity_attrs.get('cid')
+                    node_info['cmdline'] = entity_attrs.get('cmdline', '')
+                elif entity_type == 'file':
+                    node_info['path'] = entity_attrs.get('path', '')
+                elif entity_type == 'network':
+                    node_info['dest_address'] = entity_attrs.get('dest_address', '')
+                    node_info['dest_port'] = entity_attrs.get('dest_port', '')
+        
+        return node_info
     
     def _get_path_edges(self, G: nx.DiGraph, path: List) -> List[Dict]:
         """Get edge information for a path."""
@@ -1173,15 +1312,23 @@ class MultiModelVisualizer:
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background: #FF6B6B; border-radius: 50%; width: 15px; height: 15px;"></div>
-                        <span>Process Node</span>
+                        <span>Process/Subject</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background: #4ECDC4; border-radius: 50%; width: 15px; height: 15px;"></div>
-                        <span>File Node</span>
+                        <span>File</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background: #95E1D3; border-radius: 50%; width: 15px; height: 15px;"></div>
-                        <span>Network Node</span>
+                        <span>Network</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #F38181; border-radius: 50%; width: 15px; height: 15px;"></div>
+                        <span>Socket</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #AAAAAA; border-radius: 50%; width: 15px; height: 15px;"></div>
+                        <span>Other/Unknown</span>
                     </div>
                 </div>
             `;
@@ -1326,26 +1473,41 @@ class MultiModelVisualizer:
             node_type = attrs.get('node_type', attrs.get('type', 'unknown'))
             importance = attrs.get('importance', 0.0)
             name = attrs.get('name', str(node))
+            entity_details = attrs.get('entity_details', '')
             
-            # Truncate long names
-            if len(name) > 40:
-                name = name[:37] + '...'
+            # Truncate long names for display
+            display_name = name if len(name) <= 40 else name[:37] + '...'
             
-            node_text.append(
-                f"<b>{name}</b><br>"
-                f"Type: {node_type}<br>"
-                f"Importance: {importance:.4f}<br>"
-                f"In-Degree: {G.in_degree(node)}<br>"
-                f"Out-Degree: {G.out_degree(node)}"
-            )
+            # Build hover text with entity details
+            hover_parts = [
+                f"<b>{display_name}</b>",
+                f"Type: {node_type}",
+            ]
             
-            # Color by type
+            # Add entity-specific details
+            if entity_details:
+                hover_parts.append(entity_details)
+            
+            # Add graph metrics
+            hover_parts.extend([
+                f"Importance: {importance:.4f}",
+                f"Attack Graph In-Degree: {G.in_degree(node)}",
+                f"Attack Graph Out-Degree: {G.out_degree(node)}"
+            ])
+            
+            node_text.append('<br>'.join(hover_parts))
+            
+            # Color by type (support both generic and DARPA CDM terms)
             type_colors = {
-                'process': '#FF6B6B',  # Red
-                'file': '#4ECDC4',     # Teal
-                'network': '#95E1D3',  # Light green
-                'socket': '#F38181',   # Pink
-                'unknown': '#AAAAAA'   # Gray
+                'process': '#FF6B6B',    # Red
+                'subject': '#FF6B6B',    # Red (DARPA CDM process nodes)
+                'file': '#4ECDC4',       # Teal
+                'network': '#95E1D3',    # Light green
+                'socket': '#F38181',     # Pink
+                'memory': '#A8E6CF',     # Light green
+                'registry': '#FFD3B6',   # Light orange
+                'principal': '#FFAAA5',  # Light pink
+                'unknown': '#AAAAAA'     # Gray
             }
             node_colors.append(type_colors.get(node_type, '#AAAAAA'))
             
@@ -1434,7 +1596,28 @@ class MultiModelVisualizer:
         """Export attack graphs in GraphML format (for Gephi, Cytoscape)."""
         for model_name, G in model_graphs.items():
             graphml_path = self.output_dir / f"{model_name}_attack_graph.graphml"
-            nx.write_graphml(G, str(graphml_path))
+            
+            # Create a copy of the graph to avoid modifying the original
+            G_export = G.copy()
+            
+            # Convert dict/list attributes to JSON strings for GraphML compatibility
+            for node, attrs in G_export.nodes(data=True):
+                for key, value in list(attrs.items()):
+                    if isinstance(value, (dict, list)):
+                        # Convert to JSON string
+                        attrs[key] = json.dumps(value)
+                    elif isinstance(value, np.ndarray):
+                        # Convert numpy arrays to lists then JSON
+                        attrs[key] = json.dumps(value.tolist())
+            
+            for u, v, attrs in G_export.edges(data=True):
+                for key, value in list(attrs.items()):
+                    if isinstance(value, (dict, list)):
+                        attrs[key] = json.dumps(value)
+                    elif isinstance(value, np.ndarray):
+                        attrs[key] = json.dumps(value.tolist())
+            
+            nx.write_graphml(G_export, str(graphml_path))
             logger.info(f"Saved GraphML: {graphml_path}")
 
 
@@ -1568,7 +1751,7 @@ def main():
     model_stats = {}
     
     for model_name in args.models:
-        logger.info(f"\nProcessing model: {model_name}")
+        logger.info(f"Processing model: {model_name}")
         logger.info("-" * 80)
         
         # Load model inference output
